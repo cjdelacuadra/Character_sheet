@@ -1,0 +1,38 @@
+{
+  "name": "character-sheet",
+  "version": "1.0.0",
+  "description": "DnD 5e Player Companion",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cjdelacuadra/Character_sheet.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cjdelacuadra/Character_sheet/issues"
+  },
+  "homepage": "https://github.com/cjdelacuadra/Character_sheet#readme",
+  "devDependencies": {
+    "@electron/asar": "^4.2.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^34.5.8",
+    "electron-vite": "^5.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.3"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.13"
+  }
+}

@@ -1,0 +1,35 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg-base: #0f1117;
+  --bg-surface: #1a1d27;
+  --bg-elevated: #22263a;
+  --border: #2e3248;
+  --text-primary: #e8eaf0;
+  --text-secondary: #8b90a8;
+  --text-muted: #555b75;
+  --accent: #7c6af7;
+  --accent-dim: #3d3580;
+  --danger: #e05c5c;
+  --success: #4caf7d;
+  --warning: #e8a44a;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-base);
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
