@@ -1,41 +1,69 @@
+/* ── Design tokens scoped to this view ── */
 .view {
+  --bg-base:     #0f0f12;
+  --bg-surface:  #17171d;
+  --bg-elevated: #1e1e26;
+  --border:      rgba(255, 255, 255, 0.07);
+  --accent:      #8b7cf8;
+  --danger:      #e05c5c;
+  --success:     #4caf7d;
+  --warning:     #e0a84c;
+  --text-primary:   #e8e8f0;
+  --text-secondary: #8888a0;
+  --text-muted:     #55556a;
+
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* ── TOPBAR ── */
 .topbar {
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 0 20px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  gap: 16px;
 }
 
-.identity {
+.topIdentity {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
-.name {
-  font-size: 17px;
+.topName {
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.subtitle {
-  font-size: 12px;
+.topSub {
+  font-size: 11px;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.topActions {
+.topRight {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .inspirationBtn {
@@ -43,202 +71,212 @@
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   padding: 5px 12px;
   border-radius: 20px;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
-.inspirationBtn:hover {
+.inspirationBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.inspirationOn {
+  background: rgba(139, 124, 248, 0.15);
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.inspirationActive {
-  background: rgba(124, 106, 247, 0.15);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.exitBtn {
+.backBtn {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--text-muted);
+  font-size: 12px;
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 5px 10px;
   border-radius: 6px;
   transition: color 0.15s, background 0.15s;
 }
 
-.exitBtn:hover {
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-}
+.backBtn:hover { color: var(--text-secondary); background: var(--bg-elevated); }
 
-.body {
-  display: flex;
+/* ── THREE COLUMNS ── */
+.columns {
   flex: 1;
+  display: flex;
   overflow: hidden;
 }
 
-/* ── SIDEBAR ── */
-.sidebar {
-  width: 252px;
+.leftCol {
+  width: 220px;
   flex-shrink: 0;
+  overflow-y: auto;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
-  overflow-y: auto;
-  padding: 12px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.main {
-  flex: 1;
+.centerCol {
+  flex: 1.2;
   overflow-y: auto;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
+  gap: 18px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
 }
 
-.block {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+.rightCol {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+/* ── SECTION CHROME ── */
+.section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.blockLabel {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.blockLabelRow {
+.sectionHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.addSmall {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: 4px;
-  transition: all 0.15s;
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
 }
 
-.addSmall:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.hint {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-style: italic;
 }
 
-/* HP */
-.hpRow {
+.emptyNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── HIT POINTS ── */
+.hpDisplay {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px;
 }
 
-.hpValue {
-  font-size: 28px;
+.hpCurrent {
+  font-size: 36px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   cursor: pointer;
   border-radius: 4px;
   padding: 0 2px;
+  line-height: 1;
   transition: background 0.15s;
 }
 
-.hpValue:hover {
-  background: var(--bg-surface);
-}
+.hpCurrent:hover { background: var(--bg-elevated); }
 
-.hpInput {
-  font-size: 28px;
+.hpEditInput {
+  font-size: 32px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--accent);
   border-radius: 4px;
   width: 80px;
   padding: 0 4px;
   outline: none;
+  line-height: 1;
 }
 
-.hpMax {
-  font-size: 15px;
+.hpSlash {
+  font-size: 20px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.hpMaxVal {
+  font-size: 20px;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.hpTemp {
-  font-size: 13px;
+.tempHp {
+  font-size: 11px;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .hpBar {
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .hpFill {
   height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s, background 0.3s;
+  border-radius: 3px;
+  transition: width 0.3s ease, background 0.3s ease;
 }
 
-.hpButtons {
+.hpBtns {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
 }
 
-.hpBtn {
-  background: rgba(224, 92, 92, 0.1);
-  border: 1px solid rgba(224, 92, 92, 0.3);
+.dmgBtn {
+  background: rgba(224, 92, 92, 0.08);
+  border: 1px solid rgba(224, 92, 92, 0.2);
   color: var(--danger);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 5px;
+  padding: 5px 2px;
   border-radius: 5px;
   transition: background 0.15s;
+  font-variant-numeric: tabular-nums;
 }
 
-.hpBtn:hover {
-  background: rgba(224, 92, 92, 0.25);
-}
+.dmgBtn:hover { background: rgba(224, 92, 92, 0.2); }
 
-.hpBtnHeal {
-  background: rgba(76, 175, 125, 0.1);
-  border: 1px solid rgba(76, 175, 125, 0.3);
+.healBtn {
+  background: rgba(76, 175, 125, 0.08);
+  border: 1px solid rgba(76, 175, 125, 0.2);
   color: var(--success);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 5px;
+  padding: 5px 2px;
   border-radius: 5px;
   transition: background 0.15s;
+  font-variant-numeric: tabular-nums;
 }
 
-.hpBtnHeal:hover {
-  background: rgba(76, 175, 125, 0.25);
-}
+.healBtn:hover { background: rgba(76, 175, 125, 0.2); }
 
-/* Death Saves */
+/* ── DEATH SAVES ── */
 .deathRow {
   display: flex;
   align-items: center;
@@ -246,50 +284,37 @@
 }
 
 .deathLabel {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
-.deathDots {
-  display: flex;
-  gap: 6px;
-}
+.deathDots { display: flex; gap: 6px; }
 
 .deathDot {
   width: 16px;
   height: 16px;
   border-radius: 50%;
   border: 2px solid var(--border);
-  background: transparent;
+  background: var(--bg-elevated);
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.deathDot:hover {
-  border-color: var(--text-secondary);
-}
+.deathDot:hover { border-color: var(--text-secondary); }
+.dotSuccess { background: var(--success); border-color: var(--success); }
+.dotFail    { background: var(--danger);  border-color: var(--danger); }
 
-.deathSuccess {
-  background: var(--success);
-  border-color: var(--success);
-}
-
-.deathFailure {
-  background: var(--danger);
-  border-color: var(--danger);
-}
-
-/* Stats */
-.statGrid {
+/* ── COMBAT STATS ── */
+.combatGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 5px;
 }
 
 .statChip {
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 8px 6px;
   display: flex;
   flex-direction: column;
@@ -297,17 +322,34 @@
   gap: 2px;
 }
 
-.statValue {
-  font-size: 17px;
+.statEditable {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.statEditable:hover {
+  border-color: var(--accent);
+  background: rgba(139, 124, 248, 0.05);
+}
+
+.statVal {
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.statLabel {
+.statUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.statKey {
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
 }
 
@@ -315,18 +357,28 @@
   font-size: 8px;
   color: var(--text-muted);
   text-align: center;
-  white-space: nowrap;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  white-space: nowrap;
+  padding: 0 2px;
 }
 
-/* Armor row in sidebar */
-.armorRow {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.statEditInput {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  outline: none;
+  width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
+
+/* ── ARMOR PICKER ── */
+.armorBlock { display: flex; flex-direction: column; gap: 4px; }
 
 .armorToggle {
   background: transparent;
@@ -337,22 +389,16 @@
   padding: 4px 8px;
   cursor: pointer;
   text-align: left;
+  width: 100%;
   transition: all 0.12s;
 }
 
-.armorToggle:hover {
-  border-color: var(--accent);
-  color: var(--text-secondary);
-}
+.armorToggle:hover { border-color: var(--accent); color: var(--text-secondary); }
 
-.armorPicker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
+.armorPicker { display: flex; flex-wrap: wrap; gap: 4px; }
 
-.armorPickerItem {
-  background: var(--bg-surface);
+.armorOpt {
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-secondary);
@@ -362,119 +408,20 @@
   transition: all 0.12s;
 }
 
-.armorPickerItem:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
+.armorOpt:hover { border-color: var(--accent); color: var(--accent); }
 
-.armorPickerSelected {
-  background: rgba(124, 106, 247, 0.15);
+.armorOptSel {
+  background: rgba(139, 124, 248, 0.15);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
 }
 
-/* Editable stat chip */
-.statChipEditable {
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
+/* ── CONDITIONS ── */
+.conditionPicker { display: flex; flex-wrap: wrap; gap: 4px; }
 
-.statChipEditable:hover {
-  border-color: var(--accent);
-  background: var(--bg-elevated);
-}
-
-.statInput {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
+.condOpt {
   background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent);
-  outline: none;
-  width: 44px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Abilities */
-.abilityGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-}
-
-.ability {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 4px;
-}
-
-.editHint {
-  font-size: 9px;
-  color: var(--text-muted);
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.abilityEditable {
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.abilityEditable:hover {
-  border-color: var(--accent);
-}
-
-.abilityInput {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent);
-  outline: none;
-  width: 36px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.abilityLabel {
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-}
-
-.abilityScore {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.abilityMod {
-  font-size: 11px;
-  color: var(--accent);
-}
-
-/* Conditions */
-.conditionPicker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.conditionOption {
-  background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 11px;
@@ -484,118 +431,138 @@
   transition: all 0.15s;
 }
 
-.conditionOption:hover {
-  border-color: var(--danger);
+.condOpt:hover { border-color: var(--danger); color: var(--danger); }
+
+.condOptActive {
+  background: rgba(224, 92, 92, 0.1);
+  border-color: rgba(224, 92, 92, 0.4);
   color: var(--danger);
 }
 
-.conditionOptionActive {
-  background: rgba(224, 92, 92, 0.15);
-  border-color: rgba(224, 92, 92, 0.5);
-  color: var(--danger);
-}
+.condTags { display: flex; flex-wrap: wrap; gap: 5px; min-height: 18px; }
 
-.conditionList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.conditionTag {
-  background: rgba(224, 92, 92, 0.12);
-  border: 1px solid rgba(224, 92, 92, 0.35);
+.condTag {
+  background: rgba(224, 92, 92, 0.1);
+  border: 1px solid rgba(224, 92, 92, 0.3);
   color: var(--danger);
   font-size: 11px;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 20px;
   text-transform: capitalize;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.conditionTag:hover {
-  background: rgba(224, 92, 92, 0.3);
-}
+.condTag:hover { background: rgba(224, 92, 92, 0.22); }
 
-.emptyNote {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* ── MAIN AREA ── */
-.tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.tab {
+.addBtn {
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11px;
   cursor: pointer;
-  padding: 12px 20px;
-  transition: color 0.15s, border-color 0.15s;
-  margin-bottom: -1px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.15s;
 }
 
-.tab:hover {
-  color: var(--text-primary);
-}
+.addBtn:hover { border-color: var(--accent); color: var(--accent); }
 
-.tabActive {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
-
-.panel {
-  padding: 20px;
-  flex: 1;
-}
-
-/* Actions Panel */
-.actionGrid {
+/* ── ABILITY SCORES ── */
+.abilityGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
 }
 
-.actionCard {
-  background: var(--bg-surface);
+.abilityCell {
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-}
-
-.actionHeader {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s;
 }
 
-.actionName {
-  font-size: 14px;
-  font-weight: 600;
+.abilityCell:hover { border-color: var(--accent); }
+
+.abilityKey {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
+.abilityScore {
+  font-size: 22px;
+  font-weight: 700;
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-.actionType {
+.abilityMod {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.abilityEditInput {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  outline: none;
+  width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ACTIONS ── */
+.actionList { display: flex; flex-direction: column; gap: 2px; }
+
+.actionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.actionRow:hover { background: var(--bg-elevated); border-color: var(--border); }
+.actionRowOpen   { background: var(--bg-elevated); border-color: var(--border); }
+
+.actionBadge {
   font-size: 10px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  background: rgba(124, 106, 247, 0.1);
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.badgeAction      { background: rgba(139, 124, 248, 0.12); color: var(--accent); }
+.badgeBonusAction { background: rgba(224, 168, 76, 0.12);  color: var(--warning); }
+.badgeReaction    { background: rgba(76, 175, 125, 0.12);  color: var(--success); }
+
+.actionContent { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+
+.actionName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .actionDesc {
@@ -604,180 +571,86 @@
   line-height: 1.5;
 }
 
-/* Spells Panel */
-.spellSlotsSection {
-  margin-bottom: 24px;
-}
-
-.sectionTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.slotGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.slotRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.slotLevel {
-  font-size: 13px;
-  color: var(--text-secondary);
-  width: 60px;
-  flex-shrink: 0;
-}
-
-.slotPips {
-  display: flex;
-  gap: 6px;
-}
-
-.slotPip {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  transition: all 0.15s;
-  background: transparent;
-}
-
-.slotPipFull {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.slotPipEmpty {
-  background: transparent;
-  border-color: var(--border);
-}
-
-.slotPipFull:hover {
-  opacity: 0.7;
-}
-
-.slotPipEmpty:hover {
-  border-color: var(--accent-dim);
-  background: var(--accent-dim);
-}
-
-.slotCount {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.spellListSection {
-  margin-top: 20px;
-}
-
-.spellList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.spellEntry {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.spellName {
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-/* Features Panel */
-.featureList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* ── FEATURES ── */
+.featureList { display: flex; flex-direction: column; gap: 4px; }
 
 .featureCard {
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  overflow: hidden;
 }
 
-.featureHeader {
+.featureHead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 9px 12px;
+  cursor: pointer;
+  gap: 8px;
+  text-align: left;
+  transition: background 0.12s;
 }
 
+.featureHead:hover { background: rgba(255, 255, 255, 0.03); }
+
 .featureName {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+  flex: 1;
 }
 
 .featureLevel {
   font-size: 10px;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.featureChevron {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .featureDesc {
   font-size: 12px;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.55;
+  padding: 0 12px 10px;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
 }
 
-/* Skills Panel */
-.savesSection {
-  margin-bottom: 20px;
-}
+/* ── SAVING THROWS ── */
+.savesList { display: flex; flex-direction: column; gap: 4px; }
 
-.savesList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.saveRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 80px;
-}
+.saveRow { display: flex; align-items: center; gap: 8px; }
 
 .saveDot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  border: 2px solid var(--text-muted);
   background: transparent;
   flex-shrink: 0;
 }
 
-.saveDotProf {
-  background: var(--accent);
-  border-color: var(--accent);
-}
+.saveDotProf { background: var(--accent); border-color: var(--accent); }
 
 .saveAb {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
-  width: 28px;
+  color: var(--text-secondary);
+  width: 30px;
 }
 
 .saveBonus {
@@ -785,101 +658,150 @@
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  width: 28px;
+  width: 32px;
 }
 
-.skillHint {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
+.passivePP {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  margin-top: 2px;
 }
 
-.skillsList {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
+.passivePP strong { color: var(--text-primary); }
+
+/* ── SKILLS ── */
+.skillsList { display: flex; flex-direction: column; gap: 1px; }
 
 .skillRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 6px;
+  gap: 7px;
+  padding: 4px 5px;
   border-radius: 5px;
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: background 0.12s;
-  text-align: left;
   width: 100%;
+  text-align: left;
+  transition: background 0.12s;
 }
 
-.skillRow:hover {
-  background: var(--bg-surface);
-}
+.skillRow:hover { background: var(--bg-elevated); }
 
 .profDot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  border: 2px solid var(--text-muted);
   background: transparent;
   flex-shrink: 0;
 }
 
-.profDotProf {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.profDotExpert {
-  background: var(--warning);
-  border-color: var(--warning);
-}
+.dotProf   { background: var(--accent);  border-color: var(--accent); }
+.dotExpert { background: var(--warning); border-color: var(--warning); }
 
 .skillBonus {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  width: 28px;
+  width: 26px;
   text-align: right;
+  flex-shrink: 0;
 }
 
 .skillLabel {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
   flex: 1;
+  min-width: 0;
 }
 
 .skillAb {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted);
-  width: 28px;
+  width: 26px;
+  flex-shrink: 0;
 }
 
-.profBadge {
+.exBadge {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--accent);
-  background: rgba(124, 106, 247, 0.12);
-  padding: 1px 5px;
+  background: rgba(139, 124, 248, 0.12);
+  padding: 1px 4px;
   border-radius: 3px;
+  flex-shrink: 0;
 }
 
-/* Empty states */
-.emptyPanel {
-  padding: 40px;
-  color: var(--text-secondary);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.exBadgeGold { color: var(--warning); background: rgba(224, 168, 76, 0.12); }
 
-.emptyPanelSub {
+/* ── SPELL SLOTS ── */
+.slotsList { display: flex; flex-direction: column; gap: 7px; }
+
+.slotRow { display: flex; align-items: center; gap: 10px; }
+
+.slotLvl {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  width: 30px;
+  flex-shrink: 0;
 }
+
+.slotPips { display: flex; gap: 5px; flex: 1; flex-wrap: wrap; }
+
+.slotPip {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+
+.pipFull  { background: var(--accent); border-color: var(--accent); }
+.pipEmpty { background: transparent; border-color: var(--text-muted); }
+.pipFull:hover  { opacity: 0.7; }
+.pipEmpty:hover { border-color: var(--accent); background: rgba(139, 124, 248, 0.2); }
+
+.slotCount {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── KNOWN SPELLS ── */
+.spellSearch {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.spellSearch:focus { border-color: var(--accent); }
+
+.spellList { display: flex; flex-direction: column; gap: 3px; }
+
+.spellEntry {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.spellName { font-size: 12px; color: var(--text-primary); }
