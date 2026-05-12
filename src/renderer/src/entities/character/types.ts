@@ -1,3 +1,6 @@
+import type { Skill } from '@/shared/data/skills'
+
+export type { Skill }
 export type AbilityScore = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
 
 export interface AbilityScores {
@@ -21,8 +24,12 @@ export interface SpellSlots {
 
 export interface ActiveCondition {
   conditionId: string
-  /** Round or timestamp when applied, for tracking */
   appliedAt?: number
+}
+
+export interface Equipment {
+  armorId: string | null
+  hasShield: boolean
 }
 
 export interface Character {
@@ -42,15 +49,16 @@ export interface Character {
   initiative: number
   proficiencyBonus: number
 
+  equipment: Equipment
+  savingThrowProficiencies: AbilityScore[]
+  skillProficiencies: Partial<Record<Skill, 'proficient' | 'expert'>>
+
   spellIds: string[]
   spellSlots: SpellSlots
   concentrationSpellId?: string
 
   conditionIds: ActiveCondition[]
-
   resources: Record<string, { used: number; total: number }>
-
   deathSaves: { successes: number; failures: number }
-
   inspiration: boolean
 }

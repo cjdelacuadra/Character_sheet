@@ -57,7 +57,21 @@ export const useAppStore = create<AppState>((set, get) => ({
       const entries = await Promise.all(
         ids.map(async (id) => {
           const data = await ipc.loadCharacter(id)
-          return [id, data] as const
+          if (data == null) return [id, null] as const
+          const loaded = data as Partial<Character>
+          const normalized: Character = {
+            ...(loaded as Character),
+            equipment: loaded.equipment ?? { armorId: null, hasShield: false },
+            savingThrowProficiencies: loaded.savingThrowProficiencies ?? [],
+            skillProficiencies: loaded.skillProficiencies ?? {},
+            conditionIds: loaded.conditionIds ?? [],
+            resources: loaded.resources ?? {},
+            deathSaves: loaded.deathSaves ?? { successes: 0, failures: 0 },
+            inspiration: loaded.inspiration ?? false,
+            spellIds: loaded.spellIds ?? [],
+            spellSlots: loaded.spellSlots ?? {},
+          }
+          return [id, normalized] as const
         })
       )
       const characters = Object.fromEntries(entries.filter(([, v]) => v != null)) as Record<string, Character>

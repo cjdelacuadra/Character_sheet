@@ -311,6 +311,69 @@
   color: var(--text-muted);
 }
 
+.statSub {
+  font-size: 8px;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Armor row in sidebar */
+.armorRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.armorToggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s;
+}
+
+.armorToggle:hover {
+  border-color: var(--accent);
+  color: var(--text-secondary);
+}
+
+.armorPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.armorPickerItem {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.armorPickerItem:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.armorPickerSelected {
+  background: rgba(124, 106, 247, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* Editable stat chip */
 .statChipEditable {
   cursor: pointer;
@@ -676,6 +739,135 @@
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+/* Skills Panel */
+.savesSection {
+  margin-bottom: 20px;
+}
+
+.savesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.saveRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+}
+
+.saveDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.saveDotProf {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.saveAb {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 28px;
+}
+
+.saveBonus {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  width: 28px;
+}
+
+.skillHint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.skillsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.skillRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+  width: 100%;
+}
+
+.skillRow:hover {
+  background: var(--bg-surface);
+}
+
+.profDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.profDotProf {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.profDotExpert {
+  background: var(--warning);
+  border-color: var(--warning);
+}
+
+.skillBonus {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  width: 28px;
+  text-align: right;
+}
+
+.skillLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.skillAb {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 28px;
+}
+
+.profBadge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: rgba(124, 106, 247, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 
 /* Empty states */

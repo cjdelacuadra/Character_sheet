@@ -25,7 +25,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 680px;
+  max-width: 720px;
 }
 
 .listItem {
@@ -39,7 +39,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 18px 22px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -62,7 +62,7 @@
 }
 
 .cardName {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -74,7 +74,7 @@
 
 .cardStats {
   display: flex;
-  gap: 20px;
+  gap: 16px;
 }
 
 .cardStat {
@@ -93,7 +93,7 @@
 }
 
 .cardStatValue {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
@@ -159,12 +159,13 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 28px 32px;
-  width: 480px;
+  padding: 24px 28px;
+  width: 520px;
+  max-width: 96vw;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  max-height: 90vh;
+  gap: 18px;
+  max-height: 88vh;
   overflow-y: auto;
 }
 
@@ -175,7 +176,7 @@
 }
 
 .modalTitle {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
 }
 
@@ -193,16 +194,11 @@
   transition: background 0.2s;
 }
 
-.stepDotActive {
-  background: var(--accent);
-}
-
-.stepDotDone {
-  background: var(--success);
-}
+.stepDotActive { background: var(--accent); }
+.stepDotDone { background: var(--success); }
 
 .stepLine {
-  width: 24px;
+  width: 20px;
   height: 2px;
   background: var(--border);
 }
@@ -210,20 +206,20 @@
 .stepContent {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   color: var(--text-secondary);
   flex: 1;
 }
@@ -233,31 +229,29 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-primary);
-  padding: 8px 12px;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .input:focus { border-color: var(--accent); }
 
-.row {
-  display: flex;
-  gap: 14px;
-}
+.row { display: flex; gap: 12px; }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  padding-top: 4px;
 }
 
 .cancelBtn {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--text-secondary);
-  padding: 9px 18px;
+  padding: 8px 16px;
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.15s;
@@ -268,9 +262,9 @@
 .nextBtn {
   background: var(--bg-elevated);
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--accent);
-  padding: 9px 18px;
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -280,53 +274,100 @@
 .nextBtn:hover { background: rgba(124, 106, 247, 0.12); }
 .nextBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── ABILITY SCORES STEP ── */
-.scoresHint {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
+.infoBox {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
+.infoLabel {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.infoValue {
+  color: var(--accent);
+}
+
+/* ── METHOD TABS ── */
+.methodTabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.methodTab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.methodTab:last-child { border-right: none; }
+.methodTab:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+.methodTabActive {
+  background: rgba(124, 106, 247, 0.15);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── SCORE GRID (standard array & roll) ── */
 .scoresGrid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .scoreRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .scoreKey {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  width: 28px;
+  width: 26px;
   flex-shrink: 0;
 }
 
 .scorePips {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   flex: 1;
 }
 
 .scorePip {
   flex: 1;
-  padding: 5px 2px;
+  padding: 4px 2px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 4px;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.12s;
   text-align: center;
+  min-width: 0;
 }
 
 .scorePip:hover:not(:disabled) {
@@ -342,12 +383,12 @@
 }
 
 .scorePipTaken {
-  opacity: 0.3;
+  opacity: 0.25;
   cursor: not-allowed;
 }
 
 .scoreValue {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
   width: 22px;
@@ -355,15 +396,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.scorePlaceholder {
-  font-size: 16px;
-  color: var(--text-muted);
-  width: 22px;
-  text-align: right;
-}
-
 .scoreMod {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent);
   width: 24px;
   text-align: right;
@@ -374,7 +408,244 @@
   font-size: 12px;
   color: var(--text-muted);
   text-align: center;
-  padding: 6px;
+  padding: 5px;
+  background: var(--bg-elevated);
+  border-radius: 5px;
+}
+
+/* ── POINT BUY ── */
+.pbBudget {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 6px 8px;
   background: var(--bg-elevated);
   border-radius: 6px;
+  text-align: center;
+}
+
+.pbControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.pbBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pbBtn:hover:not(:disabled) { background: var(--bg-surface); }
+.pbBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.pbValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  width: 20px;
+  text-align: center;
+}
+
+/* ── ROLL ── */
+.rollActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rollBtn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.rollBtn:hover { opacity: 0.85; }
+
+.rolledValues {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rolledVal {
+  display: inline-block;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.rolledValUsed {
+  opacity: 0.3;
+  text-decoration: line-through;
+}
+
+/* ── STEP 3: EQUIPMENT ── */
+.statPreview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.statPreviewChip {
+  flex: 1;
+  min-width: 70px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statPreviewLabel {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.statPreviewValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.statPreviewSub {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.equipSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.equipLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.armorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.armorOption {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  transition: all 0.12s;
+}
+
+.armorOption:hover {
+  border-color: var(--accent);
+}
+
+.armorOptionSelected {
+  background: rgba(124, 106, 247, 0.12);
+  border-color: var(--accent);
+}
+
+.armorName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.armorAc {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.armorType {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.shieldToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.shieldToggle input { cursor: pointer; accent-color: var(--accent); }
+
+.skillChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.skillChoice {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.skillChoice:hover:not(.skillChoiceDisabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.skillChoiceSelected {
+  background: rgba(124, 106, 247, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.skillChoiceDisabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }

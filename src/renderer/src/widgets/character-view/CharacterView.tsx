@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useAppStore } from '@/app/store'
 import styles from './CharacterView.module.css'
-import type { Character, AbilityScores } from '@/entities/character/types'
+import type { Character, AbilityScores, AbilityScore, Skill } from '@/entities/character/types'
+import { SKILLS } from '@/shared/data/skills'
+import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
+import { CLASS_BY_ID } from '@/shared/data/classData'
+import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
 
 const CONDITIONS = [
   'Blinded', 'Charmed', 'Deafened', 'Exhaustion', 'Frightened',
@@ -9,8 +13,8 @@ const CONDITIONS = [
   'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious'
 ]
 
-type Tab = 'actions' | 'spells' | 'features'
-type EditableField = 'ac' | 'speed' | 'initiative' | keyof AbilityScores | null
+type Tab = 'actions' | 'spells' | 'skills' | 'features'
+type EditableField = 'speed' | 'initiative' | keyof AbilityScores | null
 
 export function CharacterView() {
   const { characters, activeCharacterId, exitCharacter, updateCharacter } = useAppStore()
@@ -65,8 +69,7 @@ export function CharacterView() {
     const val = parseInt(fieldEdit.value, 10)
     if (isNaN(val)) { setFieldEdit(null); return }
     const { field } = fieldEdit
-    if (field === 'ac') update({ armorClass: Math.max(0, val) })
-    else if (field === 'speed') update({ speed: Math.max(0, val) })
+    if (field === 'speed') update({ speed: Math.max(0, val) })
     else if (field === 'initiative') update({ initiative: val })
     else {
       // ability score
@@ -74,7 +77,16 @@ export function CharacterView() {
       const clamped = Math.min(30, Math.max(1, val))
       const newScores = { ...char!.abilityScores, [key]: clamped }
       const dexMod = Math.floor((newScores.dex - 10) / 2)
-      update({ abilityScores: newScores, initiative: dexMod })
+      // Recompute AC and HP when scores change
+      const newAC = computeAC({ abilityScores: newScores, equipment: char!.equipment ?? { armorId: null, hasShield: false }, classId: char!.classId, race: char!.race })
+      const newMaxHP = computeMaxHP(char!.classId, char!.level, newScores.con)
+      const hpDiff = newMaxHP - char!.hitPoints.max
+      update({
+        abilityScores: newScores,
+        initiative: dexMod,
+        armorClass: newAC,
+        hitPoints: { ...char!.hitPoints, max: newMaxHP, current: Math.max(0, char!.hitPoints.current + hpDiff) }
+      })
     }
     setFieldEdit(null)
   }
@@ -198,14 +210,10 @@ export function CharacterView() {
           {/* Core Stats */}
           <section className={styles.block}>
             <div className={styles.statGrid}>
-              <EditableStatChip
+              <StatChip
                 label="AC"
                 value={char.armorClass}
-                fieldKey="ac"
-                editState={fieldEdit}
-                onStartEdit={startFieldEdit}
-                onCommit={commitFieldEdit}
-                onChangeEdit={v => setFieldEdit(prev => prev ? { ...prev, value: v } : null)}
+                sub={acLabel(char)}
               />
               <EditableStatChip
                 label="Initiative"
@@ -229,6 +237,8 @@ export function CharacterView() {
               />
               <StatChip label="Prof." value={`+${char.proficiencyBonus}`} />
             </div>
+            {/* Armor & Shield quick-toggle */}
+            <ArmorRow char={char} onUpdate={update} />
           </section>
 
           {/* Ability Scores */}
@@ -316,7 +326,7 @@ export function CharacterView() {
         {/* MAIN */}
         <main className={styles.main}>
           <div className={styles.tabs}>
-            {(['actions', 'spells', 'features'] as Tab[]).map(t => (
+            {(['actions', 'spells', 'skills', 'features'] as Tab[]).map(t => (
               <button
                 key={t}
                 className={`${styles.tab} ${tab === t ? styles.tabActive : ''}`}
@@ -328,13 +338,8 @@ export function CharacterView() {
           </div>
 
           {tab === 'actions' && <ActionsPanel />}
-          {tab === 'spells' && (
-            <SpellsPanel
-              char={char}
-              onUseSlot={useSpellSlot}
-              onRecoverSlot={recoverSpellSlot}
-            />
-          )}
+          {tab === 'spells' && <SpellsPanel char={char} onUseSlot={useSpellSlot} onRecoverSlot={recoverSpellSlot} />}
+          {tab === 'skills' && <SkillsPanel char={char} onUpdate={update} />}
           {tab === 'features' && <FeaturesPanel classId={char.classId} level={char.level} />}
         </main>
       </div>
@@ -342,11 +347,74 @@ export function CharacterView() {
   )
 }
 
-function StatChip({ label, value }: { label: string; value: string | number }) {
+function StatChip({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className={styles.statChip}>
       <span className={styles.statValue}>{value}</span>
       <span className={styles.statLabel}>{label}</span>
+      {sub && <span className={styles.statSub}>{sub}</span>}
+    </div>
+  )
+}
+
+function acLabel(char: Character): string {
+  const eq = char.equipment ?? { armorId: null, hasShield: false }
+  const armor = eq.armorId ? ARMOR_BY_ID[eq.armorId] : null
+  const parts: string[] = []
+  if (armor) parts.push(armor.name)
+  if (eq.hasShield) parts.push('Shield')
+  if (parts.length === 0) {
+    if (char.classId === 'Barbarian') return 'Unarmored (STR+DEX+CON)'
+    if (char.classId === 'Monk') return 'Unarmored (DEX+WIS)'
+    return 'Unarmored'
+  }
+  return parts.join(' + ')
+}
+
+function ArmorRow({ char, onUpdate }: { char: Character; onUpdate: (p: Partial<Character>) => void }) {
+  const [open, setOpen] = useState(false)
+  const classDef = CLASS_BY_ID[char.classId]
+  const eq = char.equipment ?? { armorId: null, hasShield: false }
+
+  function setArmor(armorId: string | null, hasShield: boolean) {
+    const newEq = { armorId, hasShield }
+    const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race })
+    onUpdate({ equipment: newEq, armorClass: newAC })
+  }
+
+  const allowed = ARMOR_LIST.filter(a =>
+    a.type === 'none' || (classDef?.armorProficiencies.includes(a.type as 'light' | 'medium' | 'heavy') ?? false)
+  )
+  const canShield = classDef?.armorProficiencies.includes('shields') ?? false
+
+  return (
+    <div className={styles.armorRow}>
+      <button className={styles.armorToggle} onClick={() => setOpen(v => !v)}>
+        {acLabel(char)} {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div className={styles.armorPicker}>
+          {allowed.map(a => {
+            const sel = (eq.armorId ?? 'none') === a.id
+            return (
+              <button key={a.id}
+                className={`${styles.armorPickerItem} ${sel ? styles.armorPickerSelected : ''}`}
+                onClick={() => { setArmor(a.id === 'none' ? null : a.id, eq.hasShield); setOpen(false) }}
+              >
+                {a.name}
+              </button>
+            )
+          })}
+          {canShield && (
+            <button
+              className={`${styles.armorPickerItem} ${eq.hasShield ? styles.armorPickerSelected : ''}`}
+              onClick={() => setArmor(eq.armorId, !eq.hasShield)}
+            >
+              Shield {eq.hasShield ? '✓' : ''}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -485,6 +553,66 @@ function SpellsPanel({ char, onUseSlot, onRecoverSlot }: SpellsPanelProps) {
           </div>
         </section>
       )}
+    </div>
+  )
+}
+
+/* ── Skills Panel ── */
+function SkillsPanel({ char, onUpdate }: { char: Character; onUpdate: (p: Partial<Character>) => void }) {
+  const prof = char.proficiencyBonus
+  const saves: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+
+  function cycleSkill(key: Skill) {
+    const current = char.skillProficiencies?.[key] ?? 'none'
+    const next: 'proficient' | 'expert' | undefined =
+      current === 'none' ? 'proficient' : current === 'proficient' ? 'expert' : undefined
+    const updated = { ...(char.skillProficiencies ?? {}) }
+    if (next === undefined) delete updated[key]
+    else updated[key] = next
+    onUpdate({ skillProficiencies: updated })
+  }
+
+  return (
+    <div className={styles.panel}>
+      {/* Saving Throws */}
+      <section className={styles.savesSection}>
+        <h3 className={styles.sectionTitle}>Saving Throws</h3>
+        <div className={styles.savesList}>
+          {saves.map(ab => {
+            const isProficient = char.savingThrowProficiencies?.includes(ab) ?? false
+            const score = char.abilityScores[ab]
+            const bonus = mod(score) + (isProficient ? prof : 0)
+            return (
+              <div key={ab} className={styles.saveRow}>
+                <span className={`${styles.saveDot} ${isProficient ? styles.saveDotProf : ''}`} />
+                <span className={styles.saveAb}>{ab.toUpperCase()}</span>
+                <span className={styles.saveBonus}>{bonus >= 0 ? '+' : ''}{bonus}</span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Skills */}
+      <section>
+        <h3 className={styles.sectionTitle}>Skills <span className={styles.skillHint}>(click to toggle proficiency/expertise)</span></h3>
+        <div className={styles.skillsList}>
+          {SKILLS.map(({ key, label, ability }) => {
+            const profState = char.skillProficiencies?.[key] ?? 'none'
+            const score = char.abilityScores[ability]
+            const bonus = mod(score) + (profState === 'none' ? 0 : profState === 'proficient' ? prof : prof * 2)
+            return (
+              <button key={key} className={styles.skillRow} onClick={() => cycleSkill(key)}>
+                <span className={`${styles.profDot} ${profState === 'expert' ? styles.profDotExpert : profState === 'proficient' ? styles.profDotProf : ''}`} />
+                <span className={styles.skillBonus}>{bonus >= 0 ? '+' : ''}{bonus}</span>
+                <span className={styles.skillLabel}>{label}</span>
+                <span className={styles.skillAb}>{ability.toUpperCase()}</span>
+                {profState !== 'none' && <span className={styles.profBadge}>{profState === 'expert' ? 'EX' : 'PR'}</span>}
+              </button>
+            )
+          })}
+        </div>
+      </section>
     </div>
   )
 }
