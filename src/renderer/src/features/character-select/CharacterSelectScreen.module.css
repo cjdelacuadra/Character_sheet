@@ -24,18 +24,25 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 640px;
+  gap: 10px;
+  max-width: 680px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card {
-  width: 100%;
+  flex: 1;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px 24px;
+  padding: 18px 22px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   cursor: pointer;
   text-align: left;
@@ -48,22 +55,70 @@
   border-color: var(--accent);
 }
 
+.cardLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
 .cardName {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  flex: 1;
 }
 
 .cardSub {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 
-.cardHp {
-  font-size: 13px;
-  color: var(--success);
+.cardStats {
+  display: flex;
+  gap: 20px;
+}
+
+.cardStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.cardStatLabel {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.cardStatValue {
+  font-size: 15px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.deleteBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.deleteBtn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(224, 92, 92, 0.1);
 }
 
 .empty {
@@ -89,10 +144,11 @@
 .createBtn:hover { opacity: 0.85; }
 .createBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── MODAL ── */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,11 +159,19 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 32px;
-  width: 420px;
+  padding: 28px 32px;
+  width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .modalTitle {
@@ -115,17 +179,51 @@
   font-weight: 600;
 }
 
+.stepIndicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s;
+}
+
+.stepDotActive {
+  background: var(--accent);
+}
+
+.stepDotDone {
+  background: var(--success);
+}
+
+.stepLine {
+  width: 24px;
+  height: 2px;
+  background: var(--border);
+}
+
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
+  gap: 5px;
+  font-size: 12px;
   color: var(--text-secondary);
   flex: 1;
 }
@@ -145,14 +243,13 @@
 
 .row {
   display: flex;
-  gap: 16px;
+  gap: 14px;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 10px;
 }
 
 .cancelBtn {
@@ -160,10 +257,124 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-secondary);
-  padding: 10px 20px;
-  font-size: 14px;
+  padding: 9px 18px;
+  font-size: 13px;
   cursor: pointer;
   transition: border-color 0.15s;
 }
 
 .cancelBtn:hover { border-color: var(--text-secondary); }
+
+.nextBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--accent);
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.nextBtn:hover { background: rgba(124, 106, 247, 0.12); }
+.nextBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── ABILITY SCORES STEP ── */
+.scoresHint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.scoresGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scoreKey {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.scorePips {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.scorePip {
+  flex: 1;
+  padding: 5px 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: center;
+}
+
+.scorePip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scorePipSelected {
+  background: rgba(124, 106, 247, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.scorePipTaken {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.scoreValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.scorePlaceholder {
+  font-size: 16px;
+  color: var(--text-muted);
+  width: 22px;
+  text-align: right;
+}
+
+.scoreMod {
+  font-size: 12px;
+  color: var(--accent);
+  width: 24px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoresNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 6px;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+}

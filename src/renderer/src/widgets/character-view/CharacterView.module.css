@@ -311,6 +311,30 @@
   color: var(--text-muted);
 }
 
+/* Editable stat chip */
+.statChipEditable {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.statChipEditable:hover {
+  border-color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.statInput {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  outline: none;
+  width: 44px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Abilities */
 .abilityGrid {
   display: grid;
@@ -327,6 +351,36 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 7px 4px;
+}
+
+.editHint {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.abilityEditable {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.abilityEditable:hover {
+  border-color: var(--accent);
+}
+
+.abilityInput {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  outline: none;
+  width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .abilityLabel {

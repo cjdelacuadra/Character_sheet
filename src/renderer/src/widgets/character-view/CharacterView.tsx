@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '@/app/store'
 import styles from './CharacterView.module.css'
-import type { Character } from '@/entities/character/types'
+import type { Character, AbilityScores } from '@/entities/character/types'
 
 const CONDITIONS = [
   'Blinded', 'Charmed', 'Deafened', 'Exhaustion', 'Frightened',
@@ -10,6 +10,7 @@ const CONDITIONS = [
 ]
 
 type Tab = 'actions' | 'spells' | 'features'
+type EditableField = 'ac' | 'speed' | 'initiative' | keyof AbilityScores | null
 
 export function CharacterView() {
   const { characters, activeCharacterId, exitCharacter, updateCharacter } = useAppStore()
@@ -17,6 +18,7 @@ export function CharacterView() {
   const [tab, setTab] = useState<Tab>('actions')
   const [showConditionPicker, setShowConditionPicker] = useState(false)
   const [hpEdit, setHpEdit] = useState<string | null>(null)
+  const [fieldEdit, setFieldEdit] = useState<{ field: EditableField; value: string } | null>(null)
 
   if (!char) return null
 
@@ -52,6 +54,29 @@ export function CharacterView() {
     const current = char!.deathSaves[type]
     const next = current >= 3 ? 0 : current + 1
     update({ deathSaves: { ...char!.deathSaves, [type]: next } })
+  }
+
+  function startFieldEdit(field: EditableField, current: number) {
+    setFieldEdit({ field, value: String(current) })
+  }
+
+  function commitFieldEdit() {
+    if (!fieldEdit || fieldEdit.field === null) return
+    const val = parseInt(fieldEdit.value, 10)
+    if (isNaN(val)) { setFieldEdit(null); return }
+    const { field } = fieldEdit
+    if (field === 'ac') update({ armorClass: Math.max(0, val) })
+    else if (field === 'speed') update({ speed: Math.max(0, val) })
+    else if (field === 'initiative') update({ initiative: val })
+    else {
+      // ability score
+      const key = field as keyof AbilityScores
+      const clamped = Math.min(30, Math.max(1, val))
+      const newScores = { ...char!.abilityScores, [key]: clamped }
+      const dexMod = Math.floor((newScores.dex - 10) / 2)
+      update({ abilityScores: newScores, initiative: dexMod })
+    }
+    setFieldEdit(null)
   }
 
   function useSpellSlot(level: number) {
@@ -173,24 +198,72 @@ export function CharacterView() {
           {/* Core Stats */}
           <section className={styles.block}>
             <div className={styles.statGrid}>
-              <StatChip label="AC" value={char.armorClass} />
-              <StatChip label="Initiative" value={char.initiative >= 0 ? `+${char.initiative}` : char.initiative} />
-              <StatChip label="Speed" value={`${char.speed}ft`} />
+              <EditableStatChip
+                label="AC"
+                value={char.armorClass}
+                fieldKey="ac"
+                editState={fieldEdit}
+                onStartEdit={startFieldEdit}
+                onCommit={commitFieldEdit}
+                onChangeEdit={v => setFieldEdit(prev => prev ? { ...prev, value: v } : null)}
+              />
+              <EditableStatChip
+                label="Initiative"
+                value={char.initiative}
+                displayValue={char.initiative >= 0 ? `+${char.initiative}` : String(char.initiative)}
+                fieldKey="initiative"
+                editState={fieldEdit}
+                onStartEdit={startFieldEdit}
+                onCommit={commitFieldEdit}
+                onChangeEdit={v => setFieldEdit(prev => prev ? { ...prev, value: v } : null)}
+              />
+              <EditableStatChip
+                label="Speed"
+                value={char.speed}
+                displayValue={`${char.speed}ft`}
+                fieldKey="speed"
+                editState={fieldEdit}
+                onStartEdit={startFieldEdit}
+                onCommit={commitFieldEdit}
+                onChangeEdit={v => setFieldEdit(prev => prev ? { ...prev, value: v } : null)}
+              />
               <StatChip label="Prof." value={`+${char.proficiencyBonus}`} />
             </div>
           </section>
 
           {/* Ability Scores */}
           <section className={styles.block}>
-            <div className={styles.blockLabel}>Abilities</div>
+            <div className={styles.blockLabel}>Abilities <span className={styles.editHint}>(click to edit)</span></div>
             <div className={styles.abilityGrid}>
-              {(Object.entries(char.abilityScores) as [string, number][]).map(([key, val]) => (
-                <div key={key} className={styles.ability}>
-                  <span className={styles.abilityLabel}>{key.toUpperCase()}</span>
-                  <span className={styles.abilityScore}>{val}</span>
-                  <span className={styles.abilityMod}>{modifier(val)}</span>
-                </div>
-              ))}
+              {(Object.entries(char.abilityScores) as [keyof AbilityScores, number][]).map(([key, val]) => {
+                const isEditing = fieldEdit?.field === key
+                return (
+                  <div
+                    key={key}
+                    className={`${styles.ability} ${styles.abilityEditable}`}
+                    onClick={() => !isEditing && startFieldEdit(key, val)}
+                    title="Click to edit"
+                  >
+                    <span className={styles.abilityLabel}>{key.toUpperCase()}</span>
+                    {isEditing ? (
+                      <input
+                        className={styles.abilityInput}
+                        type="number"
+                        min={1} max={30}
+                        value={fieldEdit!.value}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setFieldEdit(prev => prev ? { ...prev, value: e.target.value } : null)}
+                        onBlur={commitFieldEdit}
+                        onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+                      />
+                    ) : (
+                      <span className={styles.abilityScore}>{val}</span>
+                    )}
+                    <span className={styles.abilityMod}>{modifier(val)}</span>
+                  </div>
+                )
+              })}
             </div>
           </section>
 
@@ -273,6 +346,44 @@ function StatChip({ label, value }: { label: string; value: string | number }) {
   return (
     <div className={styles.statChip}>
       <span className={styles.statValue}>{value}</span>
+      <span className={styles.statLabel}>{label}</span>
+    </div>
+  )
+}
+
+interface EditableStatChipProps {
+  label: string
+  value: number
+  displayValue?: string
+  fieldKey: EditableField
+  editState: { field: EditableField; value: string } | null
+  onStartEdit: (field: EditableField, current: number) => void
+  onCommit: () => void
+  onChangeEdit: (v: string) => void
+}
+
+function EditableStatChip({ label, value, displayValue, fieldKey, editState, onStartEdit, onCommit, onChangeEdit }: EditableStatChipProps) {
+  const isEditing = editState?.field === fieldKey
+  return (
+    <div
+      className={`${styles.statChip} ${styles.statChipEditable}`}
+      onClick={() => !isEditing && onStartEdit(fieldKey, value)}
+      title="Click to edit"
+    >
+      {isEditing ? (
+        <input
+          className={styles.statInput}
+          type="number"
+          value={editState!.value}
+          autoFocus
+          onClick={e => e.stopPropagation()}
+          onChange={e => onChangeEdit(e.target.value)}
+          onBlur={onCommit}
+          onKeyDown={e => { if (e.key === 'Enter') onCommit() }}
+        />
+      ) : (
+        <span className={styles.statValue}>{displayValue ?? value}</span>
+      )}
       <span className={styles.statLabel}>{label}</span>
     </div>
   )
