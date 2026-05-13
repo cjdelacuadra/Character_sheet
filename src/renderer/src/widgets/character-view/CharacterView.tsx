@@ -12,7 +12,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import {
-  computeAttackBonus, computeSpellSaveDC, computeSpellAttackBonus,
+  computeAttackBonus, isProficientWithWeapon, computeSpellSaveDC, computeSpellAttackBonus,
   getAvailableActions, xpForNextLevel,
   type ActionDef,
 } from '@/domain/rules'
@@ -890,6 +890,7 @@ export function CharacterView() {
               <tbody>
                 {(char.weapons ?? []).map(w => {
                   const computed = computeAttackBonus(char, w)
+                  const proficient = isProficientWithWeapon(char, w)
                   const rangeLabel = w.rangeType === 'Melee' ? 'Melee' : w.rangeType === 'Ranged' ? 'Ranged' : w.rangeType === 'Melee or Ranged' ? 'M/R' : '—'
                   return (
                     <tr key={w.id} className={styles.weaponRow}>
@@ -899,7 +900,10 @@ export function CharacterView() {
                           <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>
                         )}
                       </td>
-                      <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
+                      <td className={styles.weaponAtk} style={proficient ? undefined : { opacity: 0.5 }}>
+                        {computed >= 0 ? `+${computed}` : computed}
+                        {!proficient && <span title="Not proficient" style={{ marginLeft: 3 }}>⚠</span>}
+                      </td>
                       <td className={styles.weaponDmg}>{w.damage}</td>
                       <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
                       <td className={styles.weaponDmg}>{w.bonusDamageDie ?? '—'}</td>

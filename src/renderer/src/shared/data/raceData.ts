@@ -88,6 +88,7 @@ export const RACES: RaceDef[] = [
     label: 'Half-Elf',
     speed: 30,
     abilityBonus: { cha: 2 },
+    freeAbilityPoints: 2,
     traits: ['Darkvision 60ft', 'Fey Ancestry', 'Skill Versatility (+2 skill proficiencies of choice)'],
     size: 'medium',
   },

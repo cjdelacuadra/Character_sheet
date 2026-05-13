@@ -164,6 +164,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       damageType: w.damageType,
       rangeType: w.rangeType,
       properties: w.properties,
+      enchantmentBonus: w.enchantmentBonus || undefined,
+      bonusDamageDie: w.bonusDamageDie,
+      bonusDamageType: w.bonusDamageType,
     }))
 
     return {
@@ -573,11 +576,12 @@ function StepScores({
       {raceDef?.freeAbilityPoints && (
         <div className={styles.infoBox}>
           <span className={styles.infoLabel}>
-            Variant Human: choose {raceDef.freeAbilityPoints} abilities to gain +1
+            {raceDef.label}: choose {raceDef.freeAbilityPoints} abilities to gain +1
             ({freeAbilityPicks.length}/{raceDef.freeAbilityPoints} chosen)
           </span>
           <div className={styles.scorePips} style={{ marginTop: 6 }}>
             {ABILITY_KEYS.map(k => {
+              if (raceDef.id === 'HalfElf' && k === 'cha') return null
               const picked = freeAbilityPicks.includes(k)
               const maxReached = freeAbilityPicks.length >= raceDef.freeAbilityPoints! && !picked
               return (

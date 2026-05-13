@@ -1,6 +1,8 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { WEAPONS } from '@/shared/data/weaponData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
 
@@ -20,6 +22,26 @@ export function computeSpellAttackBonus(character: Character): number {
 
 // ── Attack bonus ────────────────────────────────────────────────────────────
 
+export function isProficientWithWeapon(character: Character, weapon: Weapon): boolean {
+  const classDef = CLASS_BY_ID[character.classId]
+  const raceDef = RACE_BY_ID[character.race]
+  const effectiveProfs = [
+    ...(classDef?.weaponProficiencies ?? []),
+    ...(raceDef?.bonusWeaponProficiencies ?? []),
+  ]
+  const weaponDef = WEAPONS.find(wd => wd.name === weapon.name)
+  if (!weaponDef) return true  // custom weapon: assume proficient
+  // Unarmed and natural attacks are always proficient
+  if (weaponDef.proficiencyCategory === 'Unarmed' || weaponDef.proficiencyCategory === 'Natural') return true
+  const nameLower = weapon.name.toLowerCase()
+  return effectiveProfs.some(prof => {
+    const p = prof.toLowerCase()
+    if (p === 'simple weapons') return weaponDef.proficiencyCategory === 'Simple'
+    if (p === 'martial weapons') return weaponDef.proficiencyCategory === 'Martial'
+    return p === nameLower || p === nameLower + 's'
+  })
+}
+
 export function computeAttackBonus(character: Character, weapon: Weapon): number {
   const strMod = mod(character.abilityScores.str)
   const dexMod = mod(character.abilityScores.dex)
@@ -27,7 +49,8 @@ export function computeAttackBonus(character: Character, weapon: Weapon): number
   const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
   const isRanged  = weapon.rangeType === 'Ranged'
   const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
-  return abilityMod + character.proficiencyBonus + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)
+  const proficient = isProficientWithWeapon(character, weapon)
+  return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)
 }
 
 // ── Class-contextual actions ────────────────────────────────────────────────

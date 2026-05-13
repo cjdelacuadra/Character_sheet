@@ -213,7 +213,7 @@ Rules:
 - [x] High Elf entry has `bonusWeaponProficiencies: ['Longsword', 'Shortsword', 'Shortbow', 'Longbow']`.
 - [x] `computeMaxHP` (in `charCalculations.ts`) accepts an optional `bonusHpPerLevel` parameter and adds it per level.
 - [x] A level 5 Hill Dwarf Fighter has 5 more max HP than an equivalent Human Fighter.
-- [ ] Race bonus weapon proficiencies are used in attack bonus computation — `computeAttackBonus` checks the character's effective proficiency list (class + race + subclass) and only adds `proficiencyBonus` when the weapon is in that list. **Not implemented: `computeAttackBonus` always adds `character.proficiencyBonus` regardless of weapon type. `bonusWeaponProficiencies` is stored on `RaceDef` but never read in any calculation. See item #25.**
+- [x] Race bonus weapon proficiencies are used in attack bonus computation — `computeAttackBonus` checks the character's effective proficiency list (class + race) and only adds `proficiencyBonus` when the weapon is in that list. Implemented in Item 25.
 
 ---
 
@@ -238,11 +238,11 @@ Rules:
 **Conditions of success:**
 - [x] `Weapon` in `types.ts` gains three optional fields: `enchantmentBonus?: number`, `bonusDamageDie?: string`, `bonusDamageType?: string`.
 - [x] The add-weapon-from-catalog flow (armory in `CharacterView.tsx`) copies `enchantmentBonus`, `bonusDamageDie`, and `bonusDamageType` from the matched `WeaponDef` into the new `Weapon`. Weapons entered manually leave these fields `undefined`.
-- [x] `computeAttackBonus` in `domain/rules/index.ts` returns `abilityMod + profBonus + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)`. Both `atkBonus` (manual override) and `enchantmentBonus` stack.
+- [x] `computeAttackBonus` in `domain/rules/index.ts` returns `abilityMod + (isProficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)`. Both `atkBonus` and `enchantmentBonus` stack. Proficiency-conditional formula supersedes earlier version — see Item 25.
 - [x] A non-magical longsword and a Longsword +1 added from the catalog show different attack bonuses in the table (difference equals exactly 1).
 - [x] Existing saved characters without `enchantmentBonus` on their weapons load without errors; the absence is treated as 0 via `?? 0`.
 - [x] A compact badge (e.g., "+1") appears next to the weapon name in the attacks table for magic weapons; absent for mundane weapons.
-- [ ] `buildCharacter` in `CharacterSelectScreen.tsx` copies `enchantmentBonus`, `bonusDamageDie`, and `bonusDamageType` from `WeaponDef` when building the initial weapon list from `chosenWeapons`. **Not implemented: the `chosenWeapons.map(...)` in `buildCharacter` (lines 159–167) omits these three fields, so a magic weapon chosen during character creation is saved without its enchantment bonus. See item #26.**
+- [x] `buildCharacter` in `CharacterSelectScreen.tsx` copies `enchantmentBonus`, `bonusDamageDie`, and `bonusDamageType` from `WeaponDef` when building the initial weapon list from `chosenWeapons`.
 
 ---
 
@@ -364,12 +364,12 @@ Rules:
 3. Return `abilityMod + (isProficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)`.
 
 **Conditions of success:**
-- [ ] `computeAttackBonus` accepts a `character` and optional race/class context (or reads it from `character.classId` and `character.race`) and only adds `character.proficiencyBonus` when the character is proficient with the weapon.
-- [ ] A Fighter (proficient with Martial weapons) attacking with a Longsword: proficiency bonus added. ✓
-- [ ] A Wizard (not proficient with Martial weapons) attacking with a Longsword: no proficiency bonus added. ✓
-- [ ] A Hill Dwarf Wizard attacking with a Battleaxe (race bonus prof): proficiency bonus added. ✓
-- [ ] A Bard with Longsword class proficiency attacking with a Longsword: proficiency bonus added. ✓
-- [ ] Non-proficient weapon rows in the attacks table show a visual indicator (e.g. `⚠` badge or greyed attack bonus).
+- [x] `computeAttackBonus` accepts a `character` and optional race/class context (or reads it from `character.classId` and `character.race`) and only adds `character.proficiencyBonus` when the character is proficient with the weapon.
+- [x] A Fighter (proficient with Martial weapons) attacking with a Longsword: proficiency bonus added. ✓
+- [x] A Wizard (not proficient with Martial weapons) attacking with a Longsword: no proficiency bonus added. ✓
+- [x] A Hill Dwarf Wizard attacking with a Battleaxe (race bonus prof): proficiency bonus added. ✓
+- [x] A Bard with Longsword class proficiency attacking with a Longsword: proficiency bonus added. ✓
+- [x] Non-proficient weapon rows in the attacks table show a visual indicator (e.g. `⚠` badge or greyed attack bonus).
 
 ---
 
@@ -397,10 +397,10 @@ const weapons = chosenWeapons.map(w => ({
 ```
 
 **Conditions of success:**
-- [ ] A character created with "Longsword +1" selected in StepEquipment has `weapon.enchantmentBonus === 1` after creation.
-- [ ] The attacks table for that character shows `"+N"` enchantment badge immediately after creation, with no re-adding needed.
-- [ ] The attack bonus for the magic weapon is computed correctly (`+1` more than the non-magical equivalent) from the first session.
-- [ ] Custom weapons added via the "Custom" tab (which have no `enchantmentBonus`) are unaffected.
+- [x] A character created with "Longsword +1" selected in StepEquipment has `weapon.enchantmentBonus === 1` after creation.
+- [x] The attacks table for that character shows `"+N"` enchantment badge immediately after creation, with no re-adding needed.
+- [x] The attack bonus for the magic weapon is computed correctly (`+1` more than the non-magical equivalent) from the first session.
+- [x] Custom weapons added via the "Custom" tab (which have no `enchantmentBonus`) are unaffected.
 
 ---
 
@@ -413,17 +413,19 @@ const weapons = chosenWeapons.map(w => ({
 - `src/renderer/src/features/character-select/CharacterSelectScreen.tsx` — optionally filter CHA from the free-pick dropdowns when race is Half-Elf (to match the 5e rule that the two free points must go to abilities other than CHA)
 
 **Conditions of success:**
-- [ ] The `HalfElf` entry in `raceData.ts` has `freeAbilityPoints: 2` in addition to `abilityBonus: { cha: 2 }`.
-- [ ] In StepScores, a Half-Elf character shows the free-ability-pick UI (same as Variant Human) allowing the player to assign +1 to any two ability scores.
-- [ ] A Half-Elf Wizard who picks STR and DEX for the free picks ends with: STR +1, DEX +1, CHA +2 (plus racial/array base scores). No other scores are changed.
-- [ ] Existing Half-Elf characters already saved to disk load without error; the `freeAbilityPoints` field only affects creation.
+- [x] The `HalfElf` entry in `raceData.ts` has `freeAbilityPoints: 2` in addition to `abilityBonus: { cha: 2 }`.
+- [x] In StepScores, a Half-Elf character shows the free-ability-pick UI (same as Variant Human) allowing the player to assign +1 to any two ability scores.
+- [x] A Half-Elf Wizard who picks STR and DEX for the free picks ends with: STR +1, DEX +1, CHA +2 (plus racial/array base scores). No other scores are changed.
+- [x] Existing Half-Elf characters already saved to disk load without error; the `freeAbilityPoints` field only affects creation.
 
 ---
 
 ## Notes
 
-- Items 1–16 (except 14 last condition, 16 last condition) are fully implemented.
+- Items 1–16 (except 14 last condition) are fully implemented.
+- Item 14 last condition (race weapon proficiencies in attack bonus) is now covered by Item 25.
+- Item 16 last condition (enchantment fields in buildCharacter) is now covered by Item 26.
 - Item 17 (3-subcolumn layout) is superseded by Items 23 and 24 and should be skipped.
-- Items 18–24 are fully implemented.
-- **Items 25, 26, 27 are new — not yet implemented.** Priority order: 26 (tiny fix, high impact), 25 (rules correctness, medium complexity), 27 (data + UI change, low complexity).
+- Items 18–27 are fully implemented.
 - One bug was fixed during audit (2026-05-13): `CharacterView.tsx` ability score edit handler was not passing `bonusHpPerLevel` to `computeMaxHP`, causing Hill Dwarf max HP to be miscalculated after ability score edits.
+- Item 16 formula contradiction with Item 25 resolved (2026-05-13): Item 25 supersedes the always-add-profBonus formula — `computeAttackBonus` now uses proficiency-conditional bonus.
