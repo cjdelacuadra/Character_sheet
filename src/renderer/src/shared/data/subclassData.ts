@@ -1,8 +1,14 @@
+import type { ArmorProficiency } from './armorData'
+
 export interface SubclassDef {
   id: string
   label: string
   classId: string
   unlocksAtLevel: number
+  /** Additional armor proficiencies granted by this subclass */
+  extraArmorProficiencies?: ArmorProficiency[]
+  /** Override unarmored AC formula: receives dex/con/wis mods, returns AC base (before shield) */
+  unarmoredAC?: (dex: number, con: number, wis: number) => number
 }
 
 export const SUBCLASSES: SubclassDef[] = [
@@ -26,7 +32,7 @@ export const SUBCLASSES: SubclassDef[] = [
   { id: 'CollegeOfEloquence',  label: 'College of Eloquence',  classId: 'Bard', unlocksAtLevel: 3 },
 
   // ── Cleric (level 1) ────────────────────────────────────────────
-  { id: 'LifeDomain',      label: 'Life Domain',      classId: 'Cleric', unlocksAtLevel: 1 },
+  { id: 'LifeDomain',      label: 'Life Domain',      classId: 'Cleric', unlocksAtLevel: 1, extraArmorProficiencies: ['heavy'] },
   { id: 'LightDomain',     label: 'Light Domain',     classId: 'Cleric', unlocksAtLevel: 1 },
   { id: 'TrickeryDomain',  label: 'Trickery Domain',  classId: 'Cleric', unlocksAtLevel: 1 },
   { id: 'KnowledgeDomain', label: 'Knowledge Domain', classId: 'Cleric', unlocksAtLevel: 1 },
@@ -103,7 +109,7 @@ export const SUBCLASSES: SubclassDef[] = [
   { id: 'Soulknife',      label: 'Soulknife',      classId: 'Rogue', unlocksAtLevel: 3 },
 
   // ── Sorcerer (level 1) ──────────────────────────────────────────
-  { id: 'DraconicBloodline', label: 'Draconic Bloodline', classId: 'Sorcerer', unlocksAtLevel: 1 },
+  { id: 'DraconicBloodline', label: 'Draconic Bloodline', classId: 'Sorcerer', unlocksAtLevel: 1, unarmoredAC: (dex) => 13 + dex },
   { id: 'WildMagicSorcerer', label: 'Wild Magic',         classId: 'Sorcerer', unlocksAtLevel: 1 },
   { id: 'DivineSoul',        label: 'Divine Soul',        classId: 'Sorcerer', unlocksAtLevel: 1 },
   { id: 'ShadowMagic',       label: 'Shadow Magic',       classId: 'Sorcerer', unlocksAtLevel: 1 },

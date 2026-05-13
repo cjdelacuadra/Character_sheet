@@ -23,7 +23,11 @@ export function computeSpellAttackBonus(character: Character): number {
 export function computeAttackBonus(character: Character, weapon: Weapon): number {
   const strMod = mod(character.abilityScores.str)
   const dexMod = mod(character.abilityScores.dex)
-  return Math.max(strMod, dexMod) + character.proficiencyBonus + weapon.atkBonus
+  const props = weapon.properties ?? []
+  const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
+  const isRanged  = weapon.rangeType === 'Ranged'
+  const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
+  return abilityMod + character.proficiencyBonus + weapon.atkBonus
 }
 
 // ── Class-contextual actions ────────────────────────────────────────────────

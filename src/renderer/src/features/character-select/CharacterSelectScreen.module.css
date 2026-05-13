@@ -692,3 +692,48 @@
 }
 
 .spellChoiceSelected .spellChoiceMeta { color: var(--text-secondary); }
+
+/* ── WEAPON CHOICES (step 3) ── */
+.weaponGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.weaponOption {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s;
+}
+
+.weaponOption:hover { border-color: var(--accent); }
+
+.weaponOptionSelected {
+  background: rgba(124, 106, 247, 0.12);
+  border-color: var(--accent);
+}
+
+.weaponName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.weaponDmg {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.weaponRange {
+  font-size: 10px;
+  color: var(--text-muted);
+}

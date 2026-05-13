@@ -37,6 +37,9 @@ export interface Weapon {
   name: string
   atkBonus: number
   damage: string
+  damageType?: string
+  rangeType?: 'Melee' | 'Ranged' | 'Melee or Ranged'
+  properties?: string[]
 }
 
 export interface Character {

@@ -14,6 +14,10 @@ export interface RaceDef {
    */
   naturalAC?: (scores: AbilityScores) => number
   size: 'small' | 'medium'
+  /** weapon names granted as bonus proficiencies (e.g. Hill Dwarf, High Elf) */
+  bonusWeaponProficiencies?: string[]
+  /** extra HP per character level (e.g. Hill Dwarf Dwarven Toughness: 1) */
+  bonusHpPerLevel?: number
 }
 
 export const RACES: RaceDef[] = [
@@ -32,6 +36,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, int: 1 },
     traits: ['Darkvision 60ft', 'Keen Senses (Perception proficiency)', 'Fey Ancestry (advantage vs charm, immune sleep)', 'Trance (4h rest instead of 8h)'],
     size: 'medium',
+    bonusWeaponProficiencies: ['Longsword', 'Shortsword', 'Shortbow', 'Longbow'],
   },
   {
     id: 'WoodElf',
@@ -48,6 +53,8 @@ export const RACES: RaceDef[] = [
     abilityBonus: { con: 2, wis: 1 },
     traits: ['Darkvision 60ft', 'Dwarven Resilience (advantage on poison saves, resistance to poison damage)', 'Stonecunning', 'Dwarven Toughness (+1 HP/level)'],
     size: 'medium',
+    bonusHpPerLevel: 1,
+    bonusWeaponProficiencies: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'],
   },
   {
     id: 'MountainDwarf',

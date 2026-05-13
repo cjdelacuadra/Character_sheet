@@ -106,7 +106,7 @@ export function CharacterView() {
       const key = field as keyof AbilityScores
       const clamped = Math.min(30, Math.max(1, v))
       const newScores = { ...char.abilityScores, [key]: clamped }
-      const newAC = computeAC({ abilityScores: newScores, equipment: eq, classId: char.classId, race: char.race })
+      const newAC = computeAC({ abilityScores: newScores, equipment: eq, classId: char.classId, race: char.race, subclass: char.subclass })
       const newMaxHP = computeMaxHP(char.classId, char.level, newScores.con)
       const hpDiff = newMaxHP - hp.max
       update({
@@ -138,7 +138,7 @@ export function CharacterView() {
 
   function setArmor(armorId: string | null, hasShield: boolean) {
     const newEq = { armorId, hasShield }
-    const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race })
+    const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race, subclass: char.subclass })
     update({ equipment: newEq, armorClass: newAC })
   }
 
@@ -248,11 +248,19 @@ export function CharacterView() {
     return (res.total - res.used) < action.resourceCost
   }
 
-  const armorName = eq.armorId ? (ARMOR_BY_ID[eq.armorId]?.name ?? 'Unknown') : 'Unarmored'
+  const equippedArmor = eq.armorId ? ARMOR_BY_ID[eq.armorId] : null
+  const armorName = equippedArmor?.name ?? 'Unarmored'
+  const armorStrRequired = equippedArmor?.strRequirement ?? 0
+  const armorStrWarning = armorStrRequired > 0 && char.abilityScores.str < armorStrRequired
+  const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
+  const effectiveArmorProfs = [
+    ...(classDef?.armorProficiencies ?? []),
+    ...(subclassDef?.extraArmorProficiencies ?? []),
+  ]
   const allowedArmors = ARMOR_LIST.filter(a =>
-    a.type === 'none' || (classDef?.armorProficiencies.includes(a.type as 'light' | 'medium' | 'heavy') ?? false)
+    a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
   )
-  const canShield = classDef?.armorProficiencies.includes('shields') ?? false
+  const canShield = effectiveArmorProfs.includes('shields')
   const passivePerception = 10 + mod(char.abilityScores.wis) +
     (char.skillProficiencies?.['perception'] === 'expert' ? prof * 2 :
      char.skillProficiencies?.['perception'] === 'proficient' ? prof : 0)
@@ -474,10 +482,10 @@ export function CharacterView() {
           {/* Combat Stats */}
           <section className={styles.section}>
             <div className={styles.combatGrid}>
-              <div className={styles.statChip}>
-                <span className={styles.statVal}>{char.armorClass}</span>
+              <div className={`${styles.statChip} ${armorStrWarning ? styles.statChipWarn : ''}`}>
+                <span className={styles.statVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
                 <span className={styles.statKey}>AC</span>
-                <span className={styles.statSub}>{armorName}{eq.hasShield ? ' +Sh' : ''}</span>
+                <span className={styles.statSub}>{armorName}{eq.hasShield ? ' +Sh' : ''}{armorStrWarning ? ` (STR ${armorStrRequired}+)` : ''}</span>
               </div>
               <div
                 className={`${styles.statChip} ${styles.statEditable}`}
@@ -759,7 +767,7 @@ export function CharacterView() {
                     <tr key={w.id} className={styles.weaponRow}>
                       <td className={styles.weaponName}>{w.name}</td>
                       <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
-                      <td className={styles.weaponDmg}>{w.damage}</td>
+                      <td className={styles.weaponDmg}>{w.damage}{w.damageType ? ` ${w.damageType}` : ''}</td>
                       <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
                     </tr>
                   )

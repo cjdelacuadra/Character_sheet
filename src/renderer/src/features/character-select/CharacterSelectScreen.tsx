@@ -6,6 +6,7 @@ import { SKILLS, SKILL_BY_KEY } from '@/shared/data/skills'
 import { RACE_LABELS, RACE_BY_ID } from '@/shared/data/raceData'
 import { CLASS_LABELS, CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { weaponsForClass, type WeaponDef } from '@/shared/data/weaponData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
 import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/armorData'
 import {
@@ -108,6 +109,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   const [armorId, setArmorId] = useState<string>('none')
   const [hasShield, setHasShield] = useState(false)
   const [chosenSkills, setChosenSkills] = useState<Skill[]>([])
+  const [chosenWeapons, setChosenWeapons] = useState<WeaponDef[]>([])
 
   // Step 4 state
   const [chosenSpells, setChosenSpells] = useState<string[]>([])
@@ -136,9 +138,10 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   function buildCharacter(): Character {
     const scores = getScores()
     const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield }
-    const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race }
+    const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass }
     const ac = computeAC(charBase)
-    const maxHp = computeMaxHP(basics.classId, basics.level, scores.con)
+    const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
+    const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
     const speed = computeSpeed(basics.race)
     const dexMod = mod(scores.dex)
     const prof = profBonus(basics.level)
@@ -148,6 +151,16 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     chosenSkills.forEach(s => { skillProf[s] = 'proficient' })
 
     const resources = getResourceDefaults(basics.classId, basics.level, scores)
+
+    const weapons = chosenWeapons.map(w => ({
+      id: w.id,
+      name: w.name,
+      atkBonus: 0,
+      damage: w.damageDie,
+      damageType: w.damageType,
+      rangeType: w.rangeType,
+      properties: w.properties,
+    }))
 
     return {
       id: crypto.randomUUID(),
@@ -169,6 +182,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       skillProficiencies: skillProf,
       spellIds: chosenSpells,
       spellSlots: defaultSpellSlots(basics.classId, basics.level),
+      weapons,
       conditionIds: [],
       resources,
       deathSaves: { successes: 0, failures: 0 },
@@ -220,6 +234,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             armorId={armorId} setArmorId={setArmorId}
             hasShield={hasShield} setHasShield={setHasShield}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
+            chosenWeapons={chosenWeapons} setChosenWeapons={setChosenWeapons}
             onBack={() => setStep('scores')}
             onNext={isSpellcaster ? () => setStep('spells') : undefined}
             onCreate={isSpellcaster ? undefined : () => onCreate(buildCharacter())}
@@ -261,6 +276,8 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
 }) {
   const set = (k: keyof Basics, v: string | number | undefined) => onChange({ ...value, [k]: v })
   const subclassOptions = SUBCLASSES_BY_CLASS[value.classId] ?? []
+  const subclassRequired = subclassOptions.length > 0 && subclassOptions[0].unlocksAtLevel <= value.level
+  const canAdvance = !!value.name.trim() && (!subclassRequired || !!value.subclass)
   return (
     <div className={styles.stepContent}>
       <div className={styles.form}>
@@ -284,9 +301,14 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
         </div>
         {subclassOptions.length > 0 && (
           <label className={styles.field}>
-            <span>Subclass {subclassOptions[0].unlocksAtLevel > 1 ? `(unlocks at level ${subclassOptions[0].unlocksAtLevel})` : ''}</span>
+            <span>
+              Subclass
+              {subclassRequired
+                ? ' (required)'
+                : ` (unlocks at level ${subclassOptions[0].unlocksAtLevel})`}
+            </span>
             <select className={styles.input} value={value.subclass ?? ''} onChange={e => set('subclass', e.target.value || undefined)}>
-              <option value="">— None —</option>
+              {!subclassRequired && <option value="">— None —</option>}
               {subclassOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
@@ -316,7 +338,7 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
       </div>
       <div className={styles.actions}>
         <button type="button" className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-        <button type="button" className={styles.nextBtn} disabled={!value.name.trim()} onClick={onNext}>
+        <button type="button" className={styles.nextBtn} disabled={!canAdvance} onClick={onNext}>
           Ability Scores →
         </button>
       </div>
@@ -515,27 +537,45 @@ function StepScores({
 
 function StepEquipment({
   basics, scores, armorId, setArmorId, hasShield, setHasShield,
-  chosenSkills, setChosenSkills, onBack, onNext, onCreate,
+  chosenSkills, setChosenSkills, chosenWeapons, setChosenWeapons,
+  onBack, onNext, onCreate,
 }: {
   basics: Basics; scores: AbilityScores
   armorId: string; setArmorId: (v: string) => void
   hasShield: boolean; setHasShield: (v: boolean) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
+  chosenWeapons: WeaponDef[]; setChosenWeapons: (v: WeaponDef[]) => void
   onBack: () => void; onNext?: () => void; onCreate?: () => void
 }) {
   const classDef = CLASS_BY_ID[basics.classId]
   const bgDef = BACKGROUND_BY_ID[basics.background]
   const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield }
-  const ac = computeAC({ abilityScores: scores, equipment, classId: basics.classId, race: basics.race })
-  const maxHp = computeMaxHP(basics.classId, basics.level, scores.con)
+  const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
+  const ac = computeAC({ abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass })
+  const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
   const speed = computeSpeed(basics.race)
   const raceDef = RACE_BY_ID[basics.race]
+  const subclassDef = basics.subclass ? SUBCLASS_BY_ID[basics.subclass] : undefined
 
+  const effectiveArmorProfs = [
+    ...(classDef?.armorProficiencies ?? []),
+    ...(subclassDef?.extraArmorProficiencies ?? []),
+  ]
   const allowedArmor = ARMOR_LIST.filter(a => {
     if (a.type === 'none') return true
-    return classDef?.armorProficiencies.includes(a.type as 'light' | 'medium' | 'heavy') ?? false
+    if (a.enchantmentBonus) return false  // magic items are DM-granted, not chosen at creation
+    return effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
   })
-  const canShield = classDef?.armorProficiencies.includes('shields') ?? false
+  const canShield = effectiveArmorProfs.includes('shields')
+
+  const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? [])
+  function toggleWeapon(w: WeaponDef) {
+    if (chosenWeapons.find(cw => cw.id === w.id)) {
+      setChosenWeapons(chosenWeapons.filter(cw => cw.id !== w.id))
+    } else {
+      setChosenWeapons([...chosenWeapons, w])
+    }
+  }
 
   const bgSkills = new Set(bgDef?.skills ?? [])
   const classSkills = classDef?.skillOptions ?? []
@@ -556,7 +596,7 @@ function StepEquipment({
     <div className={styles.stepContent}>
       {/* Calculated stats preview */}
       <div className={styles.statPreview}>
-        <StatPreviewChip label="Max HP" value={maxHp} sub={`d${classDef?.hitDie} + CON×${basics.level}`} />
+        <StatPreviewChip label="Max HP" value={maxHp} sub={bonusHpPerLevel ? `d${classDef?.hitDie} + CON + ${bonusHpPerLevel}/lvl` : `d${classDef?.hitDie} + CON×${basics.level}`} />
         <StatPreviewChip label="AC" value={ac} sub={armorId === 'none' ? 'unarmored' : (ARMOR_BY_ID[armorId]?.name ?? '')} />
         <StatPreviewChip label="Speed" value={`${speed}ft`} sub={raceDef?.label ?? basics.race} />
         <StatPreviewChip label="Initiative" value={modStr(mod(scores.dex))} sub="DEX mod" />
@@ -573,7 +613,7 @@ function StepEquipment({
               onClick={() => setArmorId(a.id)}
             >
               <span className={styles.armorName}>{a.name}</span>
-              <span className={styles.armorAc}>AC {computeAC({ abilityScores: scores, equipment: { armorId: a.id === 'none' ? null : a.id, hasShield: false }, classId: basics.classId, race: basics.race })}</span>
+              <span className={styles.armorAc}>AC {computeAC({ abilityScores: scores, equipment: { armorId: a.id === 'none' ? null : a.id, hasShield: false }, classId: basics.classId, race: basics.race, subclass: basics.subclass })}</span>
               {a.type !== 'none' && <span className={styles.armorType}>{a.type}</span>}
             </button>
           ))}
@@ -610,6 +650,26 @@ function StepEquipment({
           )}
         </div>
       )}
+
+      {/* Weapons */}
+      <div className={styles.equipSection}>
+        <div className={styles.equipLabel}>Starting Weapons — choose any (can add more later)</div>
+        <div className={styles.weaponGrid}>
+          {availableWeapons.map(w => {
+            const chosen = !!chosenWeapons.find(cw => cw.id === w.id)
+            return (
+              <button key={w.id}
+                className={`${styles.weaponOption} ${chosen ? styles.weaponOptionSelected : ''}`}
+                onClick={() => toggleWeapon(w)}
+              >
+                <span className={styles.weaponName}>{w.name}</span>
+                <span className={styles.weaponDmg}>{w.damageDie} {w.damageType}</span>
+                <span className={styles.weaponRange}>{w.rangeType}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <div className={styles.actions}>
         <button type="button" className={styles.cancelBtn} onClick={onBack}>← Back</button>

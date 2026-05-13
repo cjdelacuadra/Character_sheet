@@ -3,6 +3,7 @@ import type { Skill } from './skills'
 import { ARMOR_BY_ID } from './armorData'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
+import { SUBCLASS_BY_ID } from './subclassData'
 
 export function mod(score: number): number {
   return Math.floor((score - 10) / 2)
@@ -12,20 +13,20 @@ export function profBonus(level: number): number {
   return Math.ceil(level / 4) + 1
 }
 
-/** Computes max HP from class, level, and CON modifier. */
-export function computeMaxHP(classId: string, level: number, conScore: number): number {
+/** Computes max HP from class, level, CON modifier, and optional racial bonus HP/level. */
+export function computeMaxHP(classId: string, level: number, conScore: number, bonusHpPerLevel = 0): number {
   const cls = CLASS_BY_ID[classId]
   if (!cls) return 1
   const conMod = mod(conScore)
   const hitDie = cls.hitDie
   const avgPerLevel = HIT_DIE_AVERAGE[hitDie]
-  // Level 1: max hit die + CON; subsequent levels: average + CON
-  return hitDie + conMod + (level - 1) * (avgPerLevel + conMod)
+  // Level 1: max hit die + CON; subsequent levels: average + CON; each level adds racial bonus
+  return hitDie + conMod + (level - 1) * (avgPerLevel + conMod) + level * bonusHpPerLevel
 }
 
-/** Computes AC from equipment, scores, class, and race. */
-export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 'classId' | 'race'>): number {
-  const { abilityScores, equipment, classId, race } = char
+/** Computes AC from equipment, scores, class, race, and optional subclass. */
+export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 'classId' | 'race'> & { subclass?: string }): number {
+  const { abilityScores, equipment, classId, race, subclass } = char
   const dexMod = mod(abilityScores.dex)
   const conMod = mod(abilityScores.con)
   const wisMod = mod(abilityScores.wis)
@@ -41,20 +42,25 @@ export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 
   const armor = ARMOR_BY_ID[armorId]
 
   if (!armor || armorId === 'none') {
-    // Unarmored defense
+    // Subclass unarmored AC override (e.g. Draconic Bloodline Sorcerer: 13 + DEX)
+    const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
+    if (subclassDef?.unarmoredAC) {
+      return subclassDef.unarmoredAC(dexMod, conMod, wisMod) + shield
+    }
+    // Standard unarmored defense
     let ac = 10 + dexMod
     if (classId === 'Barbarian') ac = 10 + dexMod + conMod
-    else if (classId === 'Monk') ac = 10 + dexMod + wisMod
+    else if (classId === 'Monk')  ac = 10 + dexMod + wisMod
     return ac + shield
   }
 
-  // Apply DEX cap
+  // Apply DEX cap + enchantment bonus
   const effectiveDex =
     armor.dexCap === undefined ? dexMod :
-    armor.dexCap === 0 ? 0 :
+    armor.dexCap === 0         ? 0      :
     Math.min(dexMod, armor.dexCap)
 
-  return armor.baseAC + effectiveDex + shield
+  return armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield
 }
 
 /** Computes race-adjusted speed (class modifications applied separately). */
