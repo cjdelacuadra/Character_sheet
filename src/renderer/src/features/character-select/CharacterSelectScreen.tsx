@@ -92,11 +92,11 @@ function hpColor(current: number, max: number) {
 type Step = 'basics' | 'scores' | 'equipment' | 'spells'
 type ScoreMethod = 'standard' | 'pointbuy' | 'roll'
 
-interface Basics { name: string; race: string; classId: string; subclass?: string; background: string; level: number }
+interface Basics { name: string; playerName: string; alignment: string; race: string; classId: string; subclass?: string; background: string; level: number }
 
 function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Character) => void }) {
   const [step, setStep] = useState<Step>('basics')
-  const [basics, setBasics] = useState<Basics>({ name: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1 })
+  const [basics, setBasics] = useState<Basics>({ name: '', playerName: '', alignment: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1 })
 
   // Step 2 state
   const [method, setMethod] = useState<ScoreMethod>('standard')
@@ -169,6 +169,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     return {
       id: crypto.randomUUID(),
       name: basics.name.trim(),
+      playerName: basics.playerName.trim() || undefined,
+      alignment: basics.alignment || undefined,
       race: basics.race,
       classId: basics.classId,
       subclass: basics.subclass,
@@ -287,10 +289,27 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
   return (
     <div className={styles.stepContent}>
       <div className={styles.form}>
-        <label className={styles.field}>
-          <span>Name</span>
-          <input className={styles.input} value={value.name} onChange={e => set('name', e.target.value)} placeholder="Character name" autoFocus />
-        </label>
+        <div className={styles.row}>
+          <label className={styles.field}>
+            <span>Character Name</span>
+            <input className={styles.input} value={value.name} onChange={e => set('name', e.target.value)} placeholder="Character name" autoFocus />
+          </label>
+          <label className={styles.field}>
+            <span>Player Name</span>
+            <input className={styles.input} value={value.playerName} onChange={e => set('playerName', e.target.value)} placeholder="Your name (optional)" />
+          </label>
+        </div>
+        <div className={styles.row}>
+          <label className={styles.field}>
+            <span>Alignment</span>
+            <select className={styles.input} value={value.alignment} onChange={e => set('alignment', e.target.value)}>
+              <option value="">— None —</option>
+              {['Lawful Good','Neutral Good','Chaotic Good','Lawful Neutral','True Neutral','Chaotic Neutral','Lawful Evil','Neutral Evil','Chaotic Evil'].map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className={styles.row}>
           <label className={styles.field}>
             <span>Race</span>

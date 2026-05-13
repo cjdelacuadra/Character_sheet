@@ -48,6 +48,8 @@ export interface Weapon {
 export interface Character {
   id: string
   name: string
+  playerName?: string
+  alignment?: string
   race: string
   classId: string
   subclass?: string
@@ -76,4 +78,5 @@ export interface Character {
   deathSaves: { successes: number; failures: number }
   inspiration: boolean
   hitDiceUsed: number
+  feats?: string[]
 }

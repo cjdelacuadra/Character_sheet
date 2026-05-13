@@ -1,9 +1,10 @@
 import { create } from 'zustand'
-import type { Character } from '@/entities/character/types'
+import type { Character, AbilityScores } from '@/entities/character/types'
 import { profBonus, computeMaxHP, mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
+import type { AsiChoice } from '@/widgets/level-up-modal/LevelUpModal'
 
 interface AppState {
   activeCharacterId: string | null
@@ -17,7 +18,7 @@ interface AppState {
   loadFromDisk: () => Promise<void>
   shortRest: (id: string, hdRolled: number) => void
   longRest: (id: string) => void
-  levelUp: (id: string) => void
+  levelUp: (id: string, asiChoice?: AsiChoice) => void
   setTempHp: (id: string, amount: number) => void
 }
 
@@ -174,13 +175,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
-  levelUp: (id) => {
+  levelUp: (id, asiChoice) => {
     set((state) => {
       const char = state.characters[id]
       if (!char || char.level >= 20) return state
       const newLevel = char.level + 1
       const newProf = profBonus(newLevel)
-      const newMaxHp = computeMaxHP(char.classId, newLevel, char.abilityScores.con)
+
+      // Apply ASI choice to ability scores
+      let newScores: AbilityScores = { ...char.abilityScores }
+      let newFeats: string[] = [...(char.feats ?? [])]
+      if (asiChoice) {
+        if (asiChoice.type === 'double') {
+          newScores = { ...newScores, [asiChoice.ability]: Math.min(20, newScores[asiChoice.ability] + 2) }
+        } else if (asiChoice.type === 'split') {
+          newScores = {
+            ...newScores,
+            [asiChoice.ability1]: Math.min(20, newScores[asiChoice.ability1] + 1),
+            [asiChoice.ability2]: Math.min(20, newScores[asiChoice.ability2] + 1),
+          }
+        } else if (asiChoice.type === 'feat') {
+          newFeats = [...newFeats, asiChoice.featId]
+        }
+      }
+
+      const newMaxHp = computeMaxHP(char.classId, newLevel, newScores.con)
       const hpGain = newMaxHp - char.hitPoints.max
       const newSlots = defaultSpellSlots(char.classId, newLevel)
       // Merge new slots: keep used counts for existing levels, add new levels fresh
@@ -194,7 +213,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
       // Re-seed resources at new level
-      const newDefaults = getResourceDefaults(char.classId, newLevel, char.abilityScores)
+      const newDefaults = getResourceDefaults(char.classId, newLevel, newScores)
       const newResources: Record<string, { used: number; total: number }> = {}
       for (const [key, def] of Object.entries(newDefaults)) {
         const existing = char.resources[key]
@@ -207,6 +226,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...char,
         level: newLevel,
         proficiencyBonus: newProf,
+        abilityScores: newScores,
+        feats: newFeats,
         hitPoints: {
           ...char.hitPoints,
           max: newMaxHp,

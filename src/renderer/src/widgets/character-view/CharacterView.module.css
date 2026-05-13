@@ -21,44 +21,58 @@
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* ── TOPBAR ── */
-.topbar {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
+/* ── HEADER — 2-ROW IDENTITY GRID ── */
+.headerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto auto;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  gap: 16px;
 }
 
-.topIdentity {
+.headerCell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: flex-end;
+  padding: 6px 14px 5px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   min-width: 0;
-  flex: 1;
 }
 
-.topName {
-  font-size: 15px;
+.headerCell:nth-child(4n) { border-right: none; }
+.headerCell:nth-child(5), .headerCell:nth-child(6), .headerCell:nth-child(7), .headerCell:nth-child(8) { border-bottom: none; }
+
+.headerValue {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-height: 18px;
 }
 
-.topSub {
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.headerLabel {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
+.headerActions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+/* Legacy topbar refs kept for button styles below */
 .topRight {
   display: flex;
   align-items: center;
@@ -108,15 +122,15 @@
 }
 
 .leftCol {
-  width: 240px;
+  width: 300px;
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
-  padding: 10px 8px;
+  padding: 8px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .centerCol {
@@ -303,6 +317,136 @@
 .deathDot:hover { border-color: var(--text-secondary); }
 .dotSuccess { background: var(--success); border-color: var(--success); }
 .dotFail    { background: var(--danger);  border-color: var(--danger); }
+
+/* ── TOP STAT ROW (AC | Initiative | Speed) ── */
+.topStatRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.topStatBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px 6px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  gap: 3px;
+  min-height: 62px;
+}
+
+.topStatBox:last-child { border-right: none; }
+
+.topStatBoxWarn { border-color: var(--warning) !important; }
+.topStatBoxWarn .topStatVal { color: var(--warning); }
+
+.topStatEditable { cursor: pointer; transition: background 0.15s; }
+.topStatEditable:hover { background: rgba(139,124,248,0.06); }
+
+.topStatVal {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.topStatLabel {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.armorPickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 2px;
+}
+
+.secondaryStatRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 2px 4px;
+  flex-wrap: wrap;
+}
+
+.secondaryStat {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.secondaryStat strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── HP ROW (Row 2) ── */
+.hpRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hpCurrentSection {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px 6px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+}
+
+.hpMaxLabel {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.hpTempSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  gap: 4px;
+  min-width: 64px;
+}
+
+.hpDeathSection {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px 4px;
+  background: var(--bg-elevated);
+  gap: 2px;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.hpSectionLabel {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  text-align: center;
+}
 
 /* ── COMBAT STATS ── */
 .combatGrid {
@@ -679,7 +823,7 @@
 /* ── SAVING THROWS ── */
 .savesList { display: flex; flex-direction: column; gap: 4px; }
 
-.saveRow { display: flex; align-items: center; gap: 8px; }
+.saveRow { display: flex; align-items: center; gap: 5px; padding: 2px 8px; }
 
 .saveDot {
   width: 9px;
@@ -847,6 +991,16 @@
 .weaponThAtk  { width: 22%; }
 .weaponThDmg  { width: 30%; }
 .weaponThDel  { width: 8%; }
+
+/* 8-column rich weapon table */
+.wthName  { width: 22%; }
+.wthAtk   { width: 8%; }
+.wthDmg   { width: 10%; }
+.wthType  { width: 12%; }
+.wthBdmg  { width: 10%; }
+.wthBtype { width: 12%; }
+.wthRange { width: 10%; }
+.wthDel   { width: 4%; }
 
 .weaponRow td {
   padding: 7px 8px;
@@ -1815,6 +1969,179 @@
 }
 
 .armoryAddBtn:hover { opacity: 0.85; }
+
+/* ── INSPIRATION PIP ROW (Row 3) ── */
+.inspirationPipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.inspirationPipLabel {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.inspirationPip {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.inspirationPip:hover { border-color: var(--accent); }
+.inspirationPipFilled { background: var(--accent); border-color: var(--accent); }
+
+/* ── STATS SUB-GRID (Row 4) ── */
+.statsSubGrid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.statsSubLeft {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+/* ── ABILITY BLOCKS (Item 23) ── */
+.abilityBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  gap: 3px;
+}
+
+.abilityBlock:last-child { border-bottom: none; }
+
+.abilityModCircle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.abilityScoreBox {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+}
+
+.abilityScoreBox:hover { border-color: var(--accent); }
+
+.abilityScoreNum {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.abilityName {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── SAVES / SKILLS SUB-COLUMN (Item 24 right) ── */
+.statsSubRight {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg-surface);
+}
+
+.savesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.profBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.skillsHeader {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.saveCircle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+
+.saveCircle:hover { border-color: var(--accent); }
+.saveCircleFilled { background: var(--accent); border-color: var(--accent); }
+
+.skillCircle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  background: transparent;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.skillCircleProf   { background: var(--accent);  border-color: var(--accent); }
+.skillCircleExpert { background: var(--warning); border-color: var(--warning); }
 
 /* ── Enchantment badge ───────────────────────────────────────────────────────── */
 

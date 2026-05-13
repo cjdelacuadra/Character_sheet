@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useAppStore } from '@/app/store'
 import type { Character, AbilityScores, AbilityScore, Skill, Weapon } from '@/entities/character/types'
+import { LevelUpModal } from '@/widgets/level-up-modal/LevelUpModal'
+import type { AsiChoice } from '@/widgets/level-up-modal/LevelUpModal'
 import { SKILLS } from '@/shared/data/skills'
 import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
 import { WEAPONS, type WeaponDef } from '@/shared/data/weaponData'
@@ -51,6 +53,7 @@ export function CharacterView() {
   const [spellModal, setSpellModal] = useState<string | null>(null)
   const [restPanel, setRestPanel] = useState<'short' | 'long' | null>(null)
   const [hdRoll, setHdRoll] = useState<string>('')
+  const [levelUpModalOpen, setLevelUpModalOpen] = useState(false)
 
   const charMaybe = activeCharacterId ? characters[activeCharacterId] : null
   if (!charMaybe) return null
@@ -59,7 +62,6 @@ export function CharacterView() {
   const update = (patch: Partial<Character>) => updateCharacter(char.id, patch)
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
-  const isDown = hp.current <= 0
   const eq = char.equipment ?? { armorId: null, hasShield: false }
   const classDef = CLASS_BY_ID[char.classId]
   const prof = char.proficiencyBonus
@@ -70,6 +72,20 @@ export function CharacterView() {
   const availableActions = getAvailableActions(char)
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
+  const nextLevelIsAsi = classDef?.asiLevels?.includes(char.level + 1) ?? false
+
+  function handleLevelUp() {
+    if (nextLevelIsAsi) {
+      setLevelUpModalOpen(true)
+    } else {
+      levelUp(char.id)
+    }
+  }
+
+  function handleAsiConfirm(choice: AsiChoice) {
+    levelUp(char.id, choice)
+    setLevelUpModalOpen(false)
+  }
 
   // ── HP handlers ──────────────────────────────────────────────────────────
 
@@ -318,52 +334,67 @@ export function CharacterView() {
   return (
     <div className={styles.view}>
 
-      {/* ── TOPBAR ── */}
-      <header className={styles.topbar}>
-        <div className={styles.topIdentity}>
-          <span className={styles.topName}>{char.name}</span>
-          <span className={styles.topSub}>
-            Level {char.level} · {char.race} · {char.classId}
-            {char.subclass ? ` (${SUBCLASS_BY_ID[char.subclass]?.label ?? char.subclass})` : ''} · {char.background}
+      {/* ── HEADER: 2-ROW IDENTITY GRID ── */}
+      <header className={styles.headerGrid}>
+        {/* Row 1 */}
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>{char.name}</span>
+          <span className={styles.headerLabel}>Character Name</span>
+        </div>
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>
+            {char.classId}{char.subclass ? ` (${SUBCLASS_BY_ID[char.subclass]?.label ?? char.subclass})` : ''} {char.level}
           </span>
+          <span className={styles.headerLabel}>Class &amp; Level</span>
         </div>
-
-        {/* XP tracker */}
-        <div className={styles.xpBlock}>
-          {fieldEdit?.field === 'xp' ? (
-            <input
-              className={styles.xpInput}
-              type="number"
-              value={fieldEdit.value}
-              autoFocus
-              onChange={e => setFieldEdit({ field: 'xp', value: e.target.value })}
-              onBlur={commitEdit}
-              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
-            />
-          ) : (
-            <button className={styles.xpBtn} onClick={() => startEdit('xp', char.experiencePoints)}>
-              <span className={styles.xpVal}>{char.experiencePoints.toLocaleString()}</span>
-              {xpNext !== null && <span className={styles.xpMax}>/{xpNext.toLocaleString()} XP</span>}
-            </button>
-          )}
-          {canLevelUp && (
-            <button className={styles.levelUpBtn} onClick={() => levelUp(char.id)}>
-              ↑ Level Up
-            </button>
-          )}
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>{char.background}</span>
+          <span className={styles.headerLabel}>Background</span>
         </div>
-
-        <div className={styles.topRight}>
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>{char.playerName || '—'}</span>
+          <span className={styles.headerLabel}>Player Name</span>
+        </div>
+        {/* Row 2 */}
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>{char.race}</span>
+          <span className={styles.headerLabel}>Race</span>
+        </div>
+        <div className={styles.headerCell}>
+          <span className={styles.headerValue}>{char.alignment || '—'}</span>
+          <span className={styles.headerLabel}>Alignment</span>
+        </div>
+        <div className={styles.headerCell}>
+          <div className={styles.xpBlock}>
+            {fieldEdit?.field === 'xp' ? (
+              <input
+                className={styles.xpInput}
+                type="number"
+                value={fieldEdit.value}
+                autoFocus
+                onChange={e => setFieldEdit({ field: 'xp', value: e.target.value })}
+                onBlur={commitEdit}
+                onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+              />
+            ) : (
+              <button className={styles.xpBtn} onClick={() => startEdit('xp', char.experiencePoints)}>
+                <span className={styles.xpVal}>{char.experiencePoints.toLocaleString()}</span>
+                {xpNext !== null && <span className={styles.xpMax}>/{xpNext.toLocaleString()}</span>}
+              </button>
+            )}
+            {canLevelUp && (
+              <button className={styles.levelUpBtn} onClick={handleLevelUp}>↑ Level Up</button>
+            )}
+          </div>
+          <span className={styles.headerLabel}>Experience Points</span>
+        </div>
+        <div className={`${styles.headerCell} ${styles.headerActions}`}>
           <button
             className={`${styles.inspirationBtn} ${char.inspiration ? styles.inspirationOn : ''}`}
             onClick={() => update({ inspiration: !char.inspiration })}
-          >
-            ✦ Inspiration
-          </button>
-          <button className={styles.restBtn} onClick={() => setRestPanel(restPanel ? null : 'short')}>
-            Rest
-          </button>
-          <button className={styles.backBtn} onClick={exitCharacter}>← Characters</button>
+          >✦ Insp.</button>
+          <button className={styles.restBtn} onClick={() => setRestPanel(restPanel ? null : 'short')}>Rest</button>
+          <button className={styles.backBtn} onClick={exitCharacter}>← Back</button>
         </div>
       </header>
 
@@ -427,12 +458,93 @@ export function CharacterView() {
         {/* ── LEFT: Vitals ── */}
         <aside className={styles.leftCol}>
 
-          {/* HP */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Hit Points</span>
+          {/* Row 1: AC | Initiative | Speed */}
+          <div className={styles.topStatRow}>
+            <div className={`${styles.topStatBox} ${armorStrWarning ? styles.topStatBoxWarn : ''}`}
+              onClick={() => setArmorOpen(v => !v)} title="Click to manage armor">
+              <span className={styles.topStatVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
+              <span className={styles.topStatLabel}>Armor Class</span>
             </div>
-            <div className={styles.hpDisplay}>
+            <div
+              className={`${styles.topStatBox} ${styles.topStatEditable}`}
+              onClick={() => fieldEdit?.field !== 'initiative' && startEdit('initiative', char.initiative)}
+              title="Click to edit"
+            >
+              {fieldEdit?.field === 'initiative' ? (
+                <input
+                  className={styles.statEditInput}
+                  type="number"
+                  value={fieldEdit.value}
+                  autoFocus
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setFieldEdit({ field: 'initiative', value: e.target.value })}
+                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key === 'Enter') commitEdit() }}
+                />
+              ) : (
+                <span className={styles.topStatVal}>{fmtMod(char.initiative)}</span>
+              )}
+              <span className={styles.topStatLabel}>Initiative</span>
+            </div>
+            <div
+              className={`${styles.topStatBox} ${styles.topStatEditable}`}
+              onClick={() => fieldEdit?.field !== 'speed' && startEdit('speed', char.speed)}
+              title="Click to edit"
+            >
+              {fieldEdit?.field === 'speed' ? (
+                <input
+                  className={styles.statEditInput}
+                  type="number"
+                  value={fieldEdit.value}
+                  autoFocus
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => setFieldEdit({ field: 'speed', value: e.target.value })}
+                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key === 'Enter') commitEdit() }}
+                />
+              ) : (
+                <span className={styles.topStatVal}>{char.speed} <span className={styles.statUnit}>ft</span></span>
+              )}
+              <span className={styles.topStatLabel}>Speed</span>
+            </div>
+          </div>
+
+          {/* Armor picker — collapsed sub-row */}
+          {armorOpen && (
+            <div className={styles.armorPickerRow}>
+              {allowedArmors.map(a => (
+                <button
+                  key={a.id}
+                  className={`${styles.armorOpt} ${(eq.armorId ?? 'none') === a.id ? styles.armorOptSel : ''}`}
+                  onClick={() => { setArmor(a.id === 'none' ? null : a.id, eq.hasShield); setArmorOpen(false) }}
+                >
+                  {a.name}
+                </button>
+              ))}
+              {canShield && (
+                <button
+                  className={`${styles.armorOpt} ${eq.hasShield ? styles.armorOptSel : ''}`}
+                  onClick={() => setArmor(eq.armorId, !eq.hasShield)}
+                >
+                  {eq.hasShield ? '✓ Shield' : 'Shield'}
+                </button>
+              )}
+              <button className={styles.armorOpt} onClick={() => setArmorOpen(false)}>Done</button>
+            </div>
+          )}
+
+          {/* Secondary stats row: Prof / Spell DC / Spell Atk */}
+          <div className={styles.secondaryStatRow}>
+            <span className={styles.secondaryStat}><strong>{fmtMod(prof)}</strong> Prof</span>
+            {spellSaveDC !== null && <span className={styles.secondaryStat}><strong>{spellSaveDC}</strong> Spell DC</span>}
+            {spellAtkBonus !== null && <span className={styles.secondaryStat}><strong>{fmtMod(spellAtkBonus)}</strong> Spell Atk</span>}
+          </div>
+
+          {/* Row 2: HP | Temp HP | Death Saves */}
+          <div className={styles.hpRow}>
+            {/* Current HP */}
+            <div className={styles.hpCurrentSection}>
+              <span className={styles.hpMaxLabel}>Hit Point Maximum: {hp.max}</span>
               {hpEdit !== null ? (
                 <input
                   className={styles.hpEditInput}
@@ -449,9 +561,10 @@ export function CharacterView() {
                   {hp.current}
                 </span>
               )}
-              <span className={styles.hpSlash}>/</span>
-              <span className={styles.hpMaxVal}>{hp.max}</span>
-              {/* Temp HP inline chip */}
+            </div>
+            {/* Temp HP */}
+            <div className={styles.hpTempSection}>
+              <span className={styles.hpSectionLabel}>Temp HP</span>
               {tempHpEdit !== null ? (
                 <input
                   className={styles.tempHpInput}
@@ -467,37 +580,18 @@ export function CharacterView() {
                 <button
                   className={`${styles.tempHpChip} ${hp.temp > 0 ? styles.tempHpActive : styles.tempHpMuted}`}
                   onClick={() => setTempHpEdit(String(hp.temp))}
-                  title="Temp HP — click to set"
+                  title="Click to set"
                 >
-                  {hp.temp > 0 ? `+${hp.temp}` : '+0'}
+                  {hp.temp > 0 ? `+${hp.temp}` : '—'}
                 </button>
               )}
             </div>
-            <div className={styles.hpBar}>
-              <div
-                className={styles.hpFill}
-                style={{ width: `${hpPct}%`, background: hpPct > 50 ? 'var(--success)' : hpPct > 25 ? 'var(--warning)' : 'var(--danger)' }}
-              />
-            </div>
-            <div className={styles.hpBtns}>
-              {[-10, -5, -1].map(d => (
-                <button key={d} className={styles.dmgBtn} onClick={() => applyHp(d)}>{d}</button>
-              ))}
-              {[1, 5, 10].map(d => (
-                <button key={d} className={styles.healBtn} onClick={() => applyHp(d)}>+{d}</button>
-              ))}
-            </div>
-          </section>
-
-          {/* Death saves */}
-          {isDown && (
-            <section className={styles.section}>
-              <div className={styles.sectionHead}>
-                <span className={styles.sectionLabel}>Death Saves</span>
-              </div>
+            {/* Death Saves — always visible */}
+            <div className={styles.hpDeathSection}>
+              <span className={styles.hpSectionLabel}>Death Saves</span>
               {(['successes', 'failures'] as const).map(type => (
                 <div key={type} className={styles.deathRow}>
-                  <span className={styles.deathLabel}>{type === 'successes' ? 'Success' : 'Failure'}</span>
+                  <span className={styles.deathLabel}>{type === 'successes' ? 'S' : 'F'}</span>
                   <div className={styles.deathDots}>
                     {[0, 1, 2].map(i => (
                       <button
@@ -509,145 +603,24 @@ export function CharacterView() {
                   </div>
                 </div>
               ))}
-            </section>
-          )}
+            </div>
+          </div>
 
-          {/* Combat Stats */}
-          <section className={styles.section}>
-            <div className={styles.combatGrid}>
-              <div className={`${styles.statChip} ${armorStrWarning ? styles.statChipWarn : ''}`}>
-                <span className={styles.statVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
-                <span className={styles.statKey}>AC</span>
-                <span className={styles.statSub}>{armorName}{eq.hasShield ? ' +Sh' : ''}{armorStrWarning ? ` (STR ${armorStrRequired}+)` : ''}</span>
-              </div>
-              <div
-                className={`${styles.statChip} ${styles.statEditable}`}
-                onClick={() => fieldEdit?.field !== 'initiative' && startEdit('initiative', char.initiative)}
-                title="Click to edit"
-              >
-                {fieldEdit?.field === 'initiative' ? (
-                  <input
-                    className={styles.statEditInput}
-                    type="number"
-                    value={fieldEdit.value}
-                    autoFocus
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => setFieldEdit({ field: 'initiative', value: e.target.value })}
-                    onBlur={commitEdit}
-                    onKeyDown={e => { if (e.key === 'Enter') commitEdit() }}
-                  />
-                ) : (
-                  <span className={styles.statVal}>{fmtMod(char.initiative)}</span>
-                )}
-                <span className={styles.statKey}>Init.</span>
-              </div>
-              <div
-                className={`${styles.statChip} ${styles.statEditable}`}
-                onClick={() => fieldEdit?.field !== 'speed' && startEdit('speed', char.speed)}
-                title="Click to edit"
-              >
-                {fieldEdit?.field === 'speed' ? (
-                  <input
-                    className={styles.statEditInput}
-                    type="number"
-                    value={fieldEdit.value}
-                    autoFocus
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => setFieldEdit({ field: 'speed', value: e.target.value })}
-                    onBlur={commitEdit}
-                    onKeyDown={e => { if (e.key === 'Enter') commitEdit() }}
-                  />
-                ) : (
-                  <span className={styles.statVal}>{char.speed}<span className={styles.statUnit}>ft</span></span>
-                )}
-                <span className={styles.statKey}>Speed</span>
-              </div>
-              <div className={styles.statChip}>
-                <span className={styles.statVal}>{fmtMod(prof)}</span>
-                <span className={styles.statKey}>Prof.</span>
-              </div>
-              {spellSaveDC !== null && (
-                <div className={styles.statChip}>
-                  <span className={styles.statVal}>{spellSaveDC}</span>
-                  <span className={styles.statKey}>Spell DC</span>
-                </div>
-              )}
-              {spellAtkBonus !== null && (
-                <div className={styles.statChip}>
-                  <span className={styles.statVal}>{fmtMod(spellAtkBonus)}</span>
-                  <span className={styles.statKey}>Spell Atk</span>
-                </div>
-              )}
-            </div>
-
-            {/* Armor picker */}
-            <div className={styles.armorBlock}>
-              <button className={styles.armorToggle} onClick={() => setArmorOpen(v => !v)}>
-                {armorName}{eq.hasShield ? ' + Shield' : ''} {armorOpen ? '▲' : '▼'}
-              </button>
-              {armorOpen && (
-                <div className={styles.armorPicker}>
-                  {allowedArmors.map(a => (
-                    <button
-                      key={a.id}
-                      className={`${styles.armorOpt} ${(eq.armorId ?? 'none') === a.id ? styles.armorOptSel : ''}`}
-                      onClick={() => { setArmor(a.id === 'none' ? null : a.id, eq.hasShield); setArmorOpen(false) }}
-                    >
-                      {a.name}
-                    </button>
-                  ))}
-                  {canShield && (
-                    <button
-                      className={`${styles.armorOpt} ${eq.hasShield ? styles.armorOptSel : ''}`}
-                      onClick={() => setArmor(eq.armorId, !eq.hasShield)}
-                    >
-                      {eq.hasShield ? '✓ Shield' : 'Shield'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* Ability Scores */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Ability Scores</span>
-              <span className={styles.hint}>click to edit</span>
-            </div>
-            <div className={styles.abilityGrid}>
-              {ABILITY_KEYS.map(key => {
-                const val = char.abilityScores[key]
-                const isEditing = fieldEdit?.field === key
-                return (
-                  <div
-                    key={key}
-                    className={styles.abilityCell}
-                    onClick={() => !isEditing && startEdit(key, val)}
-                    title="Click to edit"
-                  >
-                    <span className={styles.abilityKey}>{ABILITY_LABELS[key]}</span>
-                    {isEditing ? (
-                      <input
-                        className={styles.abilityEditInput}
-                        type="number"
-                        min={1} max={30}
-                        value={fieldEdit!.value}
-                        autoFocus
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => setFieldEdit({ field: key, value: e.target.value })}
-                        onBlur={commitEdit}
-                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
-                      />
-                    ) : (
-                      <span className={styles.abilityScore}>{val}</span>
-                    )}
-                    <span className={styles.abilityMod}>{fmtMod(mod(val))}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
+          {/* HP delta buttons + progress bar */}
+          <div className={styles.hpBar}>
+            <div
+              className={styles.hpFill}
+              style={{ width: `${hpPct}%`, background: hpPct > 50 ? 'var(--success)' : hpPct > 25 ? 'var(--warning)' : 'var(--danger)' }}
+            />
+          </div>
+          <div className={styles.hpBtns}>
+            {[-10, -5, -1].map(d => (
+              <button key={d} className={styles.dmgBtn} onClick={() => applyHp(d)}>{d}</button>
+            ))}
+            {[1, 5, 10].map(d => (
+              <button key={d} className={styles.healBtn} onClick={() => applyHp(d)}>+{d}</button>
+            ))}
+          </div>
 
           {/* Conditions */}
           <section className={styles.section}>
@@ -685,56 +658,104 @@ export function CharacterView() {
             </div>
           </section>
 
-          {/* Saving Throws */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Saving Throws</span>
+          {/* Row 3: Inspiration pips */}
+          <div className={styles.inspirationPipRow}>
+            <span className={styles.inspirationPipLabel}>Inspiration</span>
+            <button
+              className={`${styles.inspirationPip} ${char.inspiration ? styles.inspirationPipFilled : ''}`}
+              onClick={() => update({ inspiration: !char.inspiration })}
+              title={char.inspiration ? 'Click to remove inspiration' : 'Click to gain inspiration'}
+            />
+            <span className={styles.inspirationPipLabel} style={{ marginLeft: 4, fontSize: 10 }}>
+              {char.inspiration ? 'Active' : '—'}
+            </span>
+          </div>
+
+          {/* Row 4: Ability scores (left) + Saves/Skills (right) */}
+          <div className={styles.statsSubGrid}>
+            {/* Left: Ability score blocks */}
+            <div className={styles.statsSubLeft}>
+              {ABILITY_KEYS.map(key => {
+                const val = char.abilityScores[key]
+                const isEditing = fieldEdit?.field === key
+                return (
+                  <div key={key} className={styles.abilityBlock}>
+                    <div className={styles.abilityModCircle}>{fmtMod(mod(val))}</div>
+                    <div
+                      className={styles.abilityScoreBox}
+                      onClick={() => !isEditing && startEdit(key, val)}
+                      title="Click to edit"
+                    >
+                      {isEditing ? (
+                        <input
+                          className={styles.abilityEditInput}
+                          type="number"
+                          min={1} max={30}
+                          value={fieldEdit!.value}
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => setFieldEdit({ field: key, value: e.target.value })}
+                          onBlur={commitEdit}
+                          onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+                        />
+                      ) : (
+                        <span className={styles.abilityScoreNum}>{val}</span>
+                      )}
+                    </div>
+                    <span className={styles.abilityName}>{ABILITY_LABELS[key]}</span>
+                  </div>
+                )
+              })}
             </div>
-            <div className={styles.savesList}>
+
+            {/* Right: Saves + Skills + Passive Perception */}
+            <div className={styles.statsSubRight}>
+              <div className={styles.savesHeader}>
+                <span className={styles.sectionLabel}>Saving Throws</span>
+                <span className={styles.profBadge}>Prof {fmtMod(prof)}</span>
+              </div>
               {ABILITY_KEYS.map(ab => {
                 const isProficient = char.savingThrowProficiencies?.includes(ab) ?? false
                 const bonus = mod(char.abilityScores[ab]) + (isProficient ? prof : 0)
                 return (
                   <div key={ab} className={styles.saveRow}>
-                    <span className={`${styles.saveDot} ${isProficient ? styles.saveDotProf : ''}`} />
-                    <span className={styles.saveAb}>{ab.toUpperCase()}</span>
+                    <button
+                      className={`${styles.saveCircle} ${isProficient ? styles.saveCircleFilled : ''}`}
+                      onClick={() => {
+                        const current = char.savingThrowProficiencies ?? []
+                        update({ savingThrowProficiencies: isProficient ? current.filter(x => x !== ab) : [...current, ab] })
+                      }}
+                    />
                     <span className={styles.saveBonus}>{fmtMod(bonus)}</span>
+                    <span className={styles.saveAb}>{ab.toUpperCase()}</span>
                   </div>
                 )
               })}
-            </div>
-            <div className={styles.passivePP}>
-              Passive Perception: <strong>{passivePerception}</strong>
-            </div>
-          </section>
 
-          {/* Skills */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Skills</span>
-              <span className={styles.hint}>click to cycle</span>
+              <div className={styles.skillsHeader}>
+                <span className={styles.sectionLabel}>Skills</span>
+              </div>
+              <div className={styles.skillsList}>
+                {SKILLS.map(({ key, label, ability }) => {
+                  const state = char.skillProficiencies?.[key] ?? 'none'
+                  const bonus = mod(char.abilityScores[ability]) +
+                    (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
+                  return (
+                    <button key={key} className={styles.skillRow} onClick={() => cycleSkill(key)}>
+                      <span className={`${styles.skillCircle} ${state === 'expert' ? styles.skillCircleExpert : state === 'proficient' ? styles.skillCircleProf : ''}`} />
+                      <span className={styles.skillBonus}>{fmtMod(bonus)}</span>
+                      <span className={styles.skillLabel}>{label}</span>
+                      <span className={styles.skillAb}>{ability.toUpperCase()}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className={styles.passivePP}>
+                Passive Perception: <strong>{passivePerception}</strong>
+              </div>
             </div>
-            <div className={styles.skillsList}>
-              {SKILLS.map(({ key, label, ability }) => {
-                const state = char.skillProficiencies?.[key] ?? 'none'
-                const bonus = mod(char.abilityScores[ability]) +
-                  (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
-                return (
-                  <button key={key} className={styles.skillRow} onClick={() => cycleSkill(key)}>
-                    <span className={`${styles.profDot} ${state === 'expert' ? styles.dotExpert : state === 'proficient' ? styles.dotProf : ''}`} />
-                    <span className={styles.skillBonus}>{fmtMod(bonus)}</span>
-                    <span className={styles.skillLabel}>{label}</span>
-                    <span className={styles.skillAb}>{ability.toUpperCase()}</span>
-                    {state !== 'none' && (
-                      <span className={`${styles.exBadge} ${state === 'expert' ? styles.exBadgeGold : ''}`}>
-                        {state === 'expert' ? 'EX' : 'PR'}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </section>
+          </div>
         </aside>
 
         {/* ── CENTER: Features + Resources + Attacks + Actions ── */}
@@ -806,46 +827,6 @@ export function CharacterView() {
             </section>
           )}
 
-          {/* Attacks & Spellcasting — shown when Attack or Cast a Spell is selected */}
-          {(selectedAction === 'Attack' || selectedAction === 'Cast a Spell') && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Attacks &amp; Spellcasting</span>
-              <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add</button>
-            </div>
-            <table className={styles.weaponTable}>
-              <thead>
-                <tr>
-                  <th className={styles.weaponThName}>Name</th>
-                  <th className={styles.weaponThAtk}>Atk Bonus</th>
-                  <th className={styles.weaponThDmg}>Damage / Type</th>
-                  <th className={styles.weaponThDel} />
-                </tr>
-              </thead>
-              <tbody>
-                {(char.weapons ?? []).map(w => {
-                  const computed = computeAttackBonus(char, w)
-                  return (
-                    <tr key={w.id} className={styles.weaponRow}>
-                      <td className={styles.weaponName}>
-                        {w.name}
-                        {(w.enchantmentBonus ?? 0) > 0 && (
-                          <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>
-                        )}
-                      </td>
-                      <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
-                      <td className={styles.weaponDmg}>{w.damage}{w.damageType ? ` ${w.damageType}` : ''}</td>
-                      <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
-                    </tr>
-                  )
-                })}
-                {(char.weapons ?? []).length === 0 && (
-                  <tr><td colSpan={4} className={styles.weaponEmpty}>No weapons — click + Add</td></tr>
-                )}
-              </tbody>
-            </table>
-          </section>
-          )}
 
           {/* Actions */}
           {actionGroups.map(({ type, label, items }) => {
@@ -884,8 +865,56 @@ export function CharacterView() {
           })}
         </div>
 
-        {/* ── RIGHT: Detail + Features + Spells ── */}
+        {/* ── RIGHT: Attacks + Detail + Spells ── */}
         <div className={styles.rightCol}>
+
+          {/* Attacks */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>Attacks</span>
+              <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add</button>
+            </div>
+            <table className={styles.weaponTable}>
+              <thead>
+                <tr>
+                  <th className={styles.wthName}>Name</th>
+                  <th className={styles.wthAtk}>Atk</th>
+                  <th className={styles.wthDmg}>Damage</th>
+                  <th className={styles.wthType}>Type</th>
+                  <th className={styles.wthBdmg}>Bonus Dmg</th>
+                  <th className={styles.wthBtype}>Bonus Type</th>
+                  <th className={styles.wthRange}>Range</th>
+                  <th className={styles.wthDel} />
+                </tr>
+              </thead>
+              <tbody>
+                {(char.weapons ?? []).map(w => {
+                  const computed = computeAttackBonus(char, w)
+                  const rangeLabel = w.rangeType === 'Melee' ? 'Melee' : w.rangeType === 'Ranged' ? 'Ranged' : w.rangeType === 'Melee or Ranged' ? 'M/R' : '—'
+                  return (
+                    <tr key={w.id} className={styles.weaponRow}>
+                      <td className={styles.weaponName}>
+                        {w.name}
+                        {(w.enchantmentBonus ?? 0) > 0 && (
+                          <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>
+                        )}
+                      </td>
+                      <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
+                      <td className={styles.weaponDmg}>{w.damage}</td>
+                      <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
+                      <td className={styles.weaponDmg}>{w.bonusDamageDie ?? '—'}</td>
+                      <td className={styles.weaponDmg}>{w.bonusDamageType ?? '—'}</td>
+                      <td className={styles.weaponDmg}>{rangeLabel}</td>
+                      <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
+                    </tr>
+                  )
+                })}
+                {(char.weapons ?? []).length === 0 && (
+                  <tr><td colSpan={8} className={styles.weaponEmpty}>No weapons — click + Add</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
 
           {/* Action detail */}
           <section className={styles.section}>
@@ -1109,6 +1138,16 @@ export function CharacterView() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── LEVEL UP MODAL ── */}
+      {levelUpModalOpen && (
+        <LevelUpModal
+          character={char}
+          newLevel={char.level + 1}
+          onConfirm={handleAsiConfirm}
+          onCancel={() => setLevelUpModalOpen(false)}
+        />
       )}
 
       {/* ── SPELL MODAL ── */}
