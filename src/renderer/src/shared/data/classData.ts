@@ -167,6 +167,19 @@ export const CLASSES: ClassDef[] = [
     spellcastingAbility: 'int',
     isSpellcaster: true,
   },
+  {
+    id: 'Artificer',
+    hitDie: 8,
+    savingThrows: ['con', 'int'],
+    armorProficiencies: ['light', 'medium', 'shields'],
+    weaponProficiencies: ['Simple weapons'],
+    skillOptions: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'perception', 'sleightOfHand'],
+    skillCount: 2,
+    primaryAbility: 'int',
+    spellcastingAbility: 'int',
+    isSpellcaster: true,
+    resources: [{ name: 'Infuse Item', scalingPer: 'level' }],
+  },
 ]
 
 export const CLASS_BY_ID = Object.fromEntries(CLASSES.map(c => [c.id, c])) as Record<string, ClassDef>

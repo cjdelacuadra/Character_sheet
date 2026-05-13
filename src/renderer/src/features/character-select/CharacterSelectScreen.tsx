@@ -5,6 +5,7 @@ import type { Skill } from '@/shared/data/skills'
 import { SKILLS, SKILL_BY_KEY } from '@/shared/data/skills'
 import { RACE_LABELS, RACE_BY_ID } from '@/shared/data/raceData'
 import { CLASS_LABELS, CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
 import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/armorData'
 import {
@@ -42,7 +43,7 @@ export function CharacterSelectScreen() {
               <button className={styles.card} onClick={() => setActiveCharacter(char.id)}>
                 <div className={styles.cardLeft}>
                   <span className={styles.cardName}>{char.name}</span>
-                  <span className={styles.cardSub}>Level {char.level} {RACE_BY_ID[char.race]?.label ?? char.race} {char.classId}{char.subclass ? ` · ${char.subclass}` : ''}</span>
+                  <span className={styles.cardSub}>Level {char.level} {RACE_BY_ID[char.race]?.label ?? char.race} {char.classId}{char.subclass ? ` · ${SUBCLASS_BY_ID[char.subclass]?.label ?? char.subclass}` : ''}</span>
                 </div>
                 <div className={styles.cardStats}>
                   <span className={styles.cardStat}>
@@ -88,11 +89,11 @@ function hpColor(current: number, max: number) {
 type Step = 'basics' | 'scores' | 'equipment'
 type ScoreMethod = 'standard' | 'pointbuy' | 'roll'
 
-interface Basics { name: string; race: string; classId: string; background: string; level: number }
+interface Basics { name: string; race: string; classId: string; subclass?: string; background: string; level: number }
 
 function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Character) => void }) {
   const [step, setStep] = useState<Step>('basics')
-  const [basics, setBasics] = useState<Basics>({ name: '', race: 'Human', classId: 'Fighter', background: 'Soldier', level: 1 })
+  const [basics, setBasics] = useState<Basics>({ name: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1 })
 
   // Step 2 state
   const [method, setMethod] = useState<ScoreMethod>('standard')
@@ -146,6 +147,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       name: basics.name.trim(),
       race: basics.race,
       classId: basics.classId,
+      subclass: basics.subclass,
       background: basics.background,
       level: basics.level,
       experiencePoints: 0,
@@ -232,7 +234,8 @@ function StepPips({ current }: { current: Step }) {
 function StepBasics({ value, onChange, onNext, onCancel }: {
   value: Basics; onChange: (v: Basics) => void; onNext: () => void; onCancel: () => void
 }) {
-  const set = (k: keyof Basics, v: string | number) => onChange({ ...value, [k]: v })
+  const set = (k: keyof Basics, v: string | number | undefined) => onChange({ ...value, [k]: v })
+  const subclassOptions = SUBCLASSES_BY_CLASS[value.classId] ?? []
   return (
     <div className={styles.stepContent}>
       <div className={styles.form}>
@@ -249,11 +252,20 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
           </label>
           <label className={styles.field}>
             <span>Class</span>
-            <select className={styles.input} value={value.classId} onChange={e => set('classId', e.target.value)}>
+            <select className={styles.input} value={value.classId} onChange={e => onChange({ ...value, classId: e.target.value, subclass: undefined })}>
               {CLASS_LABELS.map(c => <option key={c}>{c}</option>)}
             </select>
           </label>
         </div>
+        {subclassOptions.length > 0 && (
+          <label className={styles.field}>
+            <span>Subclass {subclassOptions[0].unlocksAtLevel > 1 ? `(unlocks at level ${subclassOptions[0].unlocksAtLevel})` : ''}</span>
+            <select className={styles.input} value={value.subclass ?? ''} onChange={e => set('subclass', e.target.value || undefined)}>
+              <option value="">— None —</option>
+              {subclassOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </label>
+        )}
         <div className={styles.row}>
           <label className={styles.field}>
             <span>Background</span>

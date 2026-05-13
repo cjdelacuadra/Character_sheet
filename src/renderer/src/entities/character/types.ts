@@ -32,6 +32,13 @@ export interface Equipment {
   hasShield: boolean
 }
 
+export interface Weapon {
+  id: string
+  name: string
+  atkBonus: number
+  damage: string
+}
+
 export interface Character {
   id: string
   name: string
@@ -57,6 +64,7 @@ export interface Character {
   spellSlots: SpellSlots
   concentrationSpellId?: string
 
+  weapons?: Weapon[]
   conditionIds: ActiveCondition[]
   resources: Record<string, { used: number; total: number }>
   deathSaves: { successes: number; failures: number }

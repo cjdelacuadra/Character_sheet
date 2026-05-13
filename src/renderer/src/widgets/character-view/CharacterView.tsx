@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useAppStore } from '@/app/store'
-import type { Character, AbilityScores, AbilityScore, Skill } from '@/entities/character/types'
+import type { Character, AbilityScores, AbilityScore, Skill, Weapon } from '@/entities/character/types'
 import { SKILLS } from '@/shared/data/skills'
 import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
 import styles from './CharacterView.module.css'
 
@@ -22,17 +23,28 @@ const ORDINAL: Record<number, string> = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th'
 interface ActionDef { name: string; type: 'Action' | 'Bonus Action' | 'Reaction'; short: string; full: string }
 
 const ACTIONS: ActionDef[] = [
-  { name: 'Attack', type: 'Action', short: 'Make one melee or ranged attack.', full: 'Make one melee weapon attack, ranged weapon attack, or unarmed strike. When you have Extra Attack, you can attack multiple times instead.' },
-  { name: 'Dash', type: 'Action', short: 'Gain extra movement equal to your speed.', full: 'You gain extra movement for the current turn equal to your speed (after modifiers). With 30ft speed and Dash, you can move up to 60ft this turn.' },
-  { name: 'Dodge', type: 'Action', short: 'Attackers have disadvantage; Dex saves at advantage.', full: 'Until the start of your next turn, any attack roll made against you has disadvantage if you can see the attacker, and you make Dexterity saving throws with advantage. You lose this if incapacitated or your speed drops to 0.' },
-  { name: 'Help', type: 'Action', short: 'Ally gains advantage on next ability check or attack.', full: 'Lend your aid to another creature. The creature you help gains advantage on the next ability check it makes for the task you assist with, or you can aid a friendly creature attacking a creature within 5ft of you.' },
-  { name: 'Hide', type: 'Action', short: 'Attempt to hide (Stealth vs passive Perception).', full: "Make a Dexterity (Stealth) check in an attempt to hide. You can't hide from a creature that can see you clearly. If successful, you gain the benefits of being hidden until you give away your position." },
-  { name: 'Ready', type: 'Action', short: 'Choose a trigger and reaction to take when it occurs.', full: 'Decide what perceivable circumstance will trigger your reaction, then choose the action you will take in response. When the trigger occurs, take your reaction immediately after, or ignore it.' },
-  { name: 'Search', type: 'Action', short: 'Devote attention to finding something.', full: 'You devote your attention to finding something. The DM might have you make a Wisdom (Perception) check or an Intelligence (Investigation) check depending on the nature of the search.' },
-  { name: 'Use Object', type: 'Action', short: 'Use an object that requires your action.', full: 'When an object requires your action for its use, you take the Use an Object action. Normally you interact with one object for free as part of your move or action.' },
+  // ── Standard Actions ────────────────────────────────────────────
+  { name: 'Attack',      type: 'Action', short: 'Make one melee or ranged attack.', full: 'Make one melee weapon attack, ranged weapon attack, or unarmed strike. When you have Extra Attack, you can attack multiple times instead.' },
+  { name: 'Dash',        type: 'Action', short: 'Gain extra movement equal to your speed.', full: 'You gain extra movement for the current turn equal to your speed (after modifiers). With 30ft speed and Dash, you can move up to 60ft this turn.' },
+  { name: 'Dodge',       type: 'Action', short: 'Attackers have disadvantage; Dex saves at advantage.', full: 'Until the start of your next turn, any attack roll made against you has disadvantage if you can see the attacker, and you make Dexterity saving throws with advantage. You lose this if incapacitated or your speed drops to 0.' },
+  { name: 'Help',        type: 'Action', short: 'Ally gains advantage on next ability check or attack.', full: 'Lend your aid to another creature. The creature you help gains advantage on the next ability check it makes for the task you assist with, or you can aid a friendly creature attacking a creature within 5ft of you.' },
+  { name: 'Hide',        type: 'Action', short: 'Attempt to hide (Stealth vs passive Perception).', full: "Make a Dexterity (Stealth) check in an attempt to hide. You can't hide from a creature that can see you clearly. If successful, you gain the benefits of being hidden until you give away your position." },
+  { name: 'Ready',       type: 'Action', short: 'Choose a trigger and reaction to take when it occurs.', full: 'Decide what perceivable circumstance will trigger your reaction, then choose the action you will take in response. When the trigger occurs, take your reaction immediately after, or ignore it.' },
+  { name: 'Search',      type: 'Action', short: 'Devote attention to finding something.', full: 'You devote your attention to finding something. The DM might have you make a Wisdom (Perception) check or an Intelligence (Investigation) check depending on the nature of the search.' },
+  { name: 'Use Object',  type: 'Action', short: 'Use an object that requires your action.', full: 'When an object requires your action for its use, you take the Use an Object action. Normally you interact with one object for free as part of your move or action.' },
+  { name: 'Grapple',     type: 'Action', short: 'Str (Athletics) vs Str (Athletics) or Dex (Acrobatics).', full: "Make a Strength (Athletics) check contested by the target's Strength (Athletics) or Dexterity (Acrobatics). If you succeed, the target is grappled — its speed becomes 0." },
+  { name: 'Shove',       type: 'Action', short: 'Push 5ft away or knock prone.', full: "Using the Attack action, make a Str (Athletics) check contested by the target's Str (Athletics) or Dex (Acrobatics). On success, push the target 5ft away or knock it prone." },
+  { name: 'Disengage',   type: 'Action', short: 'Your movement does not provoke opportunity attacks.', full: 'Until the end of your turn, your movement does not provoke opportunity attacks. You can still move and take other actions normally.' },
+  { name: 'Escape Grapple', type: 'Action', short: 'Str/Dex (Athletics/Acrobatics) vs grappler\'s Str (Athletics).', full: "Make a Strength (Athletics) or Dexterity (Acrobatics) check contested by the grappler's Strength (Athletics). On a success you escape the grappled condition." },
+  // ── Bonus Actions ───────────────────────────────────────────────
+  { name: 'Off-Hand Attack',   type: 'Bonus Action', short: 'Attack with your off-hand light weapon (no ability mod to damage).', full: "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative." },
+  { name: 'Interact with Object', type: 'Bonus Action', short: 'Some magic items or features use a bonus action.', full: 'Certain items, class features, or spells specify that they require a bonus action to activate or use. Check the specific item or feature description for details.' },
+  { name: 'Cast a Spell (Bonus)', type: 'Bonus Action', short: 'Spells with a casting time of 1 bonus action.', full: 'Some spells specify a casting time of 1 bonus action. If you cast a bonus action spell, you can still cast a cantrip (not a leveled spell) with your action this turn.' },
+  { name: 'Mount / Dismount',  type: 'Bonus Action', short: 'Climb onto or off a willing creature (uses half your speed).', full: "Once during your move, you can mount a creature within 5ft of you, or dismount from it. Doing so costs an amount of movement equal to half your speed. If an effect moves your mount against its will, make a DC 10 Dexterity saving throw or fall prone, dismounted." },
+  // ── Reactions ───────────────────────────────────────────────────
   { name: 'Opportunity Attack', type: 'Reaction', short: 'When a hostile creature moves out of your reach.', full: 'When a hostile creature that you can see moves out of your reach, you can use your reaction to make one melee attack against that creature. The attack occurs right before it leaves your reach.' },
-  { name: 'Grapple', type: 'Action', short: 'Str (Athletics) vs Str (Athletics) or Dex (Acrobatics).', full: "Make a Strength (Athletics) check contested by the target's Strength (Athletics) or Dexterity (Acrobatics). If you succeed, the target is grappled — its speed becomes 0." },
-  { name: 'Shove', type: 'Action', short: 'Push 5ft away or knock prone.', full: "Using the Attack action, make a Str (Athletics) check contested by the target's Str (Athletics) or Dex (Acrobatics). On success, push the target 5ft away or knock it prone." },
+  { name: 'Readied Action',     type: 'Reaction', short: 'When your Ready trigger occurs, take your prepared action.', full: "When the trigger condition you declared with the Ready action occurs, you can take your reaction immediately to perform the readied action — or choose to ignore the trigger. If you readied a spell, it is released; if the trigger doesn't occur before your next turn, your reaction is lost." },
+  { name: 'Cast a Spell (Reaction)', type: 'Reaction', short: 'Some spells let you cast them as a reaction.', full: 'Certain spells (e.g. Shield, Absorb Elements, Counterspell) specify a casting time of 1 reaction, triggered by a particular circumstance described in the spell. You can only take one reaction per round.' },
 ]
 
 const CLASS_FEATURES: Record<string, { level: number; name: string; desc: string }[]> = {
@@ -136,9 +148,10 @@ export function CharacterView() {
   const [fieldEdit, setFieldEdit] = useState<{ field: EditField; value: string } | null>(null)
   const [conditionOpen, setConditionOpen] = useState(false)
   const [armorOpen, setArmorOpen] = useState(false)
-  const [expandedAction, setExpandedAction] = useState<string | null>(null)
+  const [selectedAction, setSelectedAction] = useState<string | null>(null)
   const [expandedFeatures, setExpandedFeatures] = useState<Set<number>>(new Set())
   const [spellSearch, setSpellSearch] = useState('')
+  const [newWeapon, setNewWeapon] = useState<{ name: string; atkBonus: string; damage: string } | null>(null)
 
   const charMaybe = activeCharacterId ? characters[activeCharacterId] : null
   if (!charMaybe) return null
@@ -245,6 +258,22 @@ export function CharacterView() {
     })
   }
 
+  function saveWeapon() {
+    if (!newWeapon || !newWeapon.name.trim()) return
+    const w: Weapon = {
+      id: crypto.randomUUID(),
+      name: newWeapon.name.trim(),
+      atkBonus: parseInt(newWeapon.atkBonus, 10) || 0,
+      damage: newWeapon.damage.trim() || '—',
+    }
+    update({ weapons: [...(char.weapons ?? []), w] })
+    setNewWeapon(null)
+  }
+
+  function removeWeapon(id: string) {
+    update({ weapons: (char.weapons ?? []).filter(w => w.id !== id) })
+  }
+
   function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
 
   function badgeClass(type: string) {
@@ -278,7 +307,7 @@ export function CharacterView() {
           <span className={styles.topName}>{char.name}</span>
           <span className={styles.topSub}>
             Level {char.level} · {char.race} · {char.classId}
-            {char.subclass ? ` (${char.subclass})` : ''} · {char.background}
+            {char.subclass ? ` (${SUBCLASS_BY_ID[char.subclass]?.label ?? char.subclass})` : ''} · {char.background}
           </span>
         </div>
         <div className={styles.topRight}>
@@ -483,108 +512,6 @@ export function CharacterView() {
               ))}
             </div>
           </section>
-        </aside>
-
-        {/* ── CENTER: Ability Scores + Actions + Features ── */}
-        <div className={styles.centerCol}>
-
-          {/* Ability Scores */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Ability Scores</span>
-              <span className={styles.hint}>click to edit</span>
-            </div>
-            <div className={styles.abilityGrid}>
-              {ABILITY_KEYS.map(key => {
-                const val = char.abilityScores[key]
-                const isEditing = fieldEdit?.field === key
-                return (
-                  <div
-                    key={key}
-                    className={styles.abilityCell}
-                    onClick={() => !isEditing && startEdit(key, val)}
-                    title="Click to edit"
-                  >
-                    <span className={styles.abilityKey}>{ABILITY_LABELS[key]}</span>
-                    {isEditing ? (
-                      <input
-                        className={styles.abilityEditInput}
-                        type="number"
-                        min={1} max={30}
-                        value={fieldEdit!.value}
-                        autoFocus
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => setFieldEdit({ field: key, value: e.target.value })}
-                        onBlur={commitEdit}
-                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
-                      />
-                    ) : (
-                      <span className={styles.abilityScore}>{val}</span>
-                    )}
-                    <span className={styles.abilityMod}>{fmtMod(mod(val))}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-
-          {/* Actions */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Actions</span>
-            </div>
-            <div className={styles.actionList}>
-              {ACTIONS.map(action => {
-                const expanded = expandedAction === action.name
-                return (
-                  <div
-                    key={action.name}
-                    className={`${styles.actionRow} ${expanded ? styles.actionRowOpen : ''}`}
-                    onClick={() => setExpandedAction(expanded ? null : action.name)}
-                  >
-                    <span className={`${styles.actionBadge} ${badgeClass(action.type)}`}>
-                      {badgeLabel(action.type)}
-                    </span>
-                    <div className={styles.actionContent}>
-                      <span className={styles.actionName}>{action.name}</span>
-                      <span className={styles.actionDesc}>{expanded ? action.full : action.short}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-
-          {/* Features */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>{char.classId} Features</span>
-            </div>
-            {classFeatures.length === 0
-              ? <span className={styles.emptyNote}>No features at this level.</span>
-              : (
-                <div className={styles.featureList}>
-                  {classFeatures.map((f, i) => {
-                    const open = expandedFeatures.has(i)
-                    return (
-                      <div key={i} className={styles.featureCard}>
-                        <button className={styles.featureHead} onClick={() => toggleFeature(i)}>
-                          <span className={styles.featureName}>{f.name}</span>
-                          <span className={styles.featureLevel}>Lvl {f.level}</span>
-                          <span className={styles.featureChevron}>{open ? '▾' : '▸'}</span>
-                        </button>
-                        {open && <p className={styles.featureDesc}>{f.desc}</p>}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            }
-          </section>
-        </div>
-
-        {/* ── RIGHT: Skills + Spells ── */}
-        <div className={styles.rightCol}>
 
           {/* Saving Throws */}
           <section className={styles.section}>
@@ -635,6 +562,175 @@ export function CharacterView() {
                 )
               })}
             </div>
+          </section>
+        </aside>
+
+        {/* ── CENTER: Ability Scores + Attacks + Action Lists ── */}
+        <div className={styles.centerCol}>
+
+          {/* Ability Scores */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>Ability Scores</span>
+              <span className={styles.hint}>click to edit</span>
+            </div>
+            <div className={styles.abilityGrid}>
+              {ABILITY_KEYS.map(key => {
+                const val = char.abilityScores[key]
+                const isEditing = fieldEdit?.field === key
+                return (
+                  <div
+                    key={key}
+                    className={styles.abilityCell}
+                    onClick={() => !isEditing && startEdit(key, val)}
+                    title="Click to edit"
+                  >
+                    <span className={styles.abilityKey}>{ABILITY_LABELS[key]}</span>
+                    {isEditing ? (
+                      <input
+                        className={styles.abilityEditInput}
+                        type="number"
+                        min={1} max={30}
+                        value={fieldEdit!.value}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setFieldEdit({ field: key, value: e.target.value })}
+                        onBlur={commitEdit}
+                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+                      />
+                    ) : (
+                      <span className={styles.abilityScore}>{val}</span>
+                    )}
+                    <span className={styles.abilityMod}>{fmtMod(mod(val))}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* Attacks & Spellcasting */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>Attacks &amp; Spellcasting</span>
+              <button className={styles.addBtn} onClick={() => setNewWeapon({ name: '', atkBonus: '0', damage: '' })}>+ Add</button>
+            </div>
+            <table className={styles.weaponTable}>
+              <thead>
+                <tr>
+                  <th className={styles.weaponThName}>Name</th>
+                  <th className={styles.weaponThAtk}>Atk Bonus</th>
+                  <th className={styles.weaponThDmg}>Damage / Type</th>
+                  <th className={styles.weaponThDel} />
+                </tr>
+              </thead>
+              <tbody>
+                {(char.weapons ?? []).map(w => (
+                  <tr key={w.id} className={styles.weaponRow}>
+                    <td className={styles.weaponName}>{w.name}</td>
+                    <td className={styles.weaponAtk}>{w.atkBonus >= 0 ? `+${w.atkBonus}` : w.atkBonus}</td>
+                    <td className={styles.weaponDmg}>{w.damage}</td>
+                    <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
+                  </tr>
+                ))}
+                {newWeapon && (
+                  <tr className={styles.weaponRow}>
+                    <td><input className={styles.weaponInput} placeholder="Name" value={newWeapon.name} autoFocus onChange={e => setNewWeapon({ ...newWeapon, name: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon(); if (e.key === 'Escape') setNewWeapon(null) }} /></td>
+                    <td><input className={styles.weaponInput} type="number" placeholder="0" value={newWeapon.atkBonus} onChange={e => setNewWeapon({ ...newWeapon, atkBonus: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon() }} /></td>
+                    <td><input className={styles.weaponInput} placeholder="1d6+3" value={newWeapon.damage} onChange={e => setNewWeapon({ ...newWeapon, damage: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon() }} /></td>
+                    <td className={styles.weaponSaveCell}>
+                      <button className={styles.weaponSave} onClick={saveWeapon}>✓</button>
+                      <button className={styles.weaponDel} onClick={() => setNewWeapon(null)}>×</button>
+                    </td>
+                  </tr>
+                )}
+                {(char.weapons ?? []).length === 0 && !newWeapon && (
+                  <tr><td colSpan={4} className={styles.weaponEmpty}>No weapons — click + Add</td></tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          {/* Actions */}
+          {(['Action', 'Bonus Action', 'Reaction'] as const).map(type => {
+            const items = ACTIONS.filter(a => a.type === type)
+            const accent = type === 'Action' ? styles.selAction : type === 'Bonus Action' ? styles.selBonus : styles.selReaction
+            const label = type === 'Action' ? 'Actions' : type === 'Bonus Action' ? 'Bonus Actions' : 'Reactions'
+            return (
+              <section key={type} className={styles.section}>
+                <div className={styles.sectionHead}>
+                  <span className={`${styles.sectionLabel} ${type === 'Action' ? styles.labelAction : type === 'Bonus Action' ? styles.labelBonus : styles.labelReaction}`}>{label}</span>
+                  <span className={styles.actionTypeCount}>{items.length}</span>
+                </div>
+                <div className={styles.actionList}>
+                  {items.map(action => (
+                    <button
+                      key={action.name}
+                      className={`${styles.actionCompact} ${selectedAction === action.name ? `${styles.actionCompactSel} ${accent}` : ''}`}
+                      onClick={() => setSelectedAction(selectedAction === action.name ? null : action.name)}
+                    >
+                      <span className={styles.actionName}>{action.name}</span>
+                      <span className={styles.actionShort}>{action.short}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )
+          })}
+        </div>
+
+        {/* ── RIGHT: Detail + Features + Spells ── */}
+        <div className={styles.rightCol}>
+
+          {/* Action detail */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>Action Detail</span>
+              {selectedAction && <button className={styles.addBtn} onClick={() => setSelectedAction(null)}>Clear</button>}
+            </div>
+            {(() => {
+              const action = selectedAction ? ACTIONS.find(a => a.name === selectedAction) : null
+              if (!action) return (
+                <div className={styles.detailEmpty}>Select an action, bonus action, or reaction to see its full description.</div>
+              )
+              return (
+                <div className={styles.detailPane}>
+                  <div className={styles.detailHeader}>
+                    <span className={styles.detailName}>{action.name}</span>
+                    <span className={`${styles.detailBadge} ${action.type === 'Action' ? styles.badgeAction : action.type === 'Bonus Action' ? styles.badgeBonusAction : styles.badgeReaction}`}>
+                      {action.type === 'Bonus Action' ? 'Bonus' : action.type}
+                    </span>
+                  </div>
+                  <p className={styles.detailFull}>{action.full}</p>
+                </div>
+              )
+            })()}
+          </section>
+
+          {/* Features */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>{char.classId} Features</span>
+            </div>
+            {classFeatures.length === 0
+              ? <span className={styles.emptyNote}>No features at this level.</span>
+              : (
+                <div className={styles.featureList}>
+                  {classFeatures.map((f, i) => {
+                    const open = expandedFeatures.has(i)
+                    return (
+                      <div key={i} className={styles.featureCard}>
+                        <button className={styles.featureHead} onClick={() => toggleFeature(i)}>
+                          <span className={styles.featureName}>{f.name}</span>
+                          <span className={styles.featureLevel}>Lvl {f.level}</span>
+                          <span className={styles.featureChevron}>{open ? '▾' : '▸'}</span>
+                        </button>
+                        {open && <p className={styles.featureDesc}>{f.desc}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            }
           </section>
 
           {/* Spell Slots */}
