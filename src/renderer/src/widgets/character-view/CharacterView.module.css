@@ -1624,3 +1624,208 @@
 }
 
 .spellModalConcBtn:hover { background: rgba(224, 168, 76, 0.2); }
+
+/* ── TEMP HP CHIP (inline) ── */
+.tempHpChip {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.tempHpChip:hover { border-color: var(--accent); color: var(--accent); }
+
+.tempHpMuted { opacity: 0.4; }
+
+.tempHpActive {
+  color: var(--accent);
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(139, 124, 248, 0.08);
+  opacity: 1;
+}
+
+/* ── ARMORY MODAL ── */
+.armoryModal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  width: 520px;
+  max-width: 95vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.armoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.armoryTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.armoryTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.armoryTab {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.armoryTab:hover { color: var(--text-primary); }
+
+.armoryTabActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.armoryList {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.armoryGroup { display: flex; flex-direction: column; gap: 2px; }
+
+.armoryGroupLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 4px 0 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.armoryEntry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  width: 100%;
+}
+
+.armoryEntry:hover { background: var(--bg-elevated); }
+
+.armoryEntryName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 140px;
+}
+
+.armoryEntryDmg {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.armoryEntryProps {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rarity badge */
+.rarityBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: capitalize;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.rarityBadge[data-rarity="common"]    { background: rgba(160,160,160,0.2); color: #888; }
+.rarityBadge[data-rarity="uncommon"]  { background: rgba(82,196,98,0.2);  color: #52c462; }
+.rarityBadge[data-rarity="rare"]      { background: rgba(62,143,255,0.2); color: #3e8fff; }
+.rarityBadge[data-rarity="very rare"] { background: rgba(163,82,232,0.2); color: #a352e8; }
+.rarityBadge[data-rarity="legendary"] { background: rgba(255,140,0,0.2);  color: #ff8c00; }
+
+/* Armory custom form */
+.armoryCustomForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.armoryField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.armoryError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.armoryAddBtn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  align-self: flex-start;
+}
+
+.armoryAddBtn:hover { opacity: 0.85; }
+
+/* ── Enchantment badge ───────────────────────────────────────────────────────── */
+
+.enchantBadge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}

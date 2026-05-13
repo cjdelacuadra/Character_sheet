@@ -18,6 +18,8 @@ export interface RaceDef {
   bonusWeaponProficiencies?: string[]
   /** extra HP per character level (e.g. Hill Dwarf Dwarven Toughness: 1) */
   bonusHpPerLevel?: number
+  /** number of free +1 ability point assignments the player picks (2 for Variant Human) */
+  freeAbilityPoints?: number
 }
 
 export const RACES: RaceDef[] = [
@@ -27,6 +29,15 @@ export const RACES: RaceDef[] = [
     speed: 30,
     abilityBonus: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
     traits: ['Extra Language', '+1 to all ability scores'],
+    size: 'medium',
+  },
+  {
+    id: 'VariantHuman',
+    label: 'Human (Variant)',
+    speed: 30,
+    abilityBonus: {},
+    freeAbilityPoints: 2,
+    traits: ['+1 to two different ability scores of your choice', 'One skill proficiency of choice', 'One feat of choice'],
     size: 'medium',
   },
   {

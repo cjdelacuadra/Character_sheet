@@ -114,6 +114,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   // Step 4 state
   const [chosenSpells, setChosenSpells] = useState<string[]>([])
 
+  // Variant Human free +1 picks
+  const [freeAbilityPicks, setFreeAbilityPicks] = useState<AbilityScore[]>([])
+
   const classDef = CLASS_BY_ID[basics.classId]
   const raceDef = RACE_BY_ID[basics.race]
   const bgDef = BACKGROUND_BY_ID[basics.background]
@@ -132,6 +135,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     if (raceDef?.abilityBonus) {
       ABILITY_KEYS.forEach(k => { base[k] = (base[k] || 10) + (raceDef.abilityBonus[k] ?? 0) })
     }
+    freeAbilityPicks.forEach(k => { base[k] = (base[k] || 10) + 1 })
     return base
   }
 
@@ -208,7 +212,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
         {step === 'basics' && (
           <StepBasics
             value={basics}
-            onChange={(v) => { setBasics(v); if (v.classId !== basics.classId) setChosenSpells([]) }}
+            onChange={(v) => { setBasics(v); if (v.classId !== basics.classId) setChosenSpells([]); if (v.race !== basics.race) setFreeAbilityPicks([]) }}
             onNext={() => setStep('scores')}
             onCancel={onClose}
           />
@@ -222,6 +226,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             rolled={rolled} setRolled={setRolled}
             rollAssign={rollAssign} setRollAssign={setRollAssign}
             raceDef={raceDef}
+            freeAbilityPicks={freeAbilityPicks}
+            setFreeAbilityPicks={setFreeAbilityPicks}
             onBack={() => setStep('basics')}
             onNext={() => setStep('equipment')}
           />
@@ -294,7 +300,12 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
           </label>
           <label className={styles.field}>
             <span>Class</span>
-            <select className={styles.input} value={value.classId} onChange={e => onChange({ ...value, classId: e.target.value, subclass: undefined })}>
+            <select className={styles.input} value={value.classId} onChange={e => {
+              const newClassId = e.target.value
+              const opts = SUBCLASSES_BY_CLASS[newClassId] ?? []
+              const required = opts.length > 0 && opts[0].unlocksAtLevel <= value.level
+              onChange({ ...value, classId: newClassId, subclass: required ? opts[0].id : undefined })
+            }}>
               {CLASS_LABELS.map(c => <option key={c}>{c}</option>)}
             </select>
           </label>
@@ -323,7 +334,13 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
           <label className={styles.field}>
             <span>Level</span>
             <input className={styles.input} type="number" min={1} max={20} value={value.level}
-              onChange={e => set('level', Math.min(20, Math.max(1, Number(e.target.value))))} />
+              onChange={e => {
+                const newLevel = Math.min(20, Math.max(1, Number(e.target.value)))
+                const opts = SUBCLASSES_BY_CLASS[value.classId] ?? []
+                const required = opts.length > 0 && opts[0].unlocksAtLevel <= newLevel
+                const newSubclass = required && !value.subclass ? opts[0].id : value.subclass
+                onChange({ ...value, level: newLevel, subclass: newSubclass })
+              }} />
           </label>
         </div>
         {/* Background preview */}
@@ -333,6 +350,12 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
             <span className={styles.infoValue}>
               {BACKGROUND_BY_ID[value.background].skills.map(s => SKILL_BY_KEY[s]?.label).join(', ')}
             </span>
+            {BACKGROUND_BY_ID[value.background].feat && (
+              <>
+                <span className={styles.infoLabel} style={{ marginTop: 4 }}>Background feat:</span>
+                <span className={styles.infoValue}>{BACKGROUND_BY_ID[value.background].feat}</span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -355,6 +378,7 @@ function StepScores({
   rolled, setRolled,
   rollAssign, setRollAssign,
   raceDef,
+  freeAbilityPicks, setFreeAbilityPicks,
   onBack, onNext,
 }: {
   method: ScoreMethod; setMethod: (m: ScoreMethod) => void
@@ -363,6 +387,7 @@ function StepScores({
   rolled: number[]; setRolled: (v: number[]) => void
   rollAssign: Partial<Record<AbilityScore, number>>; setRollAssign: (v: Partial<Record<AbilityScore, number>>) => void
   raceDef?: typeof RACE_BY_ID[string]
+  freeAbilityPicks: AbilityScore[]; setFreeAbilityPicks: (v: AbilityScore[]) => void
   onBack: () => void; onNext: () => void
 }) {
   const racialBonus = (k: AbilityScore) => raceDef?.abilityBonus?.[k] ?? 0
@@ -409,7 +434,8 @@ function StepScores({
   const rollUsed = Object.values(rollAssign)
   const rollComplete = rolled.length === 6 && ABILITY_KEYS.every(k => rollAssign[k] !== undefined)
 
-  const canContinue = method === 'standard' ? stdComplete : method === 'pointbuy' ? true : rollComplete
+  const freePointsDone = !raceDef?.freeAbilityPoints || freeAbilityPicks.length >= raceDef.freeAbilityPoints
+  const canContinue = (method === 'standard' ? stdComplete : method === 'pointbuy' ? true : rollComplete) && freePointsDone
 
   function getPreview(k: AbilityScore): number | null {
     const bonus = racialBonus(k)
@@ -522,6 +548,32 @@ function StepScores({
           <span className={styles.infoValue}>
             {ABILITY_KEYS.filter(k => raceDef.abilityBonus[k]).map(k => `${ABILITY_LABELS[k]} +${raceDef.abilityBonus[k]}`).join(', ')}
           </span>
+        </div>
+      )}
+
+      {raceDef?.freeAbilityPoints && (
+        <div className={styles.infoBox}>
+          <span className={styles.infoLabel}>
+            Variant Human: choose {raceDef.freeAbilityPoints} abilities to gain +1
+            ({freeAbilityPicks.length}/{raceDef.freeAbilityPoints} chosen)
+          </span>
+          <div className={styles.scorePips} style={{ marginTop: 6 }}>
+            {ABILITY_KEYS.map(k => {
+              const picked = freeAbilityPicks.includes(k)
+              const maxReached = freeAbilityPicks.length >= raceDef.freeAbilityPoints! && !picked
+              return (
+                <button
+                  key={k}
+                  className={`${styles.scorePip} ${picked ? styles.scorePipSelected : ''} ${maxReached ? styles.scorePipTaken : ''}`}
+                  disabled={maxReached}
+                  onClick={() => {
+                    if (picked) setFreeAbilityPicks(freeAbilityPicks.filter(x => x !== k))
+                    else setFreeAbilityPicks([...freeAbilityPicks, k])
+                  }}
+                >{ABILITY_LABELS[k]}</button>
+              )
+            })}
+          </div>
         </div>
       )}
 

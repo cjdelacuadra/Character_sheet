@@ -3,7 +3,9 @@ import { useAppStore } from '@/app/store'
 import type { Character, AbilityScores, AbilityScore, Skill, Weapon } from '@/entities/character/types'
 import { SKILLS } from '@/shared/data/skills'
 import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
+import { WEAPONS, type WeaponDef } from '@/shared/data/weaponData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -41,7 +43,11 @@ export function CharacterView() {
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
   const [expandedFeatures, setExpandedFeatures] = useState<Set<number>>(new Set())
   const [spellSearch, setSpellSearch] = useState('')
-  const [newWeapon, setNewWeapon] = useState<{ name: string; atkBonus: string; damage: string } | null>(null)
+  const [armoryOpen, setArmoryOpen] = useState(false)
+  const [armorySearch, setArmorySearch] = useState('')
+  const [armoryTab, setArmoryTab] = useState<'browse' | 'custom'>('browse')
+  const [customWeapon, setCustomWeapon] = useState<{ name: string; atkBonus: string; damage: string; damageType: string }>({ name: '', atkBonus: '0', damage: '', damageType: '' })
+  const [customWeaponError, setCustomWeaponError] = useState<string | null>(null)
   const [spellModal, setSpellModal] = useState<string | null>(null)
   const [restPanel, setRestPanel] = useState<'short' | 'long' | null>(null)
   const [hdRoll, setHdRoll] = useState<string>('')
@@ -107,7 +113,8 @@ export function CharacterView() {
       const clamped = Math.min(30, Math.max(1, v))
       const newScores = { ...char.abilityScores, [key]: clamped }
       const newAC = computeAC({ abilityScores: newScores, equipment: eq, classId: char.classId, race: char.race, subclass: char.subclass })
-      const newMaxHP = computeMaxHP(char.classId, char.level, newScores.con)
+      const bonusHpPerLevel = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+      const newMaxHP = computeMaxHP(char.classId, char.level, newScores.con, bonusHpPerLevel)
       const hpDiff = newMaxHP - hp.max
       update({
         abilityScores: newScores,
@@ -172,16 +179,46 @@ export function CharacterView() {
     })
   }
 
-  function saveWeapon() {
-    if (!newWeapon || !newWeapon.name.trim()) return
+  function addWeaponFromCatalog(w: WeaponDef) {
+    const weapon: Weapon = {
+      id: crypto.randomUUID(),
+      name: w.name,
+      atkBonus: 0,
+      damage: w.damageDie,
+      damageType: w.damageType,
+      rangeType: w.rangeType,
+      properties: w.properties,
+      enchantmentBonus: w.enchantmentBonus || undefined,
+      bonusDamageDie: w.bonusDamageDie,
+      bonusDamageType: w.bonusDamageType,
+    }
+    update({ weapons: [...(char.weapons ?? []), weapon] })
+    setArmoryOpen(false)
+  }
+
+  const DAMAGE_PATTERN = /^\d+d\d+([+-]\d+)?$|^\d+$|^—$/
+
+  function saveCustomWeapon() {
+    const name = customWeapon.name.trim()
+    const damage = customWeapon.damage.trim() || '—'
+    if (!name) { setCustomWeaponError('Name is required.'); return }
+    if (damage !== '—' && !DAMAGE_PATTERN.test(damage)) {
+      setCustomWeaponError('Damage must be like 1d6, 2d6+3, or a plain number.')
+      return
+    }
+    const atkBonus = parseInt(customWeapon.atkBonus, 10)
+    if (isNaN(atkBonus)) { setCustomWeaponError('Attack bonus must be a number.'); return }
+    setCustomWeaponError(null)
     const w: Weapon = {
       id: crypto.randomUUID(),
-      name: newWeapon.name.trim(),
-      atkBonus: parseInt(newWeapon.atkBonus, 10) || 0,
-      damage: newWeapon.damage.trim() || '—',
+      name,
+      atkBonus,
+      damage,
+      damageType: customWeapon.damageType.trim() || undefined,
     }
     update({ weapons: [...(char.weapons ?? []), w] })
-    setNewWeapon(null)
+    setArmoryOpen(false)
+    setCustomWeapon({ name: '', atkBonus: '0', damage: '', damageType: '' })
   }
 
   function removeWeapon(id: string) {
@@ -414,6 +451,27 @@ export function CharacterView() {
               )}
               <span className={styles.hpSlash}>/</span>
               <span className={styles.hpMaxVal}>{hp.max}</span>
+              {/* Temp HP inline chip */}
+              {tempHpEdit !== null ? (
+                <input
+                  className={styles.tempHpInput}
+                  type="number"
+                  min={0}
+                  value={tempHpEdit}
+                  autoFocus
+                  onChange={e => setTempHpEdit(e.target.value)}
+                  onBlur={commitTempHpEdit}
+                  onKeyDown={e => { if (e.key === 'Enter') commitTempHpEdit(); if (e.key === 'Escape') setTempHpEdit(null) }}
+                />
+              ) : (
+                <button
+                  className={`${styles.tempHpChip} ${hp.temp > 0 ? styles.tempHpActive : styles.tempHpMuted}`}
+                  onClick={() => setTempHpEdit(String(hp.temp))}
+                  title="Temp HP — click to set"
+                >
+                  {hp.temp > 0 ? `+${hp.temp}` : '+0'}
+                </button>
+              )}
             </div>
             <div className={styles.hpBar}>
               <div
@@ -428,31 +486,6 @@ export function CharacterView() {
               {[1, 5, 10].map(d => (
                 <button key={d} className={styles.healBtn} onClick={() => applyHp(d)}>+{d}</button>
               ))}
-            </div>
-
-            {/* Temp HP */}
-            <div className={styles.tempHpRow}>
-              <span className={styles.tempHpLabel}>Temp HP</span>
-              {tempHpEdit !== null ? (
-                <input
-                  className={styles.tempHpInput}
-                  type="number"
-                  min={0}
-                  value={tempHpEdit}
-                  autoFocus
-                  onChange={e => setTempHpEdit(e.target.value)}
-                  onBlur={commitTempHpEdit}
-                  onKeyDown={e => { if (e.key === 'Enter') commitTempHpEdit(); if (e.key === 'Escape') setTempHpEdit(null) }}
-                />
-              ) : (
-                <button
-                  className={`${styles.tempHpValue} ${hp.temp > 0 ? styles.tempHpActive : ''}`}
-                  onClick={() => setTempHpEdit(String(hp.temp))}
-                  title="Click to set"
-                >
-                  {hp.temp > 0 ? `+${hp.temp}` : '—'}
-                </button>
-              )}
             </div>
           </section>
 
@@ -576,43 +609,45 @@ export function CharacterView() {
             </div>
           </section>
 
-          {/* Resources */}
-          {hasResources && (
-            <section className={styles.section}>
-              <div className={styles.sectionHead}>
-                <span className={styles.sectionLabel}>Resources</span>
-              </div>
-              <div className={styles.resourceList}>
-                {Object.entries(char.resources).map(([name, res]) => {
-                  const remaining = res.total - res.used
-                  const resDef = classDef?.resources?.find(r => r.name === name)
-                  return (
-                    <div key={name} className={styles.resourceRow}>
-                      <span className={styles.resourceName}>{name}</span>
-                      <div className={styles.resourcePips}>
-                        {Array.from({ length: Math.min(res.total, 20) }).map((_, i) => (
-                          <button
-                            key={i}
-                            className={`${styles.resourcePip} ${i < remaining ? styles.resourcePipFull : styles.resourcePipEmpty}`}
-                            onClick={() => i < remaining ? useResource(name) : recoverResource(name)}
-                            title={i < remaining ? 'Use' : 'Recover'}
-                          />
-                        ))}
-                        {res.total > 20 && (
-                          <span className={styles.resourceCount}>{remaining}/{res.total}</span>
-                        )}
-                      </div>
-                      {resDef && (
-                        <span className={styles.resourceRecovery}>
-                          {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
+          {/* Ability Scores */}
+          <section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <span className={styles.sectionLabel}>Ability Scores</span>
+              <span className={styles.hint}>click to edit</span>
+            </div>
+            <div className={styles.abilityGrid}>
+              {ABILITY_KEYS.map(key => {
+                const val = char.abilityScores[key]
+                const isEditing = fieldEdit?.field === key
+                return (
+                  <div
+                    key={key}
+                    className={styles.abilityCell}
+                    onClick={() => !isEditing && startEdit(key, val)}
+                    title="Click to edit"
+                  >
+                    <span className={styles.abilityKey}>{ABILITY_LABELS[key]}</span>
+                    {isEditing ? (
+                      <input
+                        className={styles.abilityEditInput}
+                        type="number"
+                        min={1} max={30}
+                        value={fieldEdit!.value}
+                        autoFocus
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setFieldEdit({ field: key, value: e.target.value })}
+                        onBlur={commitEdit}
+                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+                      />
+                    ) : (
+                      <span className={styles.abilityScore}>{val}</span>
+                    )}
+                    <span className={styles.abilityMod}>{fmtMod(mod(val))}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
 
           {/* Conditions */}
           <section className={styles.section}>
@@ -702,54 +737,81 @@ export function CharacterView() {
           </section>
         </aside>
 
-        {/* ── CENTER: Ability Scores + Attacks + Action Lists ── */}
+        {/* ── CENTER: Features + Resources + Attacks + Actions ── */}
         <div className={styles.centerCol}>
 
-          {/* Ability Scores */}
+          {/* Class Features */}
           <section className={styles.section}>
             <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>Ability Scores</span>
-              <span className={styles.hint}>click to edit</span>
+              <span className={styles.sectionLabel}>{char.classId} Features</span>
             </div>
-            <div className={styles.abilityGrid}>
-              {ABILITY_KEYS.map(key => {
-                const val = char.abilityScores[key]
-                const isEditing = fieldEdit?.field === key
-                return (
-                  <div
-                    key={key}
-                    className={styles.abilityCell}
-                    onClick={() => !isEditing && startEdit(key, val)}
-                    title="Click to edit"
-                  >
-                    <span className={styles.abilityKey}>{ABILITY_LABELS[key]}</span>
-                    {isEditing ? (
-                      <input
-                        className={styles.abilityEditInput}
-                        type="number"
-                        min={1} max={30}
-                        value={fieldEdit!.value}
-                        autoFocus
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => setFieldEdit({ field: key, value: e.target.value })}
-                        onBlur={commitEdit}
-                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
-                      />
-                    ) : (
-                      <span className={styles.abilityScore}>{val}</span>
-                    )}
-                    <span className={styles.abilityMod}>{fmtMod(mod(val))}</span>
-                  </div>
-                )
-              })}
-            </div>
+            {(() => {
+              const classFeatures = getClassFeatures(char.classId, char.level)
+              if (classFeatures.length === 0) return <span className={styles.emptyNote}>No features at this level.</span>
+              return (
+                <div className={styles.featureList}>
+                  {classFeatures.map((f, i) => {
+                    const open = expandedFeatures.has(i)
+                    return (
+                      <div key={i} className={styles.featureCard}>
+                        <button className={styles.featureHead} onClick={() => toggleFeature(i)}>
+                          <span className={styles.featureName}>{f.name}</span>
+                          <span className={styles.featureLevel}>Lvl {f.level}</span>
+                          <span className={styles.featureChevron}>{open ? '▾' : '▸'}</span>
+                        </button>
+                        {open && <p className={styles.featureDesc}>{f.desc}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </section>
 
-          {/* Attacks & Spellcasting */}
+          {/* Resources */}
+          {hasResources && (
+            <section className={styles.section}>
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionLabel}>Resources</span>
+              </div>
+              <div className={styles.resourceList}>
+                {Object.entries(char.resources).map(([name, res]) => {
+                  const remaining = res.total - res.used
+                  const resDef = classDef?.resources?.find(r => r.name === name)
+                  return (
+                    <div key={name} className={styles.resourceRow}>
+                      <span className={styles.resourceName}>{name}</span>
+                      <div className={styles.resourcePips}>
+                        {Array.from({ length: Math.min(res.total, 20) }).map((_, i) => (
+                          <button
+                            key={i}
+                            className={`${styles.resourcePip} ${i < remaining ? styles.resourcePipFull : styles.resourcePipEmpty}`}
+                            onClick={() => i < remaining ? useResource(name) : recoverResource(name)}
+                            title={i < remaining ? 'Use' : 'Recover'}
+                          />
+                        ))}
+                        {res.total > 20 && (
+                          <span className={styles.resourceCount}>{remaining}/{res.total}</span>
+                        )}
+                      </div>
+                      {resDef && (
+                        <span className={styles.resourceRecovery}>
+                          {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Attacks & Spellcasting — shown when Attack or Cast a Spell is selected */}
+          {(selectedAction === 'Attack' || selectedAction === 'Cast a Spell') && (
           <section className={styles.section}>
             <div className={styles.sectionHead}>
               <span className={styles.sectionLabel}>Attacks &amp; Spellcasting</span>
-              <button className={styles.addBtn} onClick={() => setNewWeapon({ name: '', atkBonus: '0', damage: '' })}>+ Add</button>
+              <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add</button>
             </div>
             <table className={styles.weaponTable}>
               <thead>
@@ -765,30 +827,25 @@ export function CharacterView() {
                   const computed = computeAttackBonus(char, w)
                   return (
                     <tr key={w.id} className={styles.weaponRow}>
-                      <td className={styles.weaponName}>{w.name}</td>
+                      <td className={styles.weaponName}>
+                        {w.name}
+                        {(w.enchantmentBonus ?? 0) > 0 && (
+                          <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>
+                        )}
+                      </td>
                       <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
                       <td className={styles.weaponDmg}>{w.damage}{w.damageType ? ` ${w.damageType}` : ''}</td>
                       <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
                     </tr>
                   )
                 })}
-                {newWeapon && (
-                  <tr className={styles.weaponRow}>
-                    <td><input className={styles.weaponInput} placeholder="Name" value={newWeapon.name} autoFocus onChange={e => setNewWeapon({ ...newWeapon, name: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon(); if (e.key === 'Escape') setNewWeapon(null) }} /></td>
-                    <td><input className={styles.weaponInput} type="number" placeholder="0" value={newWeapon.atkBonus} onChange={e => setNewWeapon({ ...newWeapon, atkBonus: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon() }} /></td>
-                    <td><input className={styles.weaponInput} placeholder="1d6+3" value={newWeapon.damage} onChange={e => setNewWeapon({ ...newWeapon, damage: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon() }} /></td>
-                    <td className={styles.weaponSaveCell}>
-                      <button className={styles.weaponSave} onClick={saveWeapon}>✓</button>
-                      <button className={styles.weaponDel} onClick={() => setNewWeapon(null)}>×</button>
-                    </td>
-                  </tr>
-                )}
-                {(char.weapons ?? []).length === 0 && !newWeapon && (
+                {(char.weapons ?? []).length === 0 && (
                   <tr><td colSpan={4} className={styles.weaponEmpty}>No weapons — click + Add</td></tr>
                 )}
               </tbody>
             </table>
           </section>
+          )}
 
           {/* Actions */}
           {actionGroups.map(({ type, label, items }) => {
@@ -865,36 +922,8 @@ export function CharacterView() {
             })()}
           </section>
 
-          {/* Features */}
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <span className={styles.sectionLabel}>{char.classId} Features</span>
-            </div>
-            {(() => {
-              const classFeatures = getClassFeatures(char.classId, char.level)
-              if (classFeatures.length === 0) return <span className={styles.emptyNote}>No features at this level.</span>
-              return (
-                <div className={styles.featureList}>
-                  {classFeatures.map((f, i) => {
-                    const open = expandedFeatures.has(i)
-                    return (
-                      <div key={i} className={styles.featureCard}>
-                        <button className={styles.featureHead} onClick={() => toggleFeature(i)}>
-                          <span className={styles.featureName}>{f.name}</span>
-                          <span className={styles.featureLevel}>Lvl {f.level}</span>
-                          <span className={styles.featureChevron}>{open ? '▾' : '▸'}</span>
-                        </button>
-                        {open && <p className={styles.featureDesc}>{f.desc}</p>}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })()}
-          </section>
-
-          {/* Spell Slots */}
-          {Object.keys(char.spellSlots).length > 0 && (
+          {/* Spell Slots — shown when Cast a Spell is selected */}
+          {selectedAction === 'Cast a Spell' && Object.keys(char.spellSlots).length > 0 && (
             <section className={styles.section}>
               <div className={styles.sectionHead}>
                 <span className={styles.sectionLabel}>Spell Slots</span>
@@ -925,8 +954,8 @@ export function CharacterView() {
             </section>
           )}
 
-          {/* Known Spells */}
-          {char.spellIds.length > 0 && (
+          {/* Known Spells — shown when Cast a Spell is selected */}
+          {selectedAction === 'Cast a Spell' && char.spellIds.length > 0 && (
             <section className={styles.section}>
               <div className={styles.sectionHead}>
                 <span className={styles.sectionLabel}>Spells Known</span>
@@ -1002,6 +1031,85 @@ export function CharacterView() {
           )}
         </div>
       </div>
+
+      {/* ── ARMORY MODAL ── */}
+      {armoryOpen && (
+        <div className={styles.modalOverlay} onClick={() => setArmoryOpen(false)}>
+          <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
+            <div className={styles.armoryHeader}>
+              <span className={styles.armoryTitle}>Armory</span>
+              <button className={styles.spellModalClose} onClick={() => setArmoryOpen(false)}>×</button>
+            </div>
+            <div className={styles.armoryTabs}>
+              <button className={`${styles.armoryTab} ${armoryTab === 'browse' ? styles.armoryTabActive : ''}`} onClick={() => setArmoryTab('browse')}>Browse Catalog</button>
+              <button className={`${styles.armoryTab} ${armoryTab === 'custom' ? styles.armoryTabActive : ''}`} onClick={() => setArmoryTab('custom')}>Custom</button>
+            </div>
+            {armoryTab === 'browse' && (
+              <>
+                <input
+                  className={styles.spellSearch}
+                  type="search"
+                  placeholder="Search weapons…"
+                  value={armorySearch}
+                  onChange={e => setArmorySearch(e.target.value)}
+                  autoFocus
+                />
+                <div className={styles.armoryList}>
+                  {(['Simple Melee', 'Simple Ranged', 'Martial Melee', 'Martial Ranged', 'Magic'] as const).map(group => {
+                    const groupWeapons = WEAPONS.filter(w => {
+                      const cat = w.proficiencyCategory === 'Simple' ? 'Simple' : w.proficiencyCategory === 'Martial' ? 'Martial' : null
+                      const range = w.rangeType === 'Ranged' ? 'Ranged' : 'Melee'
+                      if (group === 'Magic') return (w.enchantmentBonus ?? 0) > 0
+                      if (!cat) return false
+                      return `${cat} ${range}` === group && (w.enchantmentBonus ?? 0) === 0
+                    }).filter(w => w.name.toLowerCase().includes(armorySearch.toLowerCase()))
+                    if (groupWeapons.length === 0) return null
+                    return (
+                      <div key={group} className={styles.armoryGroup}>
+                        <div className={styles.armoryGroupLabel}>{group}</div>
+                        {groupWeapons.map(w => (
+                          <button key={w.id} className={styles.armoryEntry} onClick={() => addWeaponFromCatalog(w)}>
+                            <span className={styles.armoryEntryName}>{w.name}</span>
+                            {w.rarity && (
+                              <span className={styles.rarityBadge} data-rarity={w.rarity}>
+                                {w.rarity}
+                              </span>
+                            )}
+                            <span className={styles.armoryEntryDmg}>{w.damageDie} {w.damageType}</span>
+                            <span className={styles.armoryEntryProps}>{w.properties.slice(0, 2).join(', ')}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+            {armoryTab === 'custom' && (
+              <div className={styles.armoryCustomForm}>
+                <label className={styles.armoryField}>
+                  <span>Name *</span>
+                  <input className={styles.input} value={customWeapon.name} autoFocus placeholder="e.g. Flame Tongue" onChange={e => setCustomWeapon({ ...customWeapon, name: e.target.value })} />
+                </label>
+                <label className={styles.armoryField}>
+                  <span>Damage (e.g. 1d6, 2d6+3)</span>
+                  <input className={styles.input} value={customWeapon.damage} placeholder="1d6" onChange={e => setCustomWeapon({ ...customWeapon, damage: e.target.value })} />
+                </label>
+                <label className={styles.armoryField}>
+                  <span>Damage type</span>
+                  <input className={styles.input} value={customWeapon.damageType} placeholder="slashing" onChange={e => setCustomWeapon({ ...customWeapon, damageType: e.target.value })} />
+                </label>
+                <label className={styles.armoryField}>
+                  <span>Attack bonus modifier</span>
+                  <input className={styles.input} type="number" value={customWeapon.atkBonus} onChange={e => setCustomWeapon({ ...customWeapon, atkBonus: e.target.value })} />
+                </label>
+                {customWeaponError && <span className={styles.armoryError}>{customWeaponError}</span>}
+                <button className={styles.armoryAddBtn} onClick={saveCustomWeapon}>Add Weapon</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── SPELL MODAL ── */}
       {spellModal && (() => {

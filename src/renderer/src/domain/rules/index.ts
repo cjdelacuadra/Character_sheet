@@ -27,7 +27,7 @@ export function computeAttackBonus(character: Character, weapon: Weapon): number
   const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
   const isRanged  = weapon.rangeType === 'Ranged'
   const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
-  return abilityMod + character.proficiencyBonus + weapon.atkBonus
+  return abilityMod + character.proficiencyBonus + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)
 }
 
 // ── Class-contextual actions ────────────────────────────────────────────────
@@ -131,13 +131,21 @@ const CLASS_ACTIONS: ActionDef[] = [
     full: 'A beam of crackling energy streaks toward a creature within 120ft. Make a ranged spell attack. On a hit: 1d10 force damage. Creates additional beams at 5th (×2), 11th (×3), and 17th (×4) level. Each beam can target the same or different creatures.' },
 ]
 
+const CAST_A_SPELL: ActionDef = {
+  name: 'Cast a Spell',
+  type: 'Action',
+  short: 'Cast a spell with a casting time of 1 action.',
+  full: "Cast any spell with a casting time of 1 action. Choose a spell you know or have prepared, expend the required spell slot (if any), and resolve its effects. Cantrips don't expend spell slots.",
+}
+
 export function getAvailableActions(character: Character): ActionDef[] {
   const classActions = CLASS_ACTIONS.filter(a => {
     if (a.classOnly && a.classOnly !== character.classId) return false
     if (a.requiresLevel && character.level < a.requiresLevel) return false
     return true
   })
-  return [...GENERIC_ACTIONS, ...classActions]
+  const spellAction = CLASS_BY_ID[character.classId]?.isSpellcaster ? [CAST_A_SPELL] : []
+  return [...GENERIC_ACTIONS, ...spellAction, ...classActions]
 }
 
 // ── XP thresholds ────────────────────────────────────────────────────────────

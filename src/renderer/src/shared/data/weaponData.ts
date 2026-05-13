@@ -1,5 +1,6 @@
 export type WeaponProficiencyCategory = 'Simple' | 'Martial' | 'Unarmed' | 'Natural' | 'Improvised'
 export type WeaponRangeType = 'Melee' | 'Ranged' | 'Melee or Ranged'
+export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'very rare' | 'legendary'
 
 export interface WeaponDef {
   id: string
@@ -13,6 +14,7 @@ export interface WeaponDef {
   bonusDamageDie?: string
   bonusDamageType?: string
   isMonkWeapon: boolean
+  rarity?: ItemRarity
 }
 
 export const WEAPONS: WeaponDef[] = [
@@ -59,6 +61,24 @@ export const WEAPONS: WeaponDef[] = [
   { id: 'heavyCrossbow',    name: 'Heavy Crossbow',    damageDie: '1d10', damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Ranged',             properties: ['Ammunition (range 100/400)', 'Heavy', 'Loading', 'Two-Handed'], enchantmentBonus: 0, isMonkWeapon: false },
   { id: 'longbow',          name: 'Longbow',           damageDie: '1d8',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Ranged',             properties: ['Ammunition (range 150/600)', 'Heavy', 'Two-Handed'], enchantmentBonus: 0, isMonkWeapon: false },
   { id: 'net',              name: 'Net',               damageDie: '—',    damageType: '—',           proficiencyCategory: 'Martial',  rangeType: 'Ranged',             properties: ['Thrown (range 5/15)', 'Special'],           enchantmentBonus: 0, isMonkWeapon: false },
+  // ── Magic Weapons (+1) — Uncommon ────────────────────────────────────────
+  { id: 'dagger+1',         name: 'Dagger +1',         damageDie: '1d4',  damageType: 'piercing',    proficiencyCategory: 'Simple',   rangeType: 'Melee or Ranged',    properties: ['Finesse', 'Light', 'Thrown (range 20/60)'], enchantmentBonus: 1, isMonkWeapon: true,  rarity: 'uncommon' },
+  { id: 'shortsword+1',     name: 'Shortsword +1',     damageDie: '1d6',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Finesse', 'Light'],                         enchantmentBonus: 1, isMonkWeapon: true,  rarity: 'uncommon' },
+  { id: 'longsword+1',      name: 'Longsword +1',      damageDie: '1d8',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Versatile (1d10)'],                         enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'rapier+1',         name: 'Rapier +1',         damageDie: '1d8',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Finesse'],                                  enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'handaxe+1',        name: 'Handaxe +1',        damageDie: '1d6',  damageType: 'slashing',    proficiencyCategory: 'Simple',   rangeType: 'Melee or Ranged',    properties: ['Light', 'Thrown (range 20/60)'],            enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'greataxe+1',       name: 'Greataxe +1',       damageDie: '1d12', damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Heavy', 'Two-Handed'],                      enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'greatsword+1',     name: 'Greatsword +1',     damageDie: '2d6',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Heavy', 'Two-Handed'],                      enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'shortbow+1',       name: 'Shortbow +1',       damageDie: '1d6',  damageType: 'piercing',    proficiencyCategory: 'Simple',   rangeType: 'Ranged',             properties: ['Ammunition (range 80/320)', 'Two-Handed'],  enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  { id: 'longbow+1',        name: 'Longbow +1',        damageDie: '1d8',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Ranged',             properties: ['Ammunition (range 150/600)', 'Heavy', 'Two-Handed'], enchantmentBonus: 1, isMonkWeapon: false, rarity: 'uncommon' },
+  // ── Magic Weapons (+2) — Rare ─────────────────────────────────────────────
+  { id: 'shortsword+2',     name: 'Shortsword +2',     damageDie: '1d6',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Finesse', 'Light'],                         enchantmentBonus: 2, isMonkWeapon: true,  rarity: 'rare' },
+  { id: 'longsword+2',      name: 'Longsword +2',      damageDie: '1d8',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Versatile (1d10)'],                         enchantmentBonus: 2, isMonkWeapon: false, rarity: 'rare' },
+  { id: 'greatsword+2',     name: 'Greatsword +2',     damageDie: '2d6',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Heavy', 'Two-Handed'],                      enchantmentBonus: 2, isMonkWeapon: false, rarity: 'rare' },
+  { id: 'longbow+2',        name: 'Longbow +2',        damageDie: '1d8',  damageType: 'piercing',    proficiencyCategory: 'Martial',  rangeType: 'Ranged',             properties: ['Ammunition (range 150/600)', 'Heavy', 'Two-Handed'], enchantmentBonus: 2, isMonkWeapon: false, rarity: 'rare' },
+  // ── Magic Weapons (+3) — Very Rare ───────────────────────────────────────
+  { id: 'longsword+3',      name: 'Longsword +3',      damageDie: '1d8',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Versatile (1d10)'],                         enchantmentBonus: 3, isMonkWeapon: false, rarity: 'very rare' },
+  { id: 'greatsword+3',     name: 'Greatsword +3',     damageDie: '2d6',  damageType: 'slashing',    proficiencyCategory: 'Martial',  rangeType: 'Melee',              properties: ['Heavy', 'Two-Handed'],                      enchantmentBonus: 3, isMonkWeapon: false, rarity: 'very rare' },
 ]
 
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map(w => [w.id, w])) as Record<string, WeaponDef>
