@@ -649,3 +649,46 @@
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* ── SPELL CHOICES (step 4) ── */
+.spellChoice {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all 0.12s;
+  width: 100%;
+}
+
+.spellChoice:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+.spellChoiceSelected {
+  background: rgba(124, 106, 247, 0.12);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.spellChoiceDisabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.spellChoiceName {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.spellChoiceMeta {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.spellChoiceSelected .spellChoiceMeta { color: var(--text-secondary); }

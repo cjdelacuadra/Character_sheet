@@ -69,4 +69,5 @@ export interface Character {
   resources: Record<string, { used: number; total: number }>
   deathSaves: { successes: number; failures: number }
   inspiration: boolean
+  hitDiceUsed: number
 }

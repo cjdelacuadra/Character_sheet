@@ -13,6 +13,8 @@ import {
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL
 } from '@/shared/data/charCalculations'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
+import { spellsForClass, type SpellEntry } from '@/shared/data/spellData'
+import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import styles from './CharacterSelectScreen.module.css'
 
 const ABILITY_KEYS: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -83,10 +85,10 @@ function hpColor(current: number, max: number) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  CREATE MODAL — 3 STEPS
+//  CREATE MODAL — 4 STEPS
 // ─────────────────────────────────────────────────────────────
 
-type Step = 'basics' | 'scores' | 'equipment'
+type Step = 'basics' | 'scores' | 'equipment' | 'spells'
 type ScoreMethod = 'standard' | 'pointbuy' | 'roll'
 
 interface Basics { name: string; race: string; classId: string; subclass?: string; background: string; level: number }
@@ -107,9 +109,14 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   const [hasShield, setHasShield] = useState(false)
   const [chosenSkills, setChosenSkills] = useState<Skill[]>([])
 
+  // Step 4 state
+  const [chosenSpells, setChosenSpells] = useState<string[]>([])
+
   const classDef = CLASS_BY_ID[basics.classId]
   const raceDef = RACE_BY_ID[basics.race]
   const bgDef = BACKGROUND_BY_ID[basics.background]
+  const isSpellcaster = classDef?.isSpellcaster ?? false
+  const steps: Step[] = isSpellcaster ? ['basics', 'scores', 'equipment', 'spells'] : ['basics', 'scores', 'equipment']
 
   function getScores(): AbilityScores {
     const base: AbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
@@ -120,7 +127,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     } else {
       ABILITY_KEYS.forEach(k => { if (rollAssign[k] !== undefined) base[k] = rollAssign[k]! })
     }
-    // Apply racial bonuses
     if (raceDef?.abilityBonus) {
       ABILITY_KEYS.forEach(k => { base[k] = (base[k] || 10) + (raceDef.abilityBonus[k] ?? 0) })
     }
@@ -137,10 +143,11 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const dexMod = mod(scores.dex)
     const prof = profBonus(basics.level)
 
-    // Skill proficiencies: background + chosen class skills (no duplicates)
     const skillProf: Partial<Record<Skill, 'proficient' | 'expert'>> = {}
     bgDef?.skills.forEach(s => { skillProf[s] = 'proficient' })
     chosenSkills.forEach(s => { skillProf[s] = 'proficient' })
+
+    const resources = getResourceDefaults(basics.classId, basics.level, scores)
 
     return {
       id: crypto.randomUUID(),
@@ -160,13 +167,20 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       equipment,
       savingThrowProficiencies: classDef ? [...classDef.savingThrows] : [],
       skillProficiencies: skillProf,
-      spellIds: [],
+      spellIds: chosenSpells,
       spellSlots: defaultSpellSlots(basics.classId, basics.level),
       conditionIds: [],
-      resources: {},
+      resources,
       deathSaves: { successes: 0, failures: 0 },
       inspiration: false,
+      hitDiceUsed: 0,
     }
+  }
+
+  function goToEquipment() {
+    setStep('equipment')
+    // Reset spell choices if class changed to non-caster
+    if (!CLASS_BY_ID[basics.classId]?.isSpellcaster) setChosenSpells([])
   }
 
   return (
@@ -174,13 +188,13 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.modalHeader}>
           <h2 className={styles.modalTitle}>New Character</h2>
-          <StepPips current={step} />
+          <StepPips current={step} steps={steps} />
         </div>
 
         {step === 'basics' && (
           <StepBasics
             value={basics}
-            onChange={setBasics}
+            onChange={(v) => { setBasics(v); if (v.classId !== basics.classId) setChosenSpells([]) }}
             onNext={() => setStep('scores')}
             onCancel={onClose}
           />
@@ -207,6 +221,18 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             hasShield={hasShield} setHasShield={setHasShield}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
             onBack={() => setStep('scores')}
+            onNext={isSpellcaster ? () => setStep('spells') : undefined}
+            onCreate={isSpellcaster ? undefined : () => onCreate(buildCharacter())}
+          />
+        )}
+
+        {step === 'spells' && (
+          <StepSpells
+            basics={basics}
+            scores={getScores()}
+            chosenSpells={chosenSpells}
+            setChosenSpells={setChosenSpells}
+            onBack={goToEquipment}
             onCreate={() => onCreate(buildCharacter())}
           />
         )}
@@ -215,8 +241,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   )
 }
 
-function StepPips({ current }: { current: Step }) {
-  const steps: Step[] = ['basics', 'scores', 'equipment']
+function StepPips({ current, steps }: { current: Step; steps: Step[] }) {
   return (
     <div className={styles.stepIndicator}>
       {steps.map((s, i) => (
@@ -490,13 +515,13 @@ function StepScores({
 
 function StepEquipment({
   basics, scores, armorId, setArmorId, hasShield, setHasShield,
-  chosenSkills, setChosenSkills, onBack, onCreate,
+  chosenSkills, setChosenSkills, onBack, onNext, onCreate,
 }: {
   basics: Basics; scores: AbilityScores
   armorId: string; setArmorId: (v: string) => void
   hasShield: boolean; setHasShield: (v: boolean) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
-  onBack: () => void; onCreate: () => void
+  onBack: () => void; onNext?: () => void; onCreate?: () => void
 }) {
   const classDef = CLASS_BY_ID[basics.classId]
   const bgDef = BACKGROUND_BY_ID[basics.background]
@@ -583,6 +608,137 @@ function StepEquipment({
               <span className={styles.infoValue}>{bgDef.skills.map(s => SKILL_BY_KEY[s]?.label).join(', ')}</span>
             </div>
           )}
+        </div>
+      )}
+
+      <div className={styles.actions}>
+        <button type="button" className={styles.cancelBtn} onClick={onBack}>← Back</button>
+        {onNext && (
+          <button type="button" className={styles.nextBtn} disabled={!ready} onClick={onNext}>
+            Spells →
+          </button>
+        )}
+        {onCreate && (
+          <button type="button" className={styles.createBtn} disabled={!ready} onClick={onCreate}>
+            Create Character
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── STEP 4: SPELLS ──
+
+function StepSpells({
+  basics, scores, chosenSpells, setChosenSpells, onBack, onCreate,
+}: {
+  basics: Basics; scores: AbilityScores
+  chosenSpells: string[]; setChosenSpells: (v: string[]) => void
+  onBack: () => void; onCreate: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const cls = CLASS_BY_ID[basics.classId]
+  const availableSpells = spellsForClass(basics.classId)
+
+  // Determine how many cantrips and spells the player can pick
+  const cantripsKnownTable = cls?.cantripsKnownTable ?? {}
+  let cantripsAllowed = 0
+  for (let l = 1; l <= basics.level; l++) {
+    if (cantripsKnownTable[l] !== undefined) cantripsAllowed = cantripsKnownTable[l]!
+  }
+
+  const spellsKnownTable = cls?.spellsKnownTable ?? {}
+  let spellsAllowed = 0
+  if (cls?.prepareSpells) {
+    // Prepared casters: WIS/INT mod + level (approximate)
+    const abilityKey = cls.spellcastingAbility
+    const abilityMod = abilityKey ? mod(scores[abilityKey]) : 0
+    spellsAllowed = Math.max(1, basics.level + abilityMod)
+  } else {
+    for (let l = 1; l <= basics.level; l++) {
+      if (spellsKnownTable[l] !== undefined) spellsAllowed = spellsKnownTable[l]!
+    }
+  }
+
+  const chosenCantrips = chosenSpells.filter(id => availableSpells.find(s => s.id === id)?.level === 0)
+  const chosenLeveled = chosenSpells.filter(id => (availableSpells.find(s => s.id === id)?.level ?? 0) > 0)
+
+  function toggleSpell(spell: SpellEntry) {
+    const isChosen = chosenSpells.includes(spell.id)
+    if (isChosen) {
+      setChosenSpells(chosenSpells.filter(id => id !== spell.id))
+      return
+    }
+    if (spell.level === 0) {
+      if (chosenCantrips.length >= cantripsAllowed) return
+    } else {
+      if (chosenLeveled.length >= spellsAllowed) return
+    }
+    setChosenSpells([...chosenSpells, spell.id])
+  }
+
+  const filtered = availableSpells.filter(s =>
+    s.name.toLowerCase().includes(search.toLowerCase())
+  ).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+
+  const cantrips = filtered.filter(s => s.level === 0)
+  const leveled = filtered.filter(s => s.level > 0)
+
+  function renderSpellList(list: SpellEntry[], limit: number, chosen: string[]) {
+    return list.map(s => {
+      const selected = chosenSpells.includes(s.id)
+      const full = !selected && chosen.length >= limit
+      return (
+        <button
+          key={s.id}
+          className={`${styles.spellChoice} ${selected ? styles.spellChoiceSelected : ''} ${full ? styles.spellChoiceDisabled : ''}`}
+          onClick={() => toggleSpell(s)}
+          disabled={full}
+        >
+          <span className={styles.spellChoiceName}>{s.name}</span>
+          <span className={styles.spellChoiceMeta}>{s.school} · {s.castingTime}{s.concentration ? ' · C' : ''}</span>
+        </button>
+      )
+    })
+  }
+
+  const ready = true // always can create (spells optional)
+
+  return (
+    <div className={styles.stepContent}>
+      <input
+        className={styles.input}
+        type="search"
+        placeholder="Search spells…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 8 }}
+      />
+
+      {cantripsAllowed > 0 && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            Cantrips — choose {cantripsAllowed - chosenCantrips.length > 0
+              ? `${cantripsAllowed - chosenCantrips.length} more`
+              : `✓ ${chosenCantrips.length}/${cantripsAllowed}`}
+          </div>
+          <div className={styles.skillChoices}>
+            {renderSpellList(cantrips, cantripsAllowed, chosenCantrips)}
+          </div>
+        </div>
+      )}
+
+      {spellsAllowed > 0 && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            {cls?.prepareSpells ? 'Prepared Spells' : 'Known Spells'} — choose {spellsAllowed - chosenLeveled.length > 0
+              ? `${spellsAllowed - chosenLeveled.length} more`
+              : `✓ ${chosenLeveled.length}/${spellsAllowed}`}
+          </div>
+          <div className={styles.skillChoices}>
+            {renderSpellList(leveled, spellsAllowed, chosenLeveled)}
+          </div>
         </div>
       )}
 

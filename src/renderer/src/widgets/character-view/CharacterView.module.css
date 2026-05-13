@@ -1021,3 +1021,598 @@
 }
 
 .spellName { font-size: 12px; color: var(--text-primary); }
+
+/* ── XP BLOCK ── */
+.xpBlock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.xpBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 3px 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  transition: border-color 0.15s;
+}
+
+.xpBtn:hover { border-color: var(--accent); }
+
+.xpVal {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.xpMax {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.xpInput {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--text-primary);
+  padding: 3px 8px;
+  font-size: 12px;
+  outline: none;
+  width: 90px;
+  font-variant-numeric: tabular-nums;
+}
+
+.levelUpBtn {
+  background: rgba(76, 175, 125, 0.15);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  animation: pulse 2s infinite;
+  transition: background 0.15s;
+}
+
+.levelUpBtn:hover { background: rgba(76, 175, 125, 0.28); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+/* ── REST BUTTON + PANEL ── */
+.restBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 20px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.restBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.restPanel {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.restTabs {
+  display: flex;
+  gap: 6px;
+}
+
+.restTab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.restTab:hover { border-color: var(--accent); color: var(--accent); }
+
+.restTabActive {
+  background: rgba(139, 124, 248, 0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.restBody {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.restNote {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.restNote strong { color: var(--text-primary); }
+
+.restHdRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.restHdInput {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  width: 80px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s;
+}
+
+.restHdInput:focus { border-color: var(--accent); }
+
+.restRollBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.restRollBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.restHdNote {
+  font-size: 11px;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+
+.restConfirmBtn {
+  background: rgba(76, 175, 125, 0.12);
+  border: 1px solid var(--success);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.restConfirmBtn:hover:not(:disabled) { background: rgba(76, 175, 125, 0.25); }
+.restConfirmBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.restCancelBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.restCancelBtn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+
+.restActions { display: flex; gap: 8px; align-items: center; }
+
+/* ── TEMP HP ── */
+.tempHpRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 0;
+}
+
+.tempHpLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.tempHpValue {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tempHpValue:hover { border-color: var(--accent); color: var(--accent); }
+
+.tempHpActive {
+  color: var(--accent);
+  border-style: solid;
+  border-color: var(--accent);
+  background: rgba(139, 124, 248, 0.08);
+}
+
+.tempHpInput {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--text-primary);
+  padding: 2px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  width: 70px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── RESOURCES ── */
+.resourceList { display: flex; flex-direction: column; gap: 6px; }
+
+.resourceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resourceName {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 80px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resourcePips {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.resourcePip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.resourcePipFull  { background: var(--warning); border-color: var(--warning); }
+.resourcePipEmpty { background: transparent; border-color: var(--text-muted); }
+.resourcePipFull:hover  { opacity: 0.7; }
+.resourcePipEmpty:hover { border-color: var(--warning); background: rgba(224, 168, 76, 0.2); }
+
+.resourceCount {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.resourceRecovery {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  letter-spacing: 0.05em;
+}
+
+/* ── SPELL ENTRY (rich) ── */
+.spellEntry {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.spellEntry:hover { border-color: var(--accent); }
+.spellConc { border-color: rgba(224, 168, 76, 0.5); background: rgba(224, 168, 76, 0.04); }
+
+.spellEntryLeft {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.spellEntryRight {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.spellLevelBadge {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(139, 124, 248, 0.15);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.spellLevelCantrip {
+  background: rgba(76, 175, 125, 0.15);
+  color: var(--success);
+}
+
+.spellSchool {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.spellConcBadge {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(224, 168, 76, 0.15);
+  color: var(--warning);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.spellConcBtn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.spellConcBtn:hover { color: var(--warning); }
+.spellConcBtnActive { color: var(--warning); }
+
+/* ── CONCENTRATION BANNER ── */
+.concentrationBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(224, 168, 76, 0.08);
+  border: 1px solid rgba(224, 168, 76, 0.3);
+  border-radius: 6px;
+  padding: 5px 10px;
+  gap: 8px;
+}
+
+.concLabel {
+  font-size: 11px;
+  color: var(--warning);
+}
+
+.concLabel strong { color: var(--text-primary); }
+
+.concDrop {
+  background: transparent;
+  border: 1px solid rgba(224, 168, 76, 0.4);
+  color: var(--warning);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.concDrop:hover { background: rgba(224, 168, 76, 0.15); }
+
+/* ── SPELL STATS ── */
+.spellStats {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ACTION DEPLETED / COST / FREE TYPE ── */
+.actionDepleted { opacity: 0.4; }
+
+.actionCost {
+  font-size: 10px;
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.labelFree { color: rgba(139, 124, 248, 0.6) !important; }
+.badgeFree { background: rgba(139, 124, 248, 0.08); color: rgba(139, 124, 248, 0.7); }
+.selFree   { background: rgba(139, 124, 248, 0.07); border-color: rgba(139, 124, 248, 0.4); }
+.actionCompactSel.selFree { background: rgba(139,124,248,0.07); border-color: rgba(139,124,248,0.4); }
+
+/* ── ACTION DETAIL RESOURCE ── */
+.detailResource {
+  font-size: 11px;
+  color: var(--warning);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detailResourceRemaining {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ── SPELL MODAL ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.spellModalCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spellModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spellModalTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spellModalName {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.spellModalLevel {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.spellModalClose {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.spellModalClose:hover { border-color: var(--danger); color: var(--danger); }
+
+.spellModalMeta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+}
+
+.spellModalMeta dt {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 2px 0;
+}
+
+.spellModalMeta dd {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 2px 0;
+}
+
+.spellModalDesc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.spellModalConcBtn {
+  background: rgba(224, 168, 76, 0.1);
+  border: 1px solid rgba(224, 168, 76, 0.4);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  align-self: flex-start;
+}
+
+.spellModalConcBtn:hover { background: rgba(224, 168, 76, 0.2); }

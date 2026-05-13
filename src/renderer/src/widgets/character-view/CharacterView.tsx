@@ -6,6 +6,12 @@ import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
+import { SPELL_BY_ID } from '@/shared/data/spellData'
+import {
+  computeAttackBonus, computeSpellSaveDC, computeSpellAttackBonus,
+  getAvailableActions, xpForNextLevel,
+  type ActionDef,
+} from '@/domain/rules'
 import styles from './CharacterView.module.css'
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -20,131 +26,15 @@ const ABILITY_KEYS: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 const ABILITY_LABELS: Record<AbilityScore, string> = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' }
 const ORDINAL: Record<number, string> = { 1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th', 6: '6th', 7: '7th', 8: '8th', 9: '9th' }
 
-interface ActionDef { name: string; type: 'Action' | 'Bonus Action' | 'Reaction'; short: string; full: string }
-
-const ACTIONS: ActionDef[] = [
-  // ── Standard Actions ────────────────────────────────────────────
-  { name: 'Attack',      type: 'Action', short: 'Make one melee or ranged attack.', full: 'Make one melee weapon attack, ranged weapon attack, or unarmed strike. When you have Extra Attack, you can attack multiple times instead.' },
-  { name: 'Dash',        type: 'Action', short: 'Gain extra movement equal to your speed.', full: 'You gain extra movement for the current turn equal to your speed (after modifiers). With 30ft speed and Dash, you can move up to 60ft this turn.' },
-  { name: 'Dodge',       type: 'Action', short: 'Attackers have disadvantage; Dex saves at advantage.', full: 'Until the start of your next turn, any attack roll made against you has disadvantage if you can see the attacker, and you make Dexterity saving throws with advantage. You lose this if incapacitated or your speed drops to 0.' },
-  { name: 'Help',        type: 'Action', short: 'Ally gains advantage on next ability check or attack.', full: 'Lend your aid to another creature. The creature you help gains advantage on the next ability check it makes for the task you assist with, or you can aid a friendly creature attacking a creature within 5ft of you.' },
-  { name: 'Hide',        type: 'Action', short: 'Attempt to hide (Stealth vs passive Perception).', full: "Make a Dexterity (Stealth) check in an attempt to hide. You can't hide from a creature that can see you clearly. If successful, you gain the benefits of being hidden until you give away your position." },
-  { name: 'Ready',       type: 'Action', short: 'Choose a trigger and reaction to take when it occurs.', full: 'Decide what perceivable circumstance will trigger your reaction, then choose the action you will take in response. When the trigger occurs, take your reaction immediately after, or ignore it.' },
-  { name: 'Search',      type: 'Action', short: 'Devote attention to finding something.', full: 'You devote your attention to finding something. The DM might have you make a Wisdom (Perception) check or an Intelligence (Investigation) check depending on the nature of the search.' },
-  { name: 'Use Object',  type: 'Action', short: 'Use an object that requires your action.', full: 'When an object requires your action for its use, you take the Use an Object action. Normally you interact with one object for free as part of your move or action.' },
-  { name: 'Grapple',     type: 'Action', short: 'Str (Athletics) vs Str (Athletics) or Dex (Acrobatics).', full: "Make a Strength (Athletics) check contested by the target's Strength (Athletics) or Dexterity (Acrobatics). If you succeed, the target is grappled — its speed becomes 0." },
-  { name: 'Shove',       type: 'Action', short: 'Push 5ft away or knock prone.', full: "Using the Attack action, make a Str (Athletics) check contested by the target's Str (Athletics) or Dex (Acrobatics). On success, push the target 5ft away or knock it prone." },
-  { name: 'Disengage',   type: 'Action', short: 'Your movement does not provoke opportunity attacks.', full: 'Until the end of your turn, your movement does not provoke opportunity attacks. You can still move and take other actions normally.' },
-  { name: 'Escape Grapple', type: 'Action', short: 'Str/Dex (Athletics/Acrobatics) vs grappler\'s Str (Athletics).', full: "Make a Strength (Athletics) or Dexterity (Acrobatics) check contested by the grappler's Strength (Athletics). On a success you escape the grappled condition." },
-  // ── Bonus Actions ───────────────────────────────────────────────
-  { name: 'Off-Hand Attack',   type: 'Bonus Action', short: 'Attack with your off-hand light weapon (no ability mod to damage).', full: "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative." },
-  { name: 'Interact with Object', type: 'Bonus Action', short: 'Some magic items or features use a bonus action.', full: 'Certain items, class features, or spells specify that they require a bonus action to activate or use. Check the specific item or feature description for details.' },
-  { name: 'Cast a Spell (Bonus)', type: 'Bonus Action', short: 'Spells with a casting time of 1 bonus action.', full: 'Some spells specify a casting time of 1 bonus action. If you cast a bonus action spell, you can still cast a cantrip (not a leveled spell) with your action this turn.' },
-  { name: 'Mount / Dismount',  type: 'Bonus Action', short: 'Climb onto or off a willing creature (uses half your speed).', full: "Once during your move, you can mount a creature within 5ft of you, or dismount from it. Doing so costs an amount of movement equal to half your speed. If an effect moves your mount against its will, make a DC 10 Dexterity saving throw or fall prone, dismounted." },
-  // ── Reactions ───────────────────────────────────────────────────
-  { name: 'Opportunity Attack', type: 'Reaction', short: 'When a hostile creature moves out of your reach.', full: 'When a hostile creature that you can see moves out of your reach, you can use your reaction to make one melee attack against that creature. The attack occurs right before it leaves your reach.' },
-  { name: 'Readied Action',     type: 'Reaction', short: 'When your Ready trigger occurs, take your prepared action.', full: "When the trigger condition you declared with the Ready action occurs, you can take your reaction immediately to perform the readied action — or choose to ignore the trigger. If you readied a spell, it is released; if the trigger doesn't occur before your next turn, your reaction is lost." },
-  { name: 'Cast a Spell (Reaction)', type: 'Reaction', short: 'Some spells let you cast them as a reaction.', full: 'Certain spells (e.g. Shield, Absorb Elements, Counterspell) specify a casting time of 1 reaction, triggered by a particular circumstance described in the spell. You can only take one reaction per round.' },
-]
-
-const CLASS_FEATURES: Record<string, { level: number; name: string; desc: string }[]> = {
-  Fighter: [
-    { level: 1, name: 'Fighting Style', desc: 'Adopt a particular style of fighting. +2 to a roll type based on style chosen.' },
-    { level: 1, name: 'Second Wind', desc: 'Bonus action: regain 1d10 + fighter level HP. Recharges on short or long rest.' },
-    { level: 2, name: 'Action Surge', desc: 'Take one additional action this turn. Recharges on short or long rest.' },
-    { level: 3, name: 'Martial Archetype', desc: 'Choose your subclass.' },
-    { level: 4, name: 'ASI', desc: 'Increase one ability score by 2, or two scores by 1. Max 20.' },
-    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
-  ],
-  Wizard: [
-    { level: 1, name: 'Arcane Recovery', desc: 'Short rest: recover spell slots with total level ≤ ½ wizard level (rounded up).' },
-    { level: 2, name: 'Arcane Tradition', desc: 'Choose your subclass.' },
-    { level: 4, name: 'ASI', desc: 'Increase one ability score by 2, or two scores by 1. Max 20.' },
-    { level: 5, name: 'Third-level Spells', desc: 'Access to 3rd-level spell slots.' },
-  ],
-  Rogue: [
-    { level: 1, name: 'Expertise', desc: 'Double proficiency bonus on 2 chosen skills.' },
-    { level: 1, name: 'Sneak Attack', desc: 'Once per turn, deal extra damage when attacking with advantage or an ally is adjacent to target.' },
-    { level: 1, name: "Thieves' Cant", desc: 'Secret language and signs used by rogues.' },
-    { level: 2, name: 'Cunning Action', desc: 'Bonus action: Dash, Disengage, or Hide.' },
-    { level: 3, name: 'Roguish Archetype', desc: 'Choose your subclass.' },
-    { level: 5, name: 'Uncanny Dodge', desc: 'Reaction: halve damage from an attack you can see.' },
-  ],
-  Barbarian: [
-    { level: 1, name: 'Rage', desc: 'Bonus action: rage for 1 min. +damage, advantage on Str checks/saves, resistance to B/P/S damage. 2 uses/LR at level 1.' },
-    { level: 1, name: 'Unarmored Defense', desc: 'Without armor, AC = 10 + Dex mod + Con mod.' },
-    { level: 2, name: 'Reckless Attack', desc: 'Advantage on first Str attack roll this turn, but attacks against you have advantage until next turn.' },
-    { level: 2, name: 'Danger Sense', desc: 'Advantage on Dex saving throws against effects you can see (not blinded/deafened/incapacitated).' },
-    { level: 3, name: 'Primal Path', desc: 'Choose your subclass.' },
-    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
-  ],
-  Cleric: [
-    { level: 1, name: 'Divine Domain', desc: 'Choose your subclass (domain).' },
-    { level: 2, name: 'Channel Divinity (1/rest)', desc: 'Use a special divine effect (varies by domain).' },
-    { level: 2, name: 'Turn Undead', desc: 'Channel Divinity: Wis save DC 8+Prof+Wis vs undead. On fail, undead flees for 1 min.' },
-    { level: 5, name: 'Destroy Undead', desc: 'On a failed Turn Undead, undead of CR ½ or lower is destroyed.' },
-  ],
-  Paladin: [
-    { level: 1, name: 'Divine Sense', desc: 'Action: detect celestials, fiends, undead within 60ft. Uses = 1 + Cha mod / LR.' },
-    { level: 1, name: 'Lay on Hands', desc: 'Touch: restore HP from pool of 5×paladin level per LR. 5 HP to cure disease/poison.' },
-    { level: 2, name: 'Fighting Style', desc: 'Adopt a particular style of fighting.' },
-    { level: 2, name: 'Divine Smite', desc: 'On hit: expend spell slot for 2d8 + 1d8/slot level above 1st radiant damage.' },
-    { level: 3, name: 'Sacred Oath', desc: 'Choose your subclass.' },
-    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
-  ],
-  Ranger: [
-    { level: 1, name: 'Favored Enemy', desc: 'Advantage on Survival to track and Int checks to recall info about your chosen enemy type.' },
-    { level: 1, name: 'Natural Explorer', desc: 'Expertise in one terrain type. No difficult terrain penalty. Double foraging yields.' },
-    { level: 2, name: 'Fighting Style', desc: 'Adopt a particular style of fighting.' },
-    { level: 3, name: 'Ranger Archetype', desc: 'Choose your subclass.' },
-    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
-  ],
-  Bard: [
-    { level: 1, name: 'Bardic Inspiration', desc: 'Bonus action: give ally a d6 inspiration die to add to one roll. Uses = Cha mod / LR.' },
-    { level: 2, name: 'Jack of All Trades', desc: 'Add half proficiency bonus (rounded down) to any non-proficient ability check.' },
-    { level: 2, name: 'Song of Rest', desc: 'During short rest, ally expending HD regains extra HP (d6 at level 2).' },
-    { level: 3, name: 'Bard College', desc: 'Choose your subclass.' },
-    { level: 3, name: 'Expertise', desc: 'Double proficiency bonus on 2 chosen skills.' },
-    { level: 5, name: 'Font of Inspiration', desc: 'Regain Bardic Inspiration on short or long rest.' },
-  ],
-  Druid: [
-    { level: 1, name: 'Druidic', desc: 'Secret language of druids.' },
-    { level: 2, name: 'Wild Shape', desc: "Action: transform into a beast you've seen. CR ≤ ¼ at level 2, CR ≤ ½ at level 4. 2 uses / SR." },
-    { level: 2, name: 'Druid Circle', desc: 'Choose your subclass.' },
-  ],
-  Monk: [
-    { level: 1, name: 'Unarmored Defense', desc: 'Without armor, AC = 10 + Dex mod + Wis mod.' },
-    { level: 1, name: 'Martial Arts', desc: 'Use Dex for unarmed strikes. Use d4 as unarmed damage (scales with level).' },
-    { level: 2, name: 'Ki', desc: 'Ki points = monk level. Recover on short rest.' },
-    { level: 2, name: 'Flurry of Blows', desc: '1 Ki: After Attack action, make 2 unarmed strikes as bonus action.' },
-    { level: 2, name: 'Patient Defense', desc: '1 Ki: Take Dodge as bonus action.' },
-    { level: 2, name: 'Step of the Wind', desc: '1 Ki: Disengage or Dash as bonus action. Jump distance doubled.' },
-    { level: 3, name: 'Monastic Tradition', desc: 'Choose your subclass.' },
-    { level: 5, name: 'Stunning Strike', desc: '1 Ki: Con save DC 8+Prof+Wis on hit. On fail: stunned until your next turn.' },
-  ],
-  Sorcerer: [
-    { level: 1, name: 'Sorcerous Origin', desc: 'Choose your subclass.' },
-    { level: 2, name: 'Font of Magic', desc: 'Sorcery points = sorcerer level. Convert to spell slots or spend on Metamagic.' },
-    { level: 3, name: 'Metamagic', desc: 'Choose 2 options to modify spells (Careful, Distant, Empowered, Extended, Heightened, Quickened, Subtle, Twinned).' },
-  ],
-  Warlock: [
-    { level: 1, name: 'Otherworldly Patron', desc: 'Choose your subclass.' },
-    { level: 2, name: 'Eldritch Invocations', desc: 'Choose 2 invocations to augment your abilities.' },
-    { level: 3, name: 'Pact Boon', desc: 'Pact of the Blade / Chain / Tome.' },
-    { level: 5, name: '3rd-level Pact Slots', desc: 'Pact magic slots are now 3rd level.' },
-  ],
-}
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-type EditField = 'speed' | 'initiative' | keyof AbilityScores
+type EditField = 'speed' | 'initiative' | 'xp' | keyof AbilityScores
 
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function CharacterView() {
-  const { characters, activeCharacterId, exitCharacter, updateCharacter } = useAppStore()
+  const { characters, activeCharacterId, exitCharacter, updateCharacter, shortRest, longRest, levelUp, setTempHp } = useAppStore()
 
   const [hpEdit, setHpEdit] = useState<string | null>(null)
+  const [tempHpEdit, setTempHpEdit] = useState<string | null>(null)
   const [fieldEdit, setFieldEdit] = useState<{ field: EditField; value: string } | null>(null)
   const [conditionOpen, setConditionOpen] = useState(false)
   const [armorOpen, setArmorOpen] = useState(false)
@@ -152,10 +42,12 @@ export function CharacterView() {
   const [expandedFeatures, setExpandedFeatures] = useState<Set<number>>(new Set())
   const [spellSearch, setSpellSearch] = useState('')
   const [newWeapon, setNewWeapon] = useState<{ name: string; atkBonus: string; damage: string } | null>(null)
+  const [spellModal, setSpellModal] = useState<string | null>(null)
+  const [restPanel, setRestPanel] = useState<'short' | 'long' | null>(null)
+  const [hdRoll, setHdRoll] = useState<string>('')
 
   const charMaybe = activeCharacterId ? characters[activeCharacterId] : null
   if (!charMaybe) return null
-  // Rebind as non-nullable so closures below don't need null assertions
   const char: Character = charMaybe
 
   const update = (patch: Partial<Character>) => updateCharacter(char.id, patch)
@@ -165,6 +57,15 @@ export function CharacterView() {
   const eq = char.equipment ?? { armorId: null, hasShield: false }
   const classDef = CLASS_BY_ID[char.classId]
   const prof = char.proficiencyBonus
+
+  // Domain-computed stats
+  const spellSaveDC = classDef?.spellcastingAbility ? computeSpellSaveDC(char) : null
+  const spellAtkBonus = classDef?.spellcastingAbility ? computeSpellAttackBonus(char) : null
+  const availableActions = getAvailableActions(char)
+  const xpNext = xpForNextLevel(char.level)
+  const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
+
+  // ── HP handlers ──────────────────────────────────────────────────────────
 
   function applyHp(delta: number) {
     update({ hitPoints: { ...hp, current: Math.min(hp.max, Math.max(0, hp.current + delta)) } })
@@ -176,6 +77,15 @@ export function CharacterView() {
     if (!isNaN(v)) update({ hitPoints: { ...hp, current: Math.min(hp.max, Math.max(0, v)) } })
     setHpEdit(null)
   }
+
+  function commitTempHpEdit() {
+    if (tempHpEdit === null) return
+    const v = parseInt(tempHpEdit, 10)
+    if (!isNaN(v)) setTempHp(char.id, v)
+    setTempHpEdit(null)
+  }
+
+  // ── Field edit handlers ──────────────────────────────────────────────────
 
   function startEdit(field: EditField, val: number) {
     setFieldEdit({ field, value: String(val) })
@@ -190,6 +100,8 @@ export function CharacterView() {
       update({ speed: Math.max(0, v) })
     } else if (field === 'initiative') {
       update({ initiative: v })
+    } else if (field === 'xp') {
+      update({ experiencePoints: Math.max(0, v) })
     } else {
       const key = field as keyof AbilityScores
       const clamped = Math.min(30, Math.max(1, v))
@@ -206,6 +118,8 @@ export function CharacterView() {
     }
     setFieldEdit(null)
   }
+
+  // ── Other handlers ───────────────────────────────────────────────────────
 
   function toggleCondition(name: string) {
     const id = name.toLowerCase()
@@ -274,18 +188,64 @@ export function CharacterView() {
     update({ weapons: (char.weapons ?? []).filter(w => w.id !== id) })
   }
 
-  function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
-
-  function badgeClass(type: string) {
-    if (type === 'Action') return styles.badgeAction
-    if (type === 'Bonus Action') return styles.badgeBonusAction
-    return styles.badgeReaction
+  function useResource(name: string) {
+    const res = char.resources[name]
+    if (!res || res.used >= res.total) return
+    update({ resources: { ...char.resources, [name]: { ...res, used: res.used + 1 } } })
   }
 
-  function badgeLabel(type: string) {
-    if (type === 'Action') return 'Action'
-    if (type === 'Bonus Action') return 'Bonus'
-    return 'Reaction'
+  function recoverResource(name: string) {
+    const res = char.resources[name]
+    if (!res || res.used === 0) return
+    update({ resources: { ...char.resources, [name]: { ...res, used: res.used - 1 } } })
+  }
+
+  function setConcentration(spellId: string) {
+    update({ concentrationSpellId: char.concentrationSpellId === spellId ? undefined : spellId })
+  }
+
+  function doShortRest() {
+    const rollVal = parseInt(hdRoll, 10)
+    if (isNaN(rollVal) || rollVal < 1) return
+    shortRest(char.id, rollVal)
+    setRestPanel(null)
+    setHdRoll('')
+  }
+
+  function doLongRest() {
+    longRest(char.id)
+    setRestPanel(null)
+  }
+
+  function rollHitDie() {
+    const cls = CLASS_BY_ID[char.classId]
+    const sides = cls?.hitDie ?? 8
+    setHdRoll(String(Math.ceil(Math.random() * sides)))
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
+
+  function actionAccentClass(type: string) {
+    if (type === 'Action') return styles.selAction
+    if (type === 'Bonus Action') return styles.selBonus
+    if (type === 'Reaction') return styles.selReaction
+    return styles.selFree
+  }
+
+  function actionBadgeClass(type: string) {
+    if (type === 'Action') return styles.badgeAction
+    if (type === 'Bonus Action') return styles.badgeBonusAction
+    if (type === 'Reaction') return styles.badgeReaction
+    return styles.badgeFree
+  }
+
+  function isActionDepleted(action: ActionDef): boolean {
+    if (!action.resourceKey || !action.resourceCost) return false
+    const res = char.resources[action.resourceKey]
+    if (!res) return false
+    return (res.total - res.used) < action.resourceCost
   }
 
   const armorName = eq.armorId ? (ARMOR_BY_ID[eq.armorId]?.name ?? 'Unknown') : 'Unarmored'
@@ -293,10 +253,22 @@ export function CharacterView() {
     a.type === 'none' || (classDef?.armorProficiencies.includes(a.type as 'light' | 'medium' | 'heavy') ?? false)
   )
   const canShield = classDef?.armorProficiencies.includes('shields') ?? false
-  const classFeatures = (CLASS_FEATURES[char.classId] ?? []).filter(f => f.level <= char.level)
   const passivePerception = 10 + mod(char.abilityScores.wis) +
     (char.skillProficiencies?.['perception'] === 'expert' ? prof * 2 :
      char.skillProficiencies?.['perception'] === 'proficient' ? prof : 0)
+  const availableHD = char.level - (char.hitDiceUsed ?? 0)
+  const hasResources = Object.keys(char.resources).length > 0
+  const activeConcentration = char.concentrationSpellId
+    ? SPELL_BY_ID[char.concentrationSpellId]
+    : null
+
+  // Group actions by type
+  const actionGroups: Array<{ type: ActionDef['type']; label: string; items: ActionDef[] }> = [
+    { type: 'Action' as const,       label: 'Actions',         items: availableActions.filter(a => a.type === 'Action') },
+    { type: 'Bonus Action' as const, label: 'Bonus Actions',   items: availableActions.filter(a => a.type === 'Bonus Action') },
+    { type: 'Reaction' as const,     label: 'Reactions',       items: availableActions.filter(a => a.type === 'Reaction') },
+    { type: 'Free' as const,         label: 'Class Abilities', items: availableActions.filter(a => a.type === 'Free') },
+  ].filter(g => g.items.length > 0)
 
   return (
     <div className={styles.view}>
@@ -310,6 +282,32 @@ export function CharacterView() {
             {char.subclass ? ` (${SUBCLASS_BY_ID[char.subclass]?.label ?? char.subclass})` : ''} · {char.background}
           </span>
         </div>
+
+        {/* XP tracker */}
+        <div className={styles.xpBlock}>
+          {fieldEdit?.field === 'xp' ? (
+            <input
+              className={styles.xpInput}
+              type="number"
+              value={fieldEdit.value}
+              autoFocus
+              onChange={e => setFieldEdit({ field: 'xp', value: e.target.value })}
+              onBlur={commitEdit}
+              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setFieldEdit(null) }}
+            />
+          ) : (
+            <button className={styles.xpBtn} onClick={() => startEdit('xp', char.experiencePoints)}>
+              <span className={styles.xpVal}>{char.experiencePoints.toLocaleString()}</span>
+              {xpNext !== null && <span className={styles.xpMax}>/{xpNext.toLocaleString()} XP</span>}
+            </button>
+          )}
+          {canLevelUp && (
+            <button className={styles.levelUpBtn} onClick={() => levelUp(char.id)}>
+              ↑ Level Up
+            </button>
+          )}
+        </div>
+
         <div className={styles.topRight}>
           <button
             className={`${styles.inspirationBtn} ${char.inspiration ? styles.inspirationOn : ''}`}
@@ -317,9 +315,66 @@ export function CharacterView() {
           >
             ✦ Inspiration
           </button>
+          <button className={styles.restBtn} onClick={() => setRestPanel(restPanel ? null : 'short')}>
+            Rest
+          </button>
           <button className={styles.backBtn} onClick={exitCharacter}>← Characters</button>
         </div>
       </header>
+
+      {/* ── REST PANEL ── */}
+      {restPanel && (
+        <div className={styles.restPanel}>
+          <div className={styles.restTabs}>
+            <button className={`${styles.restTab} ${restPanel === 'short' ? styles.restTabActive : ''}`} onClick={() => setRestPanel('short')}>Short Rest</button>
+            <button className={`${styles.restTab} ${restPanel === 'long' ? styles.restTabActive : ''}`} onClick={() => setRestPanel('long')}>Long Rest</button>
+          </div>
+
+          {restPanel === 'short' && (
+            <div className={styles.restBody}>
+              <span className={styles.restNote}>
+                Hit Dice available: <strong>{availableHD}/{char.level}</strong>
+                {classDef && ` (d${classDef.hitDie})`}
+              </span>
+              {availableHD > 0 ? (
+                <div className={styles.restHdRow}>
+                  <input
+                    className={styles.restHdInput}
+                    type="number"
+                    min={1}
+                    max={classDef?.hitDie ?? 12}
+                    placeholder="Roll value"
+                    value={hdRoll}
+                    onChange={e => setHdRoll(e.target.value)}
+                  />
+                  <button className={styles.restRollBtn} onClick={rollHitDie}>🎲 Roll</button>
+                  <span className={styles.restHdNote}>
+                    {hdRoll && !isNaN(parseInt(hdRoll))
+                      ? `Heal: ${parseInt(hdRoll)} + CON (${fmtMod(mod(char.abilityScores.con))}) = ${Math.max(0, parseInt(hdRoll) + mod(char.abilityScores.con))} HP`
+                      : ''}
+                  </span>
+                  <button className={styles.restConfirmBtn} disabled={!hdRoll || isNaN(parseInt(hdRoll))} onClick={doShortRest}>
+                    Take Short Rest
+                  </button>
+                </div>
+              ) : (
+                <span className={styles.restNote}>No Hit Dice remaining.</span>
+              )}
+              <button className={styles.restCancelBtn} onClick={() => setRestPanel(null)}>Cancel</button>
+            </div>
+          )}
+
+          {restPanel === 'long' && (
+            <div className={styles.restBody}>
+              <span className={styles.restNote}>Long rest restores all HP, all spell slots, and long-rest resources. Recovers {Math.max(1, Math.floor(char.level / 2))} spent Hit Dice.</span>
+              <div className={styles.restActions}>
+                <button className={styles.restConfirmBtn} onClick={doLongRest}>Take Long Rest</button>
+                <button className={styles.restCancelBtn} onClick={() => setRestPanel(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── THREE COLUMNS ── */}
       <div className={styles.columns}>
@@ -331,7 +386,6 @@ export function CharacterView() {
           <section className={styles.section}>
             <div className={styles.sectionHead}>
               <span className={styles.sectionLabel}>Hit Points</span>
-              {hp.temp > 0 && <span className={styles.tempHp}>+{hp.temp} tmp</span>}
             </div>
             <div className={styles.hpDisplay}>
               {hpEdit !== null ? (
@@ -366,6 +420,31 @@ export function CharacterView() {
               {[1, 5, 10].map(d => (
                 <button key={d} className={styles.healBtn} onClick={() => applyHp(d)}>+{d}</button>
               ))}
+            </div>
+
+            {/* Temp HP */}
+            <div className={styles.tempHpRow}>
+              <span className={styles.tempHpLabel}>Temp HP</span>
+              {tempHpEdit !== null ? (
+                <input
+                  className={styles.tempHpInput}
+                  type="number"
+                  min={0}
+                  value={tempHpEdit}
+                  autoFocus
+                  onChange={e => setTempHpEdit(e.target.value)}
+                  onBlur={commitTempHpEdit}
+                  onKeyDown={e => { if (e.key === 'Enter') commitTempHpEdit(); if (e.key === 'Escape') setTempHpEdit(null) }}
+                />
+              ) : (
+                <button
+                  className={`${styles.tempHpValue} ${hp.temp > 0 ? styles.tempHpActive : ''}`}
+                  onClick={() => setTempHpEdit(String(hp.temp))}
+                  title="Click to set"
+                >
+                  {hp.temp > 0 ? `+${hp.temp}` : '—'}
+                </button>
+              )}
             </div>
           </section>
 
@@ -446,6 +525,18 @@ export function CharacterView() {
                 <span className={styles.statVal}>{fmtMod(prof)}</span>
                 <span className={styles.statKey}>Prof.</span>
               </div>
+              {spellSaveDC !== null && (
+                <div className={styles.statChip}>
+                  <span className={styles.statVal}>{spellSaveDC}</span>
+                  <span className={styles.statKey}>Spell DC</span>
+                </div>
+              )}
+              {spellAtkBonus !== null && (
+                <div className={styles.statChip}>
+                  <span className={styles.statVal}>{fmtMod(spellAtkBonus)}</span>
+                  <span className={styles.statKey}>Spell Atk</span>
+                </div>
+              )}
             </div>
 
             {/* Armor picker */}
@@ -476,6 +567,44 @@ export function CharacterView() {
               )}
             </div>
           </section>
+
+          {/* Resources */}
+          {hasResources && (
+            <section className={styles.section}>
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionLabel}>Resources</span>
+              </div>
+              <div className={styles.resourceList}>
+                {Object.entries(char.resources).map(([name, res]) => {
+                  const remaining = res.total - res.used
+                  const resDef = classDef?.resources?.find(r => r.name === name)
+                  return (
+                    <div key={name} className={styles.resourceRow}>
+                      <span className={styles.resourceName}>{name}</span>
+                      <div className={styles.resourcePips}>
+                        {Array.from({ length: Math.min(res.total, 20) }).map((_, i) => (
+                          <button
+                            key={i}
+                            className={`${styles.resourcePip} ${i < remaining ? styles.resourcePipFull : styles.resourcePipEmpty}`}
+                            onClick={() => i < remaining ? useResource(name) : recoverResource(name)}
+                            title={i < remaining ? 'Use' : 'Recover'}
+                          />
+                        ))}
+                        {res.total > 20 && (
+                          <span className={styles.resourceCount}>{remaining}/{res.total}</span>
+                        )}
+                      </div>
+                      {resDef && (
+                        <span className={styles.resourceRecovery}>
+                          {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Conditions */}
           <section className={styles.section}>
@@ -624,14 +753,17 @@ export function CharacterView() {
                 </tr>
               </thead>
               <tbody>
-                {(char.weapons ?? []).map(w => (
-                  <tr key={w.id} className={styles.weaponRow}>
-                    <td className={styles.weaponName}>{w.name}</td>
-                    <td className={styles.weaponAtk}>{w.atkBonus >= 0 ? `+${w.atkBonus}` : w.atkBonus}</td>
-                    <td className={styles.weaponDmg}>{w.damage}</td>
-                    <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
-                  </tr>
-                ))}
+                {(char.weapons ?? []).map(w => {
+                  const computed = computeAttackBonus(char, w)
+                  return (
+                    <tr key={w.id} className={styles.weaponRow}>
+                      <td className={styles.weaponName}>{w.name}</td>
+                      <td className={styles.weaponAtk}>{computed >= 0 ? `+${computed}` : computed}</td>
+                      <td className={styles.weaponDmg}>{w.damage}</td>
+                      <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
+                    </tr>
+                  )
+                })}
                 {newWeapon && (
                   <tr className={styles.weaponRow}>
                     <td><input className={styles.weaponInput} placeholder="Name" value={newWeapon.name} autoFocus onChange={e => setNewWeapon({ ...newWeapon, name: e.target.value })} onKeyDown={e => { if (e.key === 'Enter') saveWeapon(); if (e.key === 'Escape') setNewWeapon(null) }} /></td>
@@ -651,27 +783,36 @@ export function CharacterView() {
           </section>
 
           {/* Actions */}
-          {(['Action', 'Bonus Action', 'Reaction'] as const).map(type => {
-            const items = ACTIONS.filter(a => a.type === type)
-            const accent = type === 'Action' ? styles.selAction : type === 'Bonus Action' ? styles.selBonus : styles.selReaction
-            const label = type === 'Action' ? 'Actions' : type === 'Bonus Action' ? 'Bonus Actions' : 'Reactions'
+          {actionGroups.map(({ type, label, items }) => {
+            const labelClass =
+              type === 'Action' ? styles.labelAction :
+              type === 'Bonus Action' ? styles.labelBonus :
+              type === 'Reaction' ? styles.labelReaction : styles.labelFree
             return (
               <section key={type} className={styles.section}>
                 <div className={styles.sectionHead}>
-                  <span className={`${styles.sectionLabel} ${type === 'Action' ? styles.labelAction : type === 'Bonus Action' ? styles.labelBonus : styles.labelReaction}`}>{label}</span>
+                  <span className={`${styles.sectionLabel} ${labelClass}`}>{label}</span>
                   <span className={styles.actionTypeCount}>{items.length}</span>
                 </div>
                 <div className={styles.actionList}>
-                  {items.map(action => (
-                    <button
-                      key={action.name}
-                      className={`${styles.actionCompact} ${selectedAction === action.name ? `${styles.actionCompactSel} ${accent}` : ''}`}
-                      onClick={() => setSelectedAction(selectedAction === action.name ? null : action.name)}
-                    >
-                      <span className={styles.actionName}>{action.name}</span>
-                      <span className={styles.actionShort}>{action.short}</span>
-                    </button>
-                  ))}
+                  {items.map(action => {
+                    const depleted = isActionDepleted(action)
+                    return (
+                      <button
+                        key={action.name}
+                        className={`${styles.actionCompact} ${depleted ? styles.actionDepleted : ''} ${selectedAction === action.name ? `${styles.actionCompactSel} ${actionAccentClass(type)}` : ''}`}
+                        onClick={() => setSelectedAction(selectedAction === action.name ? null : action.name)}
+                      >
+                        <span className={styles.actionName}>{action.name}</span>
+                        {action.resourceKey && (
+                          <span className={styles.actionCost}>
+                            {action.resourceCost} {action.resourceKey}
+                          </span>
+                        )}
+                        <span className={styles.actionShort}>{action.short}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </section>
             )
@@ -688,7 +829,7 @@ export function CharacterView() {
               {selectedAction && <button className={styles.addBtn} onClick={() => setSelectedAction(null)}>Clear</button>}
             </div>
             {(() => {
-              const action = selectedAction ? ACTIONS.find(a => a.name === selectedAction) : null
+              const action = selectedAction ? availableActions.find(a => a.name === selectedAction) : null
               if (!action) return (
                 <div className={styles.detailEmpty}>Select an action, bonus action, or reaction to see its full description.</div>
               )
@@ -696,10 +837,20 @@ export function CharacterView() {
                 <div className={styles.detailPane}>
                   <div className={styles.detailHeader}>
                     <span className={styles.detailName}>{action.name}</span>
-                    <span className={`${styles.detailBadge} ${action.type === 'Action' ? styles.badgeAction : action.type === 'Bonus Action' ? styles.badgeBonusAction : styles.badgeReaction}`}>
+                    <span className={`${styles.detailBadge} ${actionBadgeClass(action.type)}`}>
                       {action.type === 'Bonus Action' ? 'Bonus' : action.type}
                     </span>
                   </div>
+                  {action.resourceKey && (
+                    <div className={styles.detailResource}>
+                      Cost: {action.resourceCost} {action.resourceKey}
+                      {char.resources[action.resourceKey] && (
+                        <span className={styles.detailResourceRemaining}>
+                          ({char.resources[action.resourceKey].total - char.resources[action.resourceKey].used} remaining)
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <p className={styles.detailFull}>{action.full}</p>
                 </div>
               )
@@ -711,9 +862,10 @@ export function CharacterView() {
             <div className={styles.sectionHead}>
               <span className={styles.sectionLabel}>{char.classId} Features</span>
             </div>
-            {classFeatures.length === 0
-              ? <span className={styles.emptyNote}>No features at this level.</span>
-              : (
+            {(() => {
+              const classFeatures = getClassFeatures(char.classId, char.level)
+              if (classFeatures.length === 0) return <span className={styles.emptyNote}>No features at this level.</span>
+              return (
                 <div className={styles.featureList}>
                   {classFeatures.map((f, i) => {
                     const open = expandedFeatures.has(i)
@@ -730,7 +882,7 @@ export function CharacterView() {
                   })}
                 </div>
               )
-            }
+            })()}
           </section>
 
           {/* Spell Slots */}
@@ -770,7 +922,14 @@ export function CharacterView() {
             <section className={styles.section}>
               <div className={styles.sectionHead}>
                 <span className={styles.sectionLabel}>Spells Known</span>
+                {spellSaveDC !== null && <span className={styles.spellStats}>DC {spellSaveDC} · {fmtMod(spellAtkBonus ?? 0)} atk</span>}
               </div>
+              {activeConcentration && (
+                <div className={styles.concentrationBanner}>
+                  <span className={styles.concLabel}>Concentrating: <strong>{activeConcentration.name}</strong></span>
+                  <button className={styles.concDrop} onClick={() => update({ concentrationSpellId: undefined })}>Drop</button>
+                </div>
+              )}
               <input
                 className={styles.spellSearch}
                 type="search"
@@ -780,17 +939,207 @@ export function CharacterView() {
               />
               <div className={styles.spellList}>
                 {char.spellIds
-                  .filter(id => id.toLowerCase().includes(spellSearch.toLowerCase()))
-                  .map(id => (
-                    <div key={id} className={styles.spellEntry}>
-                      <span className={styles.spellName}>{id}</span>
-                    </div>
-                  ))}
+                  .filter(id => {
+                    const spell = SPELL_BY_ID[id]
+                    const name = spell?.name ?? id
+                    return name.toLowerCase().includes(spellSearch.toLowerCase())
+                  })
+                  .sort((a, b) => {
+                    const la = SPELL_BY_ID[a]?.level ?? 0
+                    const lb = SPELL_BY_ID[b]?.level ?? 0
+                    return la - lb
+                  })
+                  .map(id => {
+                    const spell = SPELL_BY_ID[id]
+                    const isConc = char.concentrationSpellId === id
+                    const canConc = spell?.concentration && classDef?.spellcastingAbility
+                    return (
+                      <div
+                        key={id}
+                        className={`${styles.spellEntry} ${isConc ? styles.spellConc : ''}`}
+                        onClick={() => setSpellModal(id)}
+                      >
+                        <div className={styles.spellEntryLeft}>
+                          {spell ? (
+                            <>
+                              <span className={`${styles.spellLevelBadge} ${spell.level === 0 ? styles.spellLevelCantrip : ''}`}>
+                                {spell.level === 0 ? 'C' : spell.level}
+                              </span>
+                              <span className={styles.spellName}>{spell.name}</span>
+                              <span className={styles.spellSchool}>{spell.school}</span>
+                            </>
+                          ) : (
+                            <span className={styles.spellName}>{id}</span>
+                          )}
+                        </div>
+                        <div className={styles.spellEntryRight}>
+                          {spell?.concentration && (
+                            <span className={styles.spellConcBadge} title="Requires concentration">C</span>
+                          )}
+                          {canConc && (
+                            <button
+                              className={`${styles.spellConcBtn} ${isConc ? styles.spellConcBtnActive : ''}`}
+                              onClick={e => { e.stopPropagation(); setConcentration(id) }}
+                              title={isConc ? 'Drop concentration' : 'Start concentrating'}
+                            >
+                              {isConc ? '◉' : '○'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
               </div>
             </section>
           )}
         </div>
       </div>
+
+      {/* ── SPELL MODAL ── */}
+      {spellModal && (() => {
+        const spell = SPELL_BY_ID[spellModal]
+        if (!spell) { setSpellModal(null); return null }
+        return (
+          <div className={styles.modalOverlay} onClick={() => setSpellModal(null)}>
+            <div className={styles.spellModalCard} onClick={e => e.stopPropagation()}>
+              <div className={styles.spellModalHeader}>
+                <div className={styles.spellModalTitle}>
+                  <span className={styles.spellModalName}>{spell.name}</span>
+                  <span className={styles.spellModalLevel}>
+                    {spell.level === 0 ? 'Cantrip' : `${ORDINAL[spell.level] ?? `${spell.level}th`}-level`} {spell.school}
+                  </span>
+                </div>
+                <button className={styles.spellModalClose} onClick={() => setSpellModal(null)}>×</button>
+              </div>
+              <dl className={styles.spellModalMeta}>
+                <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
+                <dt>Range</dt><dd>{spell.range}</dd>
+                <dt>Components</dt><dd>{spell.components}</dd>
+                <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
+              </dl>
+              <p className={styles.spellModalDesc}>{spell.description}</p>
+              {spell.concentration && char.concentrationSpellId !== spell.id && (
+                <button
+                  className={styles.spellModalConcBtn}
+                  onClick={() => { setConcentration(spell.id); setSpellModal(null) }}
+                >
+                  Start Concentrating
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
+}
+
+// ── Class features data (kept local to view) ────────────────────────────────
+
+const CLASS_FEATURES_DATA: Record<string, { level: number; name: string; desc: string }[]> = {
+  Fighter: [
+    { level: 1, name: 'Fighting Style', desc: 'Adopt a particular style of fighting. +2 to a roll type based on style chosen.' },
+    { level: 1, name: 'Second Wind', desc: 'Bonus action: regain 1d10 + fighter level HP. Recharges on short or long rest.' },
+    { level: 2, name: 'Action Surge', desc: 'Take one additional action this turn. Recharges on short or long rest.' },
+    { level: 3, name: 'Martial Archetype', desc: 'Choose your subclass.' },
+    { level: 4, name: 'ASI', desc: 'Increase one ability score by 2, or two scores by 1. Max 20.' },
+    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
+    { level: 6, name: 'ASI', desc: 'Increase one ability score by 2, or two scores by 1. Max 20.' },
+    { level: 9, name: 'Indomitable', desc: 'Reroll a failed saving throw. You must use the new roll. Can use 1/long rest (2 at level 13, 3 at level 17).' },
+    { level: 11, name: 'Extra Attack (2)', desc: 'Attack three times when you take the Attack action.' },
+  ],
+  Wizard: [
+    { level: 1, name: 'Arcane Recovery', desc: 'Short rest: recover spell slots with total level ≤ ½ wizard level (rounded up).' },
+    { level: 1, name: 'Spellbook', desc: 'Your spellbook contains 6 1st-level spells to start. Copy additional spells by spending 2 hours and 50gp per spell level.' },
+    { level: 2, name: 'Arcane Tradition', desc: 'Choose your subclass.' },
+    { level: 4, name: 'ASI', desc: 'Increase one ability score by 2, or two scores by 1. Max 20.' },
+    { level: 5, name: 'Third-level Spells', desc: 'Access to 3rd-level spell slots.' },
+    { level: 18, name: 'Spell Mastery', desc: 'Choose a 1st- and 2nd-level spell. Cast them at their lowest level without using a slot.' },
+  ],
+  Rogue: [
+    { level: 1, name: 'Expertise', desc: 'Double proficiency bonus on 2 chosen skills.' },
+    { level: 1, name: 'Sneak Attack', desc: 'Once per turn, deal extra damage when attacking with advantage or an ally is adjacent to target.' },
+    { level: 1, name: "Thieves' Cant", desc: 'Secret language and signs used by rogues.' },
+    { level: 2, name: 'Cunning Action', desc: 'Bonus action: Dash, Disengage, or Hide.' },
+    { level: 3, name: 'Roguish Archetype', desc: 'Choose your subclass.' },
+    { level: 5, name: 'Uncanny Dodge', desc: 'Reaction: halve damage from an attack you can see.' },
+    { level: 7, name: 'Evasion', desc: 'When you succeed on a Dex save for half damage, you instead take no damage. On a failed save, half damage.' },
+    { level: 11, name: 'Reliable Talent', desc: 'Treat any roll of 9 or lower as a 10 on skill checks you are proficient in.' },
+  ],
+  Barbarian: [
+    { level: 1, name: 'Rage', desc: 'Bonus action: rage for 1 min. +damage, advantage on Str checks/saves, resistance to B/P/S damage.' },
+    { level: 1, name: 'Unarmored Defense', desc: 'Without armor, AC = 10 + Dex mod + Con mod.' },
+    { level: 2, name: 'Reckless Attack', desc: 'Advantage on first Str attack roll this turn, but attacks against you have advantage until next turn.' },
+    { level: 2, name: 'Danger Sense', desc: 'Advantage on Dex saving throws against effects you can see (not blinded/deafened/incapacitated).' },
+    { level: 3, name: 'Primal Path', desc: 'Choose your subclass.' },
+    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
+    { level: 7, name: 'Feral Instinct', desc: 'Advantage on Initiative rolls. If surprised at start of combat, you can act normally on your first turn if you enter rage before doing anything else.' },
+    { level: 9, name: 'Brutal Critical', desc: 'Roll one additional weapon damage die when scoring a critical hit. (Two at 13th, three at 17th.)' },
+  ],
+  Cleric: [
+    { level: 1, name: 'Divine Domain', desc: 'Choose your subclass (domain).' },
+    { level: 2, name: 'Channel Divinity (1/rest)', desc: 'Use a special divine effect (varies by domain).' },
+    { level: 2, name: 'Turn Undead', desc: 'Channel Divinity: Wis save DC 8+Prof+Wis vs undead. On fail, undead flees for 1 min.' },
+    { level: 5, name: 'Destroy Undead', desc: 'On a failed Turn Undead, undead of CR ½ or lower is destroyed.' },
+    { level: 10, name: 'Divine Intervention', desc: 'Call on your deity for aid once per long rest. Roll d100 ≤ your cleric level to succeed.' },
+  ],
+  Paladin: [
+    { level: 1, name: 'Divine Sense', desc: 'Action: detect celestials, fiends, undead within 60ft. Uses = 1 + Cha mod / LR.' },
+    { level: 1, name: 'Lay on Hands', desc: 'Touch: restore HP from pool of 5×paladin level per LR. 5 HP to cure disease/poison.' },
+    { level: 2, name: 'Fighting Style', desc: 'Adopt a particular style of fighting.' },
+    { level: 2, name: 'Divine Smite', desc: 'On hit: expend spell slot for 2d8 + 1d8/slot level above 1st radiant damage.' },
+    { level: 3, name: 'Sacred Oath', desc: 'Choose your subclass.' },
+    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
+    { level: 6, name: 'Aura of Protection', desc: 'You and friendly creatures within 10ft add your Cha modifier (min +1) to saving throws.' },
+  ],
+  Ranger: [
+    { level: 1, name: 'Favored Enemy', desc: 'Advantage on Survival to track and Int checks to recall info about your chosen enemy type.' },
+    { level: 1, name: 'Natural Explorer', desc: 'Expertise in one terrain type. No difficult terrain penalty. Double foraging yields.' },
+    { level: 2, name: 'Fighting Style', desc: 'Adopt a particular style of fighting.' },
+    { level: 3, name: 'Ranger Archetype', desc: 'Choose your subclass.' },
+    { level: 5, name: 'Extra Attack', desc: 'Attack twice when you take the Attack action.' },
+    { level: 8, name: "Land's Stride", desc: "Moving through nonmagical difficult terrain costs no extra movement. You have advantage on saves against plants that impede movement. Can pass through nonmagical plants without being slowed." },
+  ],
+  Bard: [
+    { level: 1, name: 'Bardic Inspiration', desc: 'Bonus action: give ally a d6 inspiration die to add to one roll. Uses = Cha mod / LR.' },
+    { level: 2, name: 'Jack of All Trades', desc: 'Add half proficiency bonus (rounded down) to any non-proficient ability check.' },
+    { level: 2, name: 'Song of Rest', desc: 'During short rest, ally expending HD regains extra HP (d6 at level 2).' },
+    { level: 3, name: 'Bard College', desc: 'Choose your subclass.' },
+    { level: 3, name: 'Expertise', desc: 'Double proficiency bonus on 2 chosen skills.' },
+    { level: 5, name: 'Font of Inspiration', desc: 'Regain Bardic Inspiration on short or long rest.' },
+    { level: 6, name: 'Countercharm', desc: 'Action: start a performance that grants friendly creatures within 30ft advantage on saves against being frightened or charmed.' },
+  ],
+  Druid: [
+    { level: 1, name: 'Druidic', desc: 'Secret language of druids.' },
+    { level: 2, name: 'Wild Shape', desc: "Action: transform into a beast you've seen. CR ≤ ¼ at level 2, CR ≤ ½ at level 4. 2 uses / SR." },
+    { level: 2, name: 'Druid Circle', desc: 'Choose your subclass.' },
+    { level: 18, name: 'Timeless Body', desc: 'For every 10 years that pass, your body ages only 1 year.' },
+    { level: 20, name: 'Beast Spells', desc: 'You can cast druid spells while in Wild Shape form.' },
+  ],
+  Monk: [
+    { level: 1, name: 'Unarmored Defense', desc: 'Without armor, AC = 10 + Dex mod + Wis mod.' },
+    { level: 1, name: 'Martial Arts', desc: 'Use Dex for unarmed strikes. Use d4 as unarmed damage (scales with level).' },
+    { level: 2, name: 'Ki', desc: 'Ki points = monk level. Recover on short rest.' },
+    { level: 2, name: 'Flurry of Blows', desc: '1 Ki: After Attack action, make 2 unarmed strikes as bonus action.' },
+    { level: 2, name: 'Patient Defense', desc: '1 Ki: Take Dodge as bonus action.' },
+    { level: 2, name: 'Step of the Wind', desc: '1 Ki: Disengage or Dash as bonus action. Jump distance doubled.' },
+    { level: 3, name: 'Monastic Tradition', desc: 'Choose your subclass.' },
+    { level: 5, name: 'Stunning Strike', desc: '1 Ki: Con save DC 8+Prof+Wis on hit. On fail: stunned until your next turn.' },
+  ],
+  Sorcerer: [
+    { level: 1, name: 'Sorcerous Origin', desc: 'Choose your subclass.' },
+    { level: 2, name: 'Font of Magic', desc: 'Sorcery points = sorcerer level. Convert to spell slots or spend on Metamagic.' },
+    { level: 3, name: 'Metamagic', desc: 'Choose 2 options to modify spells (Careful, Distant, Empowered, Extended, Heightened, Quickened, Subtle, Twinned).' },
+  ],
+  Warlock: [
+    { level: 1, name: 'Otherworldly Patron', desc: 'Choose your subclass.' },
+    { level: 2, name: 'Eldritch Invocations', desc: 'Choose 2 invocations to augment your abilities.' },
+    { level: 3, name: 'Pact Boon', desc: 'Pact of the Blade / Chain / Tome.' },
+    { level: 5, name: '3rd-level Pact Slots', desc: 'Pact magic slots are now 3rd level.' },
+    { level: 10, name: 'Mystic Arcanum', desc: 'Choose a 6th-level spell. Cast it once per long rest without using a spell slot.' },
+  ],
+}
+
+function getClassFeatures(classId: string, level: number) {
+  return (CLASS_FEATURES_DATA[classId] ?? []).filter(f => f.level <= level)
 }
