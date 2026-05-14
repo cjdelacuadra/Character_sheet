@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { Character, AbilityScores } from '@/entities/character/types'
-import { profBonus, computeMaxHP, mod } from '@/shared/data/charCalculations'
+import { profBonus, computeMaxHP, computeSpeed, mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import type { AsiChoice } from '@/widgets/level-up-modal/LevelUpModal'
@@ -68,15 +69,23 @@ export const useAppStore = create<AppState>((set, get) => ({
           const data = await ipc.loadCharacter(id)
           if (data == null) return [id, null] as const
           const loaded = data as Partial<Character>
+          const rawEq = loaded.equipment
+          const migratedShieldId = rawEq?.shieldId !== undefined
+            ? rawEq.shieldId
+            : rawEq?.hasShield ? 'shield' : null
           const normalized: Character = {
             ...(loaded as Character),
-            equipment: loaded.equipment ?? { armorId: null, hasShield: false },
+            equipment: rawEq
+              ? { ...rawEq, shieldId: migratedShieldId }
+              : { armorId: null, hasShield: false, shieldId: null },
             savingThrowProficiencies: loaded.savingThrowProficiencies ?? [],
             skillProficiencies: loaded.skillProficiencies ?? {},
             conditionIds: loaded.conditionIds ?? [],
             resources: loaded.resources ?? {},
             deathSaves: loaded.deathSaves ?? { successes: 0, failures: 0 },
-            inspiration: loaded.inspiration ?? false,
+            inspiration: typeof loaded.inspiration === 'boolean'
+              ? (loaded.inspiration ? 1 : 0)
+              : (loaded.inspiration as unknown as number ?? 0),
             spellIds: loaded.spellIds ?? [],
             spellSlots: loaded.spellSlots ?? {},
             hitDiceUsed: loaded.hitDiceUsed ?? 0,
@@ -199,7 +208,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
       }
 
-      const newMaxHp = computeMaxHP(char.classId, newLevel, newScores.con)
+      const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+      const bonusHpPerLevel = raceBonusHp + (newFeats.includes('tough') ? 2 : 0)
+      const alertBonus = newFeats.includes('alert') ? 5 : 0
+      const mobileBonus = newFeats.includes('mobile') ? 10 : 0
+
+      const newMaxHp = computeMaxHP(char.classId, newLevel, newScores.con, bonusHpPerLevel)
       const hpGain = newMaxHp - char.hitPoints.max
       const newSlots = defaultSpellSlots(char.classId, newLevel)
       // Merge new slots: keep used counts for existing levels, add new levels fresh
@@ -222,16 +236,22 @@ export const useAppStore = create<AppState>((set, get) => ({
           : { used: 0, total: def.total }
       }
 
+      // Only recompute speed/initiative when feat bonuses actually change them
+      const newSpeed = mobileBonus > 0 ? computeSpeed(char.race) + mobileBonus : char.speed
+      const newInit = mod(newScores.dex) + alertBonus
+
       const updated: Character = {
         ...char,
         level: newLevel,
         proficiencyBonus: newProf,
         abilityScores: newScores,
         feats: newFeats,
+        initiative: newInit,
+        speed: newSpeed,
         hitPoints: {
           ...char.hitPoints,
           max: newMaxHp,
-          current: Math.min(char.hitPoints.max, char.hitPoints.current + hpGain),
+          current: Math.min(newMaxHp, char.hitPoints.current + hpGain),
         },
         spellSlots: mergedSlots,
         resources: newResources,

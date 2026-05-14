@@ -350,7 +350,7 @@ Rules:
 
 ---
 
-## 25. Weapon Proficiency Check in Attack Bonus ❌ Not Implemented
+## 25. Weapon Proficiency Check in Attack Bonus ✅
 
 **What:** `computeAttackBonus` in `domain/rules/index.ts` always adds `character.proficiencyBonus` regardless of whether the character is actually proficient with the weapon. In 5e, proficiency bonus is only added to attack rolls when the attacker is proficient with the weapon. This also means `bonusWeaponProficiencies` from `RaceDef` (item #14) has no effect in practice.
 
@@ -373,7 +373,7 @@ Rules:
 
 ---
 
-## 26. Character Creation — Preserve Weapon Enchantment ❌ Not Implemented
+## 26. Character Creation — Preserve Weapon Enchantment ✅
 
 **What:** `buildCharacter` in `CharacterSelectScreen.tsx` maps `chosenWeapons` (selected in StepEquipment) to `Weapon` objects but does not copy `enchantmentBonus`, `bonusDamageDie`, or `bonusDamageType` from the source `WeaponDef`. A player who picks "Longsword +1" from the catalog during creation gets a character saved with a plain Longsword (no +1 bonus, no enchantment badge).
 
@@ -404,7 +404,7 @@ const weapons = chosenWeapons.map(w => ({
 
 ---
 
-## 27. Half-Elf Racial Ability Score Flexibility ❌ Not Implemented
+## 27. Half-Elf Racial Ability Score Flexibility ✅
 
 **What:** Per D&D 5e rules, Half-Elf gets +2 to Charisma **and +1 to any two other ability scores of the player's choice**. The current `raceData.ts` entry for Half-Elf only has `abilityBonus: { cha: 2 }`, omitting the two free +1s. The `freeAbilityPoints` mechanism (already used for Variant Human) should be applied to Half-Elf as well, but Half-Elf's picks must exclude CHA (already at +2) or at minimum allow the player to freely pick any two non-CHA abilities.
 
@@ -420,12 +420,214 @@ const weapons = chosenWeapons.map(w => ({
 
 ---
 
+## 28. Level-Up Full Feature Application ⚠️ Partial
+
+**What:** The current `levelUp` action in `store.ts` only increments `character.level`, recalculates `proficiencyBonus` and `hitPoints.max`, and (at ASI levels) applies the ASI/feat choice. It does not apply class features, subclass features, or resource scaling that unlock at the new level, and does not prompt for subclass selection at level 3 (for classes that defer it).
+
+**Files to modify:**
+- `src/renderer/src/stores/store.ts` — extend `levelUp` to trigger feature application
+- `src/renderer/src/domain/rules/index.ts` — add `getFeaturesAtLevel(classId, subclassId, level)` returning new features
+- `src/renderer/src/shared/data/classData.ts` — add per-level feature tables (Extra Attack, Evasion, Uncanny Dodge, etc.)
+- `src/renderer/src/shared/data/subclassData.ts` — add per-level subclass feature tables
+- `src/renderer/src/widgets/character-view/LevelUpModal.tsx` — extend modal to handle subclass selection at level 3+ and show a summary of features gained
+
+**Logic:**
+1. When leveling up to a level where the class unlocks subclass selection (e.g. level 3 for Fighter/Rogue/Ranger/etc.), if `character.subclass` is not yet set, show a subclass picker step inside `LevelUpModal` before proceeding.
+2. After level and ASI/feat are resolved, call `getFeaturesAtLevel(classId, subclassId, newLevel)` and apply:
+   - New class/subclass features (Extra Attack → `extraAttacks: 1`, Evasion → `features.evasion: true`, etc.)
+   - Resource total updates: call `getResourceDefaults(classId, newLevel)` and merge new totals without resetting `used` counts for existing resources; add any brand-new resources at `used: 0`.
+   - Spell slot recalculation: recalculate full slot table for the new level and merge (preserve `used`).
+3. Display a "Features Gained" summary in the modal before the player confirms.
+
+**Conditions of success:**
+- [ ] Leveling a Fighter to level 3 shows a subclass picker (Champion, Battle Master, Eldritch Knight) if no subclass is set, and saves the selection before applying the level.
+- [ ] Leveling a Fighter to level 5 adds `extraAttacks: 1` (or equivalent feature flag) to the character.
+- [x] Leveling a Monk to level 3 increases Ki points from 3 to 3 without resetting any spent Ki (total increases, `used` preserved).
+- [x] Leveling a Wizard to level 3 increases 2nd-level spell slot total without zeroing out `used` counts.
+- [ ] The modal shows a "Features Gained" list (at minimum the feature names) for every level-up, even non-ASI levels.
+- [x] Canceling the modal at any step leaves level, scores, subclass, and resources completely unchanged.
+- [ ] All 13 classes have per-level feature tables covering at minimum: Extra Attack (level 5/11/20), class capstone features, and the level at which subclass is chosen.
+
+---
+
+## 29. Right Column as Context-Sensitive Detail Panel ⚠️ Partial
+
+**What:** The rightmost column currently shows only the attacks table. It should become a **context panel** whose content is driven by whatever is selected in the center column. Selecting an action, resource, spell, or feature in the center column renders the corresponding detail view in the right column.
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/CharacterView.tsx` — add a `selectedContext` state (`{ type: 'attack' | 'spell' | 'resource' | 'feature'; id?: string } | null`) and pass it to both the center column (to highlight selection) and the right column (to render the detail view)
+- New component: `src/renderer/src/widgets/character-view/ContextPanel.tsx` — renders the appropriate sub-panel based on `selectedContext`
+
+**Conditions of success:**
+- [ ] Clicking any row in the center column (action, spell, resource) updates `selectedContext` and immediately re-renders the right column.
+- [ ] Clicking the same row again, or clicking elsewhere outside rows, clears `selectedContext` and the right column returns to a default state (e.g., the attacks table or an empty prompt).
+- [x] The selected row in the center column has a visible highlight (background tint or border).
+- [x] The right column has a visible header or breadcrumb indicating what is currently shown (e.g., "Attack Detail", "Spell Detail").
+- [x] No crash when `selectedContext` is `null`.
+
+---
+
+## 30. Attack Action Detail View ⚠️ Partial
+
+**What:** When the "Attack" action (or any weapon-attack action) is selected in the center column, the right column context panel (Item 29) renders a full attack detail view. This includes all equipped weapons, special attack options based on class/feat, and a quick spell-cast list for casters.
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/ContextPanel.tsx` — `AttackDetailView` sub-component
+- `src/renderer/src/domain/rules/index.ts` — add `getSpecialAttacks(character)` returning class/feat-gated attacks (Sneak Attack, Great Weapon Master, Reckless Attack, etc.)
+
+**Attack detail view layout:**
+1. **Weapons section** — one card per equipped weapon showing: name, attack bonus, damage die + modifier, damage type, range, enchantment badge if magic. Each card has a "Roll" button that generates the dice expression.
+2. **Special Attacks section** — rows for class/feat-based attacks available to the character:
+   - Rogue (level 1+): Sneak Attack — `⌀d6` damage dice based on level, condition note ("requires advantage or ally adjacent")
+   - Barbarian with Reckless Attack: "Reckless Attack" — note about advantage/disadvantage
+   - Fighter / any character with Great Weapon Master feat: "GWM Power Attack" — `–5 to hit / +10 damage`
+   - Paladin (level 2+): "Divine Smite" — spell slot cost selector + smite damage dice preview
+   - Ranger: "Hunter's Mark" — damage bonus note
+   - Monk: "Unarmed Strike" + "Flurry of Blows" with Ki cost
+3. **Cantrips & Spell Attacks section** (casters only) — compact list of attack-roll cantrips (Fire Bolt, Eldritch Blast, etc.) and spell-attack spells the character knows, with spell attack bonus and damage expression.
+
+**Conditions of success:**
+- [x] Selecting "Attack" in the actions panel renders the attack detail view in the right column.
+- [x] Every weapon in `character.weapons` appears as a card with correct attack bonus (from `computeAttackBonus`) and damage expression.
+- [x] A Rogue at level 3 sees a "Sneak Attack" row showing `2d6` extra damage (level-scaled).
+- [x] A character with Great Weapon Master feat sees the "GWM Power Attack" option.
+- [ ] A Paladin level 2+ sees "Divine Smite" with a slot-level selector (1–5) and the resulting smite dice.
+- [x] A Wizard sees their attack-roll cantrips (e.g., Fire Bolt) and any leveled spell-attack spells in the spells section.
+- [x] Non-casters have no spells section (not even an empty header).
+
+---
+
+## 31. Spell Selection on Level-Up ❌ Not Implemented
+
+**What:** When a spellcasting character levels up and their class rules grant additional known spells or cantrips at the new level, the level-up flow (Item 28 modal) must include a spell-selection step before confirming.
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/LevelUpModal.tsx` — add a "Choose Spells" step after the ASI/feat step when applicable
+- `src/renderer/src/domain/rules/index.ts` — add `getSpellsGainedAtLevel(classId, subclassId, level)` returning `{ cantrips: number; knownSpells: number; preparedSpellsRecalc: boolean }`
+
+**Per-class rules:**
+- **Wizard**: gains no "known" spells on level-up (learns from spellbook); instead, gains 2 free spells to add to the spellbook at each level. Show a "Add 2 spells to Spellbook" picker.
+- **Sorcerer / Bard**: known spells increase by 1 per level (with one spell swap allowed at each level for Bard). Show a "Learn 1 new spell" picker and optionally a "Swap 1 spell" step for Bard.
+- **Warlock**: known spells increase by 1 per level (with swap). Same flow as Bard/Sorcerer.
+- **Cleric / Druid / Paladin / Ranger**: prepared-spell count recalculates automatically (ability mod + level or half-level). No picker needed — just a note showing the new prepared count.
+- **Artificer**: same as Cleric/Druid.
+
+**Conditions of success:**
+- [ ] A Wizard leveling up from 2 → 3 sees a "Add 2 Spells to Spellbook" step showing the full Wizard spell list filtered to levels 1–2 (the new max level).
+- [ ] A Sorcerer leveling from 3 → 4 sees a "Learn 1 New Spell" step filtered to spells of level ≤ 2.
+- [ ] A Bard leveling up sees both "Learn 1 New Spell" and "Swap 1 Known Spell" steps.
+- [ ] A Cleric leveling up sees a note: "Your prepared spell count is now N (WIS mod + level)" with no spell picker.
+- [ ] Skipping or canceling the spell step leaves `character.spellIds` unchanged.
+- [ ] After confirming, the selected spells are added to (and swapped spells removed from) `character.spellIds`.
+
+---
+
+## 32. Spellbook Panel ❌ Not Implemented
+
+**What:** When the spells section or a "Spellbook" entry is selected in the center column, the right column context panel (Item 29) renders a full spellbook view with three tabs: Prepared, Known, and Learn New.
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/ContextPanel.tsx` — `SpellbookPanel` sub-component with tabs
+- `src/renderer/src/domain/rules/index.ts` — add `getPreparedSpells(character)` and `getLearnableSpells(character)` helpers
+
+**Tabs:**
+1. **Prepared** — spells currently prepared (for Clerics, Druids, Paladins, Wizards). Shows spell name, level, school, a "Cast" button (if slots remain), and a toggle to unprepare. For non-prepare-mechanics classes (Sorcerer, Bard, Warlock), this tab is hidden or replaced with "Active" (all known spells are always available).
+2. **Known** — full list of spells in `character.spellIds`. Each row shows name, level, school, concentration badge if applicable. Clicking a row shows the spell card modal (Item 2). For Wizards, these are "Spellbook" spells (all learnable but not all prepared).
+3. **Learn New** — searchable list of class-appropriate spells not yet in `character.spellIds`. Spells above the character's current max spell level are grayed out and unselectable. Clicking an available spell adds it (for Wizards who pay gold to copy) or prompts a confirmation ("Add to spellbook?").
+
+**Conditions of success:**
+- [ ] Selecting the Spells section in the center column opens the Spellbook Panel in the right column.
+- [ ] The Prepared tab shows only spells in the prepare list; toggling a spell updates `character.preparedSpellIds` (new field or derived set) and persists.
+- [ ] A Cleric's prepared count badge shows the current count vs. the allowed maximum (WIS mod + level).
+- [ ] The Known tab lists every spell in `character.spellIds` with name, level, and school.
+- [ ] The Learn New tab is searchable by name; spells above max level are visually disabled.
+- [ ] Clicking a spell in any tab opens the spell card modal from Item 2.
+- [ ] Non-prepare classes (Sorcerer, Warlock, Bard) do not show the Prepared tab.
+
+---
+
+## 33. Inspiration as 3-Pip Counter ✅
+
+**What:** `character.inspiration` is currently a `boolean`. Replace it with a numeric counter (0–3) so the DM can award up to 3 inspiration points and the player spends them one at a time, mirroring the spell-slot pip UI.
+
+**Files to modify:**
+- `src/renderer/src/shared/types.ts` — change `inspiration: boolean` → `inspiration: number` (default `0`)
+- `src/renderer/src/stores/store.ts` — update `toggleInspiration` (or rename to `addInspiration` / `spendInspiration`) to increment/decrement within `[0, 3]`
+- `src/renderer/src/widgets/character-view/CharacterView.tsx` (or header component) — render 3 pip circles instead of a single toggle button; filled pips = current count
+
+**Conditions of success:**
+- [x] The inspiration display shows 3 pip circles, each filled based on `character.inspiration` (0 = all empty, 3 = all filled).
+- [x] Clicking a filled pip decrements `inspiration` by 1 (spend); clicking an empty pip increments by 1 (gain), capped at 3.
+- [x] Existing characters with `inspiration: true` load as `inspiration: 1`; `inspiration: false` loads as `inspiration: 0` (migration in the store or load path).
+- [x] `inspiration` persists to disk as a number.
+- [x] The header/topbar inspiration UI reflects the new pip display (no boolean toggle button remains).
+
+---
+
+## 34. Death Saves — Conditional Visibility & Stabilization Logic ✅
+
+**What:** The current implementation (Item 22) made death saves always visible. Per 5e rules, death saves are only relevant when the character has 0 HP. Furthermore, when 3 success circles are checked, the character stabilizes: death save circles reset and the character regains 1 HP (conscious but stable).
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/CharacterView.tsx` (or the HP row component) — wrap the death saves section in a conditional on `character.hitPoints.current <= 0`
+- `src/renderer/src/stores/store.ts` — extend `toggleDeathSave` to detect when `successes === 3` and fire `stabilize()`: set `hitPoints.current = 1`, reset `deathSaves.successes = 0`, reset `deathSaves.failures = 0`
+
+**Conditions of success:**
+- [x] When `character.hitPoints.current > 0`, the death saves section is hidden entirely (no empty circles visible).
+- [x] When `character.hitPoints.current <= 0`, the death saves section appears.
+- [x] Checking the third success circle calls `stabilize()`: HP becomes 1, both success and failure counters reset to 0, and the death saves section hides again.
+- [x] Checking 3 failure circles does NOT auto-stabilize (character is dead; a separate "dead" state or a note is shown instead).
+- [x] All changes persist to disk.
+
+---
+
+## 35. Temporary HP — Input Resize & Layout Fix ✅
+
+**What:** The Temp HP input field in the HP row (Item 22) is too small or misaligned for comfortable use. It should match the visual weight of the Current HP field and resize properly when the value has more than one digit.
+
+**Files to modify:**
+- `src/renderer/src/widgets/character-view/CharacterView.tsx` (or the HP row component) — adjust CSS/inline styles for the Temp HP cell to give it a minimum width and auto-expand based on digit count
+
+**Conditions of success:**
+- [x] The Temp HP cell occupies at least the same vertical space as the Current HP cell.
+- [x] The input field width accommodates at least 3 digits (values up to 999) without clipping or overflow.
+- [x] The label "Temp HP" is fully visible at all times.
+- [x] The visual separation between Current HP, Temp HP, and Death Saves sections is preserved from Item 22.
+
+---
+
+## 36. Shield AC Fix — Additive Bonus, Not Override ✅
+
+**What:** The shield toggle in the armor picker (Item 21) currently sets AC to a fixed value rather than adding +2 (plus any enchantment) on top of the base AC. This breaks AC for any armor combination and is incorrect per 5e rules: a shield always grants +2 to AC, optionally increased by enchantment (e.g. Shield +1 = +3 total).
+
+**Files to modify:**
+- `src/renderer/src/shared/data/armorData.ts` — ensure the shield entry does **not** set a flat `baseAC`; instead it should have a dedicated `shieldBonus: 2` field (or the AC computation should treat `type === 'shield'` specially)
+- `src/renderer/src/domain/rules/index.ts` (or `charCalculations.ts`) — modify `computeAC` to add `shield.shieldBonus + (shield.enchantmentBonus ?? 0)` on top of the armor's base AC
+- `src/renderer/src/widgets/character-view/CharacterView.tsx` — the shield toggle should pass the equipped shield object (not a boolean) so the enchantment bonus can be applied
+
+**AC computation rules:**
+```
+AC = armorBaseAC + (shield equipped ? shieldBonus + enchantmentBonus : 0) + (DEX mod if allowed by armor)
+```
+
+**Conditions of success:**
+- [x] A character wearing Leather Armor (AC 11) and equipping a shield shows AC 13 (11 + DEX 0 + 2 shield), not a flat value.
+- [x] A character wearing Chain Mail (AC 16, no DEX) with a shield shows AC 18.
+- [x] A Shield +1 (enchantment 1) adds +3 total to AC (shieldBonus 2 + enchantmentBonus 1).
+- [x] Removing the shield reduces AC by exactly `shieldBonus + enchantmentBonus`.
+- [x] The Draconic Bloodline Sorcerer unarmored AC (13 + DEX) still adds shield bonus on top when a shield is equipped.
+
+---
+
 ## Notes
 
-- Items 1–16 (except 14 last condition) are fully implemented.
-- Item 14 last condition (race weapon proficiencies in attack bonus) is now covered by Item 25.
-- Item 16 last condition (enchantment fields in buildCharacter) is now covered by Item 26.
-- Item 17 (3-subcolumn layout) is superseded by Items 23 and 24 and should be skipped.
-- Items 18–27 are fully implemented.
-- One bug was fixed during audit (2026-05-13): `CharacterView.tsx` ability score edit handler was not passing `bonusHpPerLevel` to `computeMaxHP`, causing Hill Dwarf max HP to be miscalculated after ability score edits.
-- Item 16 formula contradiction with Item 25 resolved (2026-05-13): Item 25 supersedes the always-add-profBonus formula — `computeAttackBonus` now uses proficiency-conditional bonus.
+- Items 1–27 are fully implemented (Item 17 is superseded by Items 23 and 24 and skipped).
+- Item 14 last condition (race weapon proficiencies in attack bonus) is covered by Item 25.
+- Item 16 last condition (enchantment fields in buildCharacter) is covered by Item 26.
+- Item 25 supersedes the always-add-profBonus formula — `computeAttackBonus` uses proficiency-conditional bonus.
+- Item 28 ⚠️ Partial: resource/slot scaling on level-up works; subclass picker at level 3 and "Features Gained" summary not implemented.
+- Item 29 ⚠️ Partial: action rows update the right column and are highlighted; spell/resource rows do not drive the context panel; clear-on-same-click not implemented.
+- Item 30 ⚠️ Partial: weapons, special attacks, spell attacks, and all known spells shown in Attack detail; Divine Smite lacks an interactive slot-level selector.
+- Items 31, 32 ❌ not implemented.
+- Feat effects applied on level-up (2026-05-14): Tough adds +2 HP/level, Alert adds +5 initiative, Mobile adds +10 speed. Both `levelUp` store action and ability-score edit handler are feat-aware. Race HP bonus also included in both paths.
+- Bug fixed (2026-05-14): `Math.min(char.hitPoints.max, ...)` cap in levelUp replaced with `Math.min(newMaxHp, ...)` so HP correctly increases when leveling at full health.

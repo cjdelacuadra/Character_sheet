@@ -16,11 +16,15 @@ export interface ArmorDef {
   /** +N magic bonus added to AC */
   enchantmentBonus?: number
   rarity?: ItemRarity
+  /** True for items that are shields (grant +2 + enchantment additive to AC) */
+  isShield?: boolean
 }
 
 export const ARMOR_LIST: ArmorDef[] = [
   // Unarmored
   { id: 'none',          name: 'Unarmored',        type: 'none',   baseAC: 10 },
+  // Shield (plain — grants +2 additive to AC)
+  { id: 'shield',        name: 'Shield',            type: 'none',   baseAC: 0,  isShield: true },
   // Light
   { id: 'padded',        name: 'Padded',           type: 'light',  baseAC: 11, stealthDisadvantage: true, cost: '5 gp' },
   { id: 'leather',       name: 'Leather',          type: 'light',  baseAC: 11, cost: '10 gp' },
@@ -37,7 +41,7 @@ export const ARMOR_LIST: ArmorDef[] = [
   { id: 'splint',        name: 'Splint',           type: 'heavy',  baseAC: 17, dexCap: 0, stealthDisadvantage: true, cost: '200 gp',    strRequirement: 15 },
   { id: 'plate',         name: 'Plate',            type: 'heavy',  baseAC: 18, dexCap: 0, stealthDisadvantage: true, cost: '1,500 gp',  strRequirement: 15 },
   // Magic variants — Uncommon (+1)
-  { id: 'shield+1',       name: 'Shield +1',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 1, rarity: 'uncommon' },
+  { id: 'shield+1',       name: 'Shield +1',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 1, rarity: 'uncommon', isShield: true },
   { id: 'leather+1',      name: 'Leather +1',       type: 'light',  baseAC: 11, cost: '—', enchantmentBonus: 1, rarity: 'uncommon' },
   { id: 'studded+1',      name: 'Studded Leather +1', type: 'light', baseAC: 12, cost: '—', enchantmentBonus: 1, rarity: 'uncommon' },
   { id: 'breastplate+1',  name: 'Breastplate +1',   type: 'medium', baseAC: 14, dexCap: 2, cost: '—', enchantmentBonus: 1, rarity: 'uncommon' },
@@ -47,13 +51,13 @@ export const ARMOR_LIST: ArmorDef[] = [
   { id: 'splint+1',       name: 'Splint +1',        type: 'heavy',  baseAC: 17, dexCap: 0, stealthDisadvantage: true, cost: '—', strRequirement: 15, enchantmentBonus: 1, rarity: 'uncommon' },
   { id: 'plate+1',        name: 'Plate +1',         type: 'heavy',  baseAC: 18, dexCap: 0, stealthDisadvantage: true, cost: '—', strRequirement: 15, enchantmentBonus: 1, rarity: 'uncommon' },
   // Magic variants — Rare (+2)
-  { id: 'shield+2',       name: 'Shield +2',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 2, rarity: 'rare' },
+  { id: 'shield+2',       name: 'Shield +2',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 2, rarity: 'rare', isShield: true },
   { id: 'studded+2',      name: 'Studded Leather +2', type: 'light', baseAC: 12, cost: '—', enchantmentBonus: 2, rarity: 'rare' },
   { id: 'breastplate+2',  name: 'Breastplate +2',   type: 'medium', baseAC: 14, dexCap: 2, cost: '—', enchantmentBonus: 2, rarity: 'rare' },
   { id: 'halfPlate+2',    name: 'Half Plate +2',    type: 'medium', baseAC: 15, dexCap: 2, stealthDisadvantage: true, cost: '—', enchantmentBonus: 2, rarity: 'rare' },
   { id: 'plate+2',        name: 'Plate +2',         type: 'heavy',  baseAC: 18, dexCap: 0, stealthDisadvantage: true, cost: '—', strRequirement: 15, enchantmentBonus: 2, rarity: 'rare' },
   // Magic variants — Very Rare (+3)
-  { id: 'shield+3',       name: 'Shield +3',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 3, rarity: 'very rare' },
+  { id: 'shield+3',       name: 'Shield +3',        type: 'none',   baseAC: 0,  cost: '—', enchantmentBonus: 3, rarity: 'very rare', isShield: true },
   { id: 'studded+3',      name: 'Studded Leather +3', type: 'light', baseAC: 12, cost: '—', enchantmentBonus: 3, rarity: 'very rare' },
   { id: 'breastplate+3',  name: 'Breastplate +3',   type: 'medium', baseAC: 14, dexCap: 2, cost: '—', enchantmentBonus: 3, rarity: 'very rare' },
   { id: 'plate+3',        name: 'Plate +3',         type: 'heavy',  baseAC: 18, dexCap: 0, stealthDisadvantage: true, cost: '—', strRequirement: 15, enchantmentBonus: 3, rarity: 'very rare' },

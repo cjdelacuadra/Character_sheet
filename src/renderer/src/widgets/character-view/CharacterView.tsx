@@ -13,7 +13,7 @@ import { computeAC, computeMaxHP, mod } from '@/shared/data/charCalculations'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import {
   computeAttackBonus, isProficientWithWeapon, computeSpellSaveDC, computeSpellAttackBonus,
-  getAvailableActions, xpForNextLevel,
+  getAvailableActions, xpForNextLevel, getSpecialAttacks, SPELL_ATTACK_IDS,
   type ActionDef,
 } from '@/domain/rules'
 import styles from './CharacterView.module.css'
@@ -129,12 +129,15 @@ export function CharacterView() {
       const clamped = Math.min(30, Math.max(1, v))
       const newScores = { ...char.abilityScores, [key]: clamped }
       const newAC = computeAC({ abilityScores: newScores, equipment: eq, classId: char.classId, race: char.race, subclass: char.subclass })
-      const bonusHpPerLevel = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+      const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+      const toughBonusHp = (char.feats ?? []).includes('tough') ? 2 : 0
+      const bonusHpPerLevel = raceBonusHp + toughBonusHp
+      const alertBonus = (char.feats ?? []).includes('alert') ? 5 : 0
       const newMaxHP = computeMaxHP(char.classId, char.level, newScores.con, bonusHpPerLevel)
       const hpDiff = newMaxHP - hp.max
       update({
         abilityScores: newScores,
-        initiative: Math.floor((newScores.dex - 10) / 2),
+        initiative: Math.floor((newScores.dex - 10) / 2) + alertBonus,
         armorClass: newAC,
         hitPoints: { ...hp, max: newMaxHP, current: Math.max(0, hp.current + hpDiff) },
       })
@@ -156,11 +159,16 @@ export function CharacterView() {
 
   function tickSave(type: 'successes' | 'failures') {
     const cur = char.deathSaves[type]
-    update({ deathSaves: { ...char.deathSaves, [type]: cur >= 3 ? 0 : cur + 1 } })
+    const newVal = cur >= 3 ? 0 : cur + 1
+    if (type === 'successes' && newVal >= 3) {
+      update({ deathSaves: { successes: 0, failures: 0 }, hitPoints: { ...hp, current: 1 } })
+    } else {
+      update({ deathSaves: { ...char.deathSaves, [type]: newVal } })
+    }
   }
 
-  function setArmor(armorId: string | null, hasShield: boolean) {
-    const newEq = { armorId, hasShield }
+  function setArmor(armorId: string | null, shieldId: string | null) {
+    const newEq = { armorId, hasShield: shieldId !== null, shieldId }
     const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race, subclass: char.subclass })
     update({ equipment: newEq, armorClass: newAC })
   }
@@ -311,9 +319,13 @@ export function CharacterView() {
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
   const allowedArmors = ARMOR_LIST.filter(a =>
-    a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
+    !a.isShield && (a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy'))
   )
   const canShield = effectiveArmorProfs.includes('shields')
+  const shieldOptions = canShield ? ARMOR_LIST.filter(a => a.isShield) : []
+  const currentShieldId = eq.shieldId ?? null
+  const specialAttacks = getSpecialAttacks(char)
+  const attackSpells = char.spellIds.filter(id => SPELL_ATTACK_IDS.has(id))
   const passivePerception = 10 + mod(char.abilityScores.wis) +
     (char.skillProficiencies?.['perception'] === 'expert' ? prof * 2 :
      char.skillProficiencies?.['perception'] === 'proficient' ? prof : 0)
@@ -389,10 +401,20 @@ export function CharacterView() {
           <span className={styles.headerLabel}>Experience Points</span>
         </div>
         <div className={`${styles.headerCell} ${styles.headerActions}`}>
-          <button
-            className={`${styles.inspirationBtn} ${char.inspiration ? styles.inspirationOn : ''}`}
-            onClick={() => update({ inspiration: !char.inspiration })}
-          >✦ Insp.</button>
+          <div className={styles.inspirationPipsHdr}>
+            <span className={styles.inspirationHdrLabel}>Insp</span>
+            {[0, 1, 2].map(i => {
+              const cur = (char.inspiration as number) ?? 0
+              return (
+                <button
+                  key={i}
+                  className={`${styles.slotPip} ${i < cur ? styles.pipFull : styles.pipEmpty}`}
+                  onClick={() => update({ inspiration: i < cur ? Math.max(0, cur - 1) : Math.min(3, i + 1) })}
+                  title={i < cur ? 'Spend inspiration' : 'Gain inspiration'}
+                />
+              )
+            })}
+          </div>
           <button className={styles.restBtn} onClick={() => setRestPanel(restPanel ? null : 'short')}>Rest</button>
           <button className={styles.backBtn} onClick={exitCharacter}>← Back</button>
         </div>
@@ -512,22 +534,35 @@ export function CharacterView() {
           {/* Armor picker — collapsed sub-row */}
           {armorOpen && (
             <div className={styles.armorPickerRow}>
+              <span className={styles.armorPickerGroup}>Armor</span>
               {allowedArmors.map(a => (
                 <button
                   key={a.id}
                   className={`${styles.armorOpt} ${(eq.armorId ?? 'none') === a.id ? styles.armorOptSel : ''}`}
-                  onClick={() => { setArmor(a.id === 'none' ? null : a.id, eq.hasShield); setArmorOpen(false) }}
+                  onClick={() => { setArmor(a.id === 'none' ? null : a.id, currentShieldId) }}
                 >
                   {a.name}
                 </button>
               ))}
               {canShield && (
-                <button
-                  className={`${styles.armorOpt} ${eq.hasShield ? styles.armorOptSel : ''}`}
-                  onClick={() => setArmor(eq.armorId, !eq.hasShield)}
-                >
-                  {eq.hasShield ? '✓ Shield' : 'Shield'}
-                </button>
+                <>
+                  <span className={styles.armorPickerGroup}>Shield</span>
+                  <button
+                    className={`${styles.armorOpt} ${currentShieldId === null ? styles.armorOptSel : ''}`}
+                    onClick={() => setArmor(eq.armorId, null)}
+                  >
+                    None
+                  </button>
+                  {shieldOptions.map(s => (
+                    <button
+                      key={s.id}
+                      className={`${styles.armorOpt} ${currentShieldId === s.id ? styles.armorOptSel : ''}`}
+                      onClick={() => setArmor(eq.armorId, s.id)}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </>
               )}
               <button className={styles.armorOpt} onClick={() => setArmorOpen(false)}>Done</button>
             </div>
@@ -540,8 +575,8 @@ export function CharacterView() {
             {spellAtkBonus !== null && <span className={styles.secondaryStat}><strong>{fmtMod(spellAtkBonus)}</strong> Spell Atk</span>}
           </div>
 
-          {/* Row 2: HP | Temp HP | Death Saves */}
-          <div className={styles.hpRow}>
+          {/* Row 2: HP | Temp HP | Death Saves (death saves only when down) */}
+          <div className={styles.hpRow} style={hp.current <= 0 ? undefined : { gridTemplateColumns: '1fr auto' }}>
             {/* Current HP */}
             <div className={styles.hpCurrentSection}>
               <span className={styles.hpMaxLabel}>Hit Point Maximum: {hp.max}</span>
@@ -586,24 +621,26 @@ export function CharacterView() {
                 </button>
               )}
             </div>
-            {/* Death Saves — always visible */}
-            <div className={styles.hpDeathSection}>
-              <span className={styles.hpSectionLabel}>Death Saves</span>
-              {(['successes', 'failures'] as const).map(type => (
-                <div key={type} className={styles.deathRow}>
-                  <span className={styles.deathLabel}>{type === 'successes' ? 'S' : 'F'}</span>
-                  <div className={styles.deathDots}>
-                    {[0, 1, 2].map(i => (
-                      <button
-                        key={i}
-                        className={`${styles.deathDot} ${i < char.deathSaves[type] ? (type === 'successes' ? styles.dotSuccess : styles.dotFail) : ''}`}
-                        onClick={() => tickSave(type)}
-                      />
-                    ))}
+            {/* Death Saves — only visible when at 0 HP */}
+            {hp.current <= 0 && (
+              <div className={styles.hpDeathSection}>
+                <span className={styles.hpSectionLabel}>Death Saves</span>
+                {(['successes', 'failures'] as const).map(type => (
+                  <div key={type} className={styles.deathRow}>
+                    <span className={styles.deathLabel}>{type === 'successes' ? 'S' : 'F'}</span>
+                    <div className={styles.deathDots}>
+                      {[0, 1, 2].map(i => (
+                        <button
+                          key={i}
+                          className={`${styles.deathDot} ${i < char.deathSaves[type] ? (type === 'successes' ? styles.dotSuccess : styles.dotFail) : ''}`}
+                          onClick={() => tickSave(type)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* HP delta buttons + progress bar */}
@@ -658,16 +695,22 @@ export function CharacterView() {
             </div>
           </section>
 
-          {/* Row 3: Inspiration pips */}
+          {/* Row 3: Inspiration pips (0–3) */}
           <div className={styles.inspirationPipRow}>
             <span className={styles.inspirationPipLabel}>Inspiration</span>
-            <button
-              className={`${styles.inspirationPip} ${char.inspiration ? styles.inspirationPipFilled : ''}`}
-              onClick={() => update({ inspiration: !char.inspiration })}
-              title={char.inspiration ? 'Click to remove inspiration' : 'Click to gain inspiration'}
-            />
+            {[0, 1, 2].map(i => {
+              const cur = (char.inspiration as number) ?? 0
+              return (
+                <button
+                  key={i}
+                  className={`${styles.inspirationPip} ${i < cur ? styles.inspirationPipFilled : ''}`}
+                  onClick={() => update({ inspiration: i < cur ? Math.max(0, cur - 1) : Math.min(3, i + 1) })}
+                  title={i < cur ? 'Spend inspiration' : 'Gain inspiration'}
+                />
+              )
+            })}
             <span className={styles.inspirationPipLabel} style={{ marginLeft: 4, fontSize: 10 }}>
-              {char.inspiration ? 'Active' : '—'}
+              {((char.inspiration as number) ?? 0) > 0 ? `${char.inspiration}/3` : '—'}
             </span>
           </div>
 
@@ -954,6 +997,111 @@ export function CharacterView() {
               )
             })()}
           </section>
+
+          {/* Attack detail — shown when Attack is selected */}
+          {selectedAction === 'Attack' && (
+            <section className={styles.section}>
+              <div className={styles.sectionHead}>
+                <span className={styles.sectionLabel}>Weapons</span>
+              </div>
+              {(char.weapons ?? []).length === 0 && (
+                <div className={styles.detailEmpty}>No weapons equipped — click + Add in the Attacks section.</div>
+              )}
+              <div className={styles.attackDetailWeapons}>
+                {(char.weapons ?? []).map(w => {
+                  const atk = computeAttackBonus(char, w)
+                  const strMod = Math.floor((char.abilityScores.str - 10) / 2)
+                  const dexMod = Math.floor((char.abilityScores.dex - 10) / 2)
+                  const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
+                  const dmgMod = isFinesse ? Math.max(strMod, dexMod) : w.rangeType === 'Ranged' ? dexMod : strMod
+                  const dmgExpr = w.damage && w.damage !== '—'
+                    ? dmgMod >= 0 ? `${w.damage}+${dmgMod}` : `${w.damage}${dmgMod}`
+                    : w.damage ?? '—'
+                  return (
+                    <div key={w.id} className={styles.attackDetailCard}>
+                      <div className={styles.attackDetailCardName}>
+                        {w.name}
+                        {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
+                      </div>
+                      <div className={styles.attackDetailCardStats}>
+                        <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {atk >= 0 ? `+${atk}` : atk}</span>
+                        <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Dmg</span> {dmgExpr} {w.damageType ?? ''}</span>
+                        {w.bonusDamageDie && <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>+</span>{w.bonusDamageDie} {w.bonusDamageType ?? ''}</span>}
+                        <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Range</span> {w.rangeType ?? 'Melee'}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {specialAttacks.length > 0 && (
+                <>
+                  <div className={styles.sectionHead} style={{ marginTop: 8 }}>
+                    <span className={styles.sectionLabel}>Special Attacks</span>
+                  </div>
+                  <div className={styles.specialAttackList}>
+                    {specialAttacks.map(sa => (
+                      <div key={sa.name} className={styles.specialAttackRow}>
+                        <span className={styles.specialAttackName}>{sa.name}</span>
+                        {sa.dice && <span className={styles.specialAttackDice}>{sa.dice}</span>}
+                        <span className={styles.specialAttackNote}>{sa.note}</span>
+                        {sa.condition && <span className={styles.specialAttackCond}>{sa.condition}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {attackSpells.length > 0 && (
+                <>
+                  <div className={styles.sectionHead} style={{ marginTop: 8 }}>
+                    <span className={styles.sectionLabel}>Spell Attacks</span>
+                    {spellAtkBonus !== null && <span className={styles.spellStats}>{fmtMod(spellAtkBonus)} atk</span>}
+                  </div>
+                  <div className={styles.spellList}>
+                    {attackSpells.map(id => {
+                      const spell = SPELL_BY_ID[id]
+                      if (!spell) return null
+                      return (
+                        <div key={id} className={styles.spellEntry} onClick={() => setSpellModal(id)}>
+                          <div className={styles.spellEntryLeft}>
+                            <span className={`${styles.spellLevelBadge} ${spell.level === 0 ? styles.spellLevelCantrip : ''}`}>
+                              {spell.level === 0 ? 'C' : spell.level}
+                            </span>
+                            <span className={styles.spellName}>{spell.name}</span>
+                            <span className={styles.spellSchool}>{spell.school}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              {char.spellIds.filter(id => !SPELL_ATTACK_IDS.has(id)).length > 0 && (
+                <>
+                  <div className={styles.sectionHead} style={{ marginTop: 8 }}>
+                    <span className={styles.sectionLabel}>Spells</span>
+                    {spellSaveDC !== null && <span className={styles.spellStats}>DC {spellSaveDC}</span>}
+                  </div>
+                  <div className={styles.spellList}>
+                    {char.spellIds.filter(id => !SPELL_ATTACK_IDS.has(id)).map(id => {
+                      const spell = SPELL_BY_ID[id]
+                      if (!spell) return null
+                      return (
+                        <div key={id} className={styles.spellEntry} onClick={() => setSpellModal(id)}>
+                          <div className={styles.spellEntryLeft}>
+                            <span className={`${styles.spellLevelBadge} ${spell.level === 0 ? styles.spellLevelCantrip : ''}`}>
+                              {spell.level === 0 ? 'C' : spell.level}
+                            </span>
+                            <span className={styles.spellName}>{spell.name}</span>
+                            <span className={styles.spellSchool}>{spell.school}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           {/* Spell Slots — shown when Cast a Spell is selected */}
           {selectedAction === 'Cast a Spell' && Object.keys(char.spellSlots).length > 0 && (

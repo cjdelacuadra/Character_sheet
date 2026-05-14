@@ -1809,7 +1809,7 @@
 
 /* ── ARMORY MODAL ── */
 .armoryModal {
-  background: var(--bg-panel);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px;
@@ -2142,6 +2142,138 @@
 
 .skillCircleProf   { background: var(--accent);  border-color: var(--accent); }
 .skillCircleExpert { background: var(--warning); border-color: var(--warning); }
+
+/* ── Armor picker group label ── */
+.armorPickerGroup {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  width: 100%;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* ── Inspiration pips in header ── */
+.inspirationPipsHdr {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inspirationHdrLabel {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+/* ── Temp HP section sizing fix ── */
+.hpTempSection {
+  min-width: 80px !important;
+}
+
+.tempHpInput {
+  width: 80px !important;
+}
+
+/* ── Attack detail panel ── */
+.attackDetailWeapons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.attackDetailCard {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.attackDetailCardName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attackDetailCardStats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attackDetailStat {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attackDetailStatLbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.specialAttackList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.specialAttackRow {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.specialAttackName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.specialAttackDice {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.specialAttackNote {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.specialAttackCond {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  width: 100%;
+}
 
 /* ── Enchantment badge ───────────────────────────────────────────────────────── */
 

@@ -171,6 +171,86 @@ export function getAvailableActions(character: Character): ActionDef[] {
   return [...GENERIC_ACTIONS, ...spellAction, ...classActions]
 }
 
+// ── Special attacks ─────────────────────────────────────────────────────────
+
+export interface SpecialAttack {
+  name: string
+  dice?: string
+  note: string
+  condition?: string
+}
+
+/** Spell IDs that use an attack roll (ranged or melee spell attack). */
+export const SPELL_ATTACK_IDS = new Set([
+  'fire-bolt', 'ray-of-frost', 'chill-touch', 'eldritch-blast',
+  'guiding-bolt', 'inflict-wounds', 'spiritual-weapon',
+  'toll-the-dead',
+])
+
+export function getSpecialAttacks(character: Character): SpecialAttack[] {
+  const attacks: SpecialAttack[] = []
+  const { level, classId, feats = [], spellIds = [] } = character
+
+  if (classId === 'Rogue') {
+    const diceCount = Math.ceil(level / 2)
+    attacks.push({
+      name: 'Sneak Attack',
+      dice: `${diceCount}d6`,
+      note: 'Extra damage once per turn',
+      condition: 'Requires advantage or adjacent ally, finesse/ranged weapon',
+    })
+  }
+
+  if (classId === 'Barbarian' && level >= 2) {
+    attacks.push({
+      name: 'Reckless Attack',
+      note: 'Advantage on first Str attack, attackers gain advantage vs you until next turn',
+    })
+  }
+
+  if (classId === 'Paladin' && level >= 2) {
+    attacks.push({
+      name: 'Divine Smite',
+      dice: '2d8 radiant',
+      note: 'On hit: expend spell slot for extra radiant damage',
+      condition: '+1d8 per slot level above 1st (max 5d8); +1d8 vs undead/fiends',
+    })
+  }
+
+  if (classId === 'Monk') {
+    const die = level >= 17 ? 'd10' : level >= 11 ? 'd8' : level >= 5 ? 'd6' : 'd4'
+    attacks.push({
+      name: 'Unarmed Strike',
+      dice: `1${die}`,
+      note: 'Uses Dex for attack/damage; no weapon required',
+    })
+  }
+
+  if (feats.includes('greatWeaponMaster')) {
+    attacks.push({
+      name: 'GWM Power Attack',
+      note: '−5 to hit / +10 damage with heavy melee weapons',
+    })
+  }
+
+  if (feats.includes('sharpshooter')) {
+    attacks.push({
+      name: 'Sharpshooter Power Attack',
+      note: '−5 to hit / +10 damage with ranged weapons',
+    })
+  }
+
+  if (classId === 'Ranger' && spellIds.includes('hunter-s-mark')) {
+    attacks.push({
+      name: "Hunter's Mark",
+      dice: '+1d6',
+      note: 'Extra damage each hit against your marked target',
+    })
+  }
+
+  return attacks
+}
+
 // ── XP thresholds ────────────────────────────────────────────────────────────
 
 const XP_THRESHOLDS: Record<number, number> = {

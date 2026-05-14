@@ -30,6 +30,8 @@ export interface ActiveCondition {
 export interface Equipment {
   armorId: string | null
   hasShield: boolean
+  /** ID of equipped shield ('shield', 'shield+1', etc.) or null for no shield */
+  shieldId?: string | null
 }
 
 export interface Weapon {
@@ -76,7 +78,7 @@ export interface Character {
   conditionIds: ActiveCondition[]
   resources: Record<string, { used: number; total: number }>
   deathSaves: { successes: number; failures: number }
-  inspiration: boolean
+  inspiration: number
   hitDiceUsed: number
   feats?: string[]
 }

@@ -30,7 +30,11 @@ export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 
   const dexMod = mod(abilityScores.dex)
   const conMod = mod(abilityScores.con)
   const wisMod = mod(abilityScores.wis)
-  const shield = equipment.hasShield ? 2 : 0
+  // Shield adds +2 + enchantment (additive on top of armor, never replaces it)
+  const shieldDef = equipment.shieldId ? ARMOR_BY_ID[equipment.shieldId] : null
+  const shield = shieldDef
+    ? 2 + (shieldDef.enchantmentBonus ?? 0)
+    : equipment.hasShield ? 2 : 0
 
   // Check natural armor first (race-based)
   const raceDef = RACE_BY_ID[race]
