@@ -1,0 +1,63 @@
+/* Forwarded from CharacterView styles — vitals section */
+.vitals { display: flex; flex-direction: column; gap: 8px; }
+
+.topStatRow { display: flex; gap: 6px; }
+.topStatBox {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 8px 4px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface-2); cursor: default;
+}
+.topStatEditable { cursor: pointer; }
+.topStatEditable:hover { border-color: var(--accent); }
+.topStatBoxWarn { border-color: var(--warning); }
+.topStatVal { font-size: 20px; font-weight: 700; color: var(--text); }
+.topStatLabel { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.statUnit { font-size: 12px; color: var(--text-muted); }
+.statEditInput { width: 50px; font-size: 18px; font-weight: 700; text-align: center; background: transparent; border: none; border-bottom: 1px solid var(--accent); color: var(--text); }
+
+.armorPickerRow { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-2); border-radius: 6px; }
+.armorPickerGroup { font-size: 10px; color: var(--text-muted); text-transform: uppercase; align-self: center; padding: 0 4px; }
+.armorOpt { padding: 3px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
+.armorOpt:hover { border-color: var(--accent); }
+.armorOptSel { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
+
+.secondaryStatRow { display: flex; gap: 8px; flex-wrap: wrap; padding: 4px 0; }
+.secondaryStat { font-size: 11px; color: var(--text-muted); }
+.secondaryStat strong { color: var(--text); }
+
+/* HP */
+.hpRow { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: start; }
+.hpCurrentSection { display: flex; flex-direction: column; }
+.hpMaxLabel { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+.hpCurrent { font-size: 40px; font-weight: 700; color: var(--text); cursor: pointer; line-height: 1; }
+.hpCurrent:hover { color: var(--accent); }
+.hpEditInput { width: 70px; font-size: 36px; font-weight: 700; background: transparent; border: none; border-bottom: 1px solid var(--accent); color: var(--text); }
+.hpTempSection { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.hpSectionLabel { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+.tempHpChip { padding: 4px 8px; border-radius: 12px; border: 1px solid var(--border); font-size: 12px; font-weight: 600; cursor: pointer; }
+.tempHpActive { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.tempHpMuted { background: transparent; color: var(--text-muted); }
+.tempHpInput { width: 50px; font-size: 14px; text-align: center; background: var(--surface-2); border: 1px solid var(--accent); border-radius: 4px; color: var(--text); padding: 2px; }
+.hpDeathSection { display: flex; flex-direction: column; gap: 2px; }
+.deathRow { display: flex; align-items: center; gap: 4px; }
+.deathLabel { font-size: 10px; color: var(--text-muted); width: 10px; }
+.deathDots { display: flex; gap: 3px; }
+.deathDot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-3); cursor: pointer; }
+.dotSuccess { background: var(--success); border-color: var(--success); }
+.dotFail { background: var(--danger); border-color: var(--danger); }
+
+.hpBar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+.hpFill { height: 100%; border-radius: 3px; transition: width 0.3s ease, background 0.3s; }
+
+.hpBtns { display: flex; gap: 4px; flex-wrap: wrap; }
+.dmgBtn { flex: 1; padding: 4px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--danger); color: var(--danger); background: transparent; cursor: pointer; min-width: 32px; }
+.dmgBtn:hover { background: var(--danger); color: #fff; }
+.healBtn { flex: 1; padding: 4px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--success); color: var(--success); background: transparent; cursor: pointer; min-width: 32px; }
+.healBtn:hover { background: var(--success); color: #fff; }
+
+/* Inspiration */
+.inspirationRow { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+.inspirationLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.inspirationPip { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-3); cursor: pointer; }
+.inspirationPipFilled { background: var(--accent); border-color: var(--accent); }
+.inspirationCount { font-size: 10px; color: var(--text-muted); margin-left: 4px; }

@@ -1,0 +1,15 @@
+.section { display: flex; flex-direction: column; gap: 6px; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.emptyNote { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.featureList { display: flex; flex-direction: column; gap: 3px; }
+.featureCard { border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+.featureHead {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px; width: 100%;
+  background: var(--surface-2); border: none; cursor: pointer; text-align: left;
+}
+.featureHead:hover { background: var(--surface-3); }
+.featureName { flex: 1; font-size: 12px; font-weight: 500; color: var(--text); }
+.featureLevel { font-size: 10px; color: var(--text-muted); background: var(--surface-3); border-radius: 3px; padding: 1px 5px; }
+.featureChevron { font-size: 10px; color: var(--text-muted); }
+.featureDesc { padding: 6px 8px; font-size: 11px; color: var(--text-muted); line-height: 1.4; background: var(--surface); border-top: 1px solid var(--border); margin: 0; }

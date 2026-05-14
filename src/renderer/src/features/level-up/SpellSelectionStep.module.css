@@ -1,0 +1,24 @@
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.modal { background: #17171d; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; width: 580px; max-width: 96vw; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 20px 10px; border-bottom: 1px solid rgba(255,255,255,.07); gap: 12px; flex-shrink: 0; }
+.titleBlock { display: flex; flex-direction: column; gap: 3px; }
+.title { font-size: 17px; font-weight: 700; color: #e8e8f0; }
+.subtitle { font-size: 12px; color: #8b7cf8; }
+.closeBtn { background: transparent; border: 1px solid rgba(255,255,255,.09); color: #55556a; font-size: 18px; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.closeBtn:hover { border-color: #e05c5c; color: #e05c5c; }
+.search { margin: 10px 20px; padding: 7px 10px; font-size: 12px; background: #1e1e26; border: 1px solid rgba(255,255,255,.07); border-radius: 6px; color: #e8e8f0; outline: none; }
+.search:focus { border-color: #8b7cf8; }
+.body { flex: 1; overflow-y: auto; padding: 0 20px 10px; display: flex; flex-direction: column; gap: 4px; }
+.groupLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #55556a; margin-top: 8px; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.spellRow { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,.07); background: #1e1e26; cursor: pointer; text-align: left; width: 100%; transition: all .15s; }
+.spellRow:hover:not(:disabled) { border-color: #8b7cf8; background: rgba(139,124,248,.06); }
+.spellRowSel { border-color: #8b7cf8; background: rgba(139,124,248,.12); }
+.spellRowDim { opacity: .35; cursor: not-allowed; }
+.spellLevel { width: 16px; height: 16px; border-radius: 50%; background: rgba(139,124,248,.15); border: 1px solid #8b7cf8; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #8b7cf8; flex-shrink: 0; }
+.spellName { font-size: 13px; font-weight: 600; color: #e8e8f0; flex: 1; }
+.spellMeta { font-size: 11px; color: #55556a; }
+.footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,.07); flex-shrink: 0; }
+.cancelBtn { background: transparent; border: 1px solid rgba(255,255,255,.09); color: #8888a0; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 7px; cursor: pointer; }
+.cancelBtn:hover { border-color: #8888a0; color: #e8e8f0; }
+.confirmBtn { background: rgba(76,175,125,.12); border: 1px solid #4caf7d; color: #4caf7d; font-size: 13px; font-weight: 700; padding: 7px 20px; border-radius: 7px; cursor: pointer; }
+.confirmBtn:hover { background: rgba(76,175,125,.25); }

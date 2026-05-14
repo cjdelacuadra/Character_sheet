@@ -141,7 +141,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
 
   function buildCharacter(): Character {
     const scores = getScores()
-    const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield }
+    const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield, shieldId: hasShield ? 'shield-generic' : null }
     const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass }
     const ac = computeAC(charBase)
     const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
@@ -169,8 +169,12 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       bonusDamageType: w.bonusDamageType,
     }))
 
+    const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
+      schemaVersion: 2,
+      createdAt: now,
+      updatedAt: now,
       name: basics.name.trim(),
       playerName: basics.playerName.trim() || undefined,
       alignment: basics.alignment || undefined,
@@ -186,17 +190,22 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       speed,
       initiative: dexMod,
       proficiencyBonus: prof,
+      bonusHpPerLevel,
       equipment,
       savingThrowProficiencies: classDef ? [...classDef.savingThrows] : [],
       skillProficiencies: skillProf,
       spellIds: chosenSpells,
+      preparedSpellIds: [],
+      concentrationSpellId: null,
       spellSlots: defaultSpellSlots(basics.classId, basics.level),
       weapons,
       conditionIds: [],
       resources,
       deathSaves: { successes: 0, failures: 0 },
-      inspiration: false,
+      inspiration: 0,
       hitDiceUsed: 0,
+      feats: [],
+      notes: '',
     }
   }
 
@@ -624,7 +633,7 @@ function StepEquipment({
 }) {
   const classDef = CLASS_BY_ID[basics.classId]
   const bgDef = BACKGROUND_BY_ID[basics.background]
-  const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield }
+  const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield, shieldId: hasShield ? 'shield-generic' : null }
   const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
   const ac = computeAC({ abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass })
   const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
@@ -688,7 +697,7 @@ function StepEquipment({
               onClick={() => setArmorId(a.id)}
             >
               <span className={styles.armorName}>{a.name}</span>
-              <span className={styles.armorAc}>AC {computeAC({ abilityScores: scores, equipment: { armorId: a.id === 'none' ? null : a.id, hasShield: false }, classId: basics.classId, race: basics.race, subclass: basics.subclass })}</span>
+              <span className={styles.armorAc}>AC {computeAC({ abilityScores: scores, equipment: { armorId: a.id === 'none' ? null : a.id, hasShield: false, shieldId: null }, classId: basics.classId, race: basics.race, subclass: basics.subclass })}</span>
               {a.type !== 'none' && <span className={styles.armorType}>{a.type}</span>}
             </button>
           ))}

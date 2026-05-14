@@ -29,9 +29,9 @@ export interface ActiveCondition {
 
 export interface Equipment {
   armorId: string | null
+  /** @deprecated use shieldId instead */
   hasShield: boolean
-  /** ID of equipped shield ('shield', 'shield+1', etc.) or null for no shield */
-  shieldId?: string | null
+  shieldId: string | null
 }
 
 export interface Weapon {
@@ -49,6 +49,10 @@ export interface Weapon {
 
 export interface Character {
   id: string
+  schemaVersion: number
+  createdAt: string
+  updatedAt: string
+
   name: string
   playerName?: string
   alignment?: string
@@ -65,20 +69,23 @@ export interface Character {
   speed: number
   initiative: number
   proficiencyBonus: number
+  bonusHpPerLevel: number
 
   equipment: Equipment
   savingThrowProficiencies: AbilityScore[]
   skillProficiencies: Partial<Record<Skill, 'proficient' | 'expert'>>
 
   spellIds: string[]
+  preparedSpellIds: string[]
   spellSlots: SpellSlots
-  concentrationSpellId?: string
+  concentrationSpellId: string | null
 
-  weapons?: Weapon[]
+  weapons: Weapon[]
   conditionIds: ActiveCondition[]
   resources: Record<string, { used: number; total: number }>
   deathSaves: { successes: number; failures: number }
   inspiration: number
   hitDiceUsed: number
-  feats?: string[]
+  feats: string[]
+  notes: string
 }

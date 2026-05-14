@@ -1,0 +1,18 @@
+.restPanel { background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.restTabs { display: flex; gap: 4px; }
+.restTab { padding: 4px 12px; font-size: 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text-muted); cursor: pointer; }
+.restTab:hover { border-color: var(--accent); color: var(--text); }
+.restTabActive { background: var(--accent); color: var(--text-on-accent); border-color: var(--accent); }
+.restBody { display: flex; flex-direction: column; gap: 8px; }
+.restNote { font-size: 12px; color: var(--text-muted); }
+.restNote strong { color: var(--text); }
+.restHdRow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.restHdInput { width: 60px; padding: 4px; font-size: 13px; background: var(--surface-3); border: 1px solid var(--border); border-radius: 4px; color: var(--text); text-align: center; }
+.restRollBtn { padding: 4px 10px; font-size: 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
+.restRollBtn:hover { border-color: var(--accent); }
+.restHdNote { font-size: 11px; color: var(--text-muted); flex: 1; }
+.restConfirmBtn { padding: 5px 14px; font-size: 12px; border-radius: 5px; border: none; background: var(--accent); color: var(--text-on-accent); cursor: pointer; font-weight: 600; }
+.restConfirmBtn:disabled { opacity: .5; cursor: not-allowed; }
+.restCancelBtn { padding: 5px 14px; font-size: 12px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; }
+.restCancelBtn:hover { border-color: var(--danger); color: var(--danger); }
+.restActions { display: flex; gap: 8px; }

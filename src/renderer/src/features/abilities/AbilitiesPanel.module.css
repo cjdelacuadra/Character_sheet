@@ -1,0 +1,44 @@
+.statsSubGrid { display: grid; grid-template-columns: auto 1fr; gap: 12px; }
+
+.statsSubLeft { display: flex; flex-direction: column; gap: 4px; }
+.abilityBlock { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.abilityModCircle {
+  width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--text); background: var(--surface-2);
+}
+.abilityScoreBox {
+  width: 36px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 4px; cursor: pointer; background: var(--surface-3);
+}
+.abilityScoreBox:hover { border-color: var(--accent); }
+.abilityScoreNum { font-size: 14px; font-weight: 600; color: var(--text); }
+.abilityEditInput { width: 30px; font-size: 13px; text-align: center; background: transparent; border: none; color: var(--text); }
+.abilityName { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+
+.statsSubRight { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.savesHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.profBadge { font-size: 10px; color: var(--accent); }
+.saveRow { display: flex; align-items: center; gap: 4px; padding: 1px 0; }
+.saveCircle { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--border); background: transparent; cursor: pointer; flex-shrink: 0; }
+.saveCircleFilled { background: var(--accent); border-color: var(--accent); }
+.saveBonus { font-size: 11px; font-weight: 600; color: var(--text); width: 24px; text-align: right; }
+.saveAb { font-size: 10px; color: var(--text-muted); width: 28px; }
+
+.skillsHeader { margin-top: 6px; margin-bottom: 2px; }
+.skillsList { display: flex; flex-direction: column; gap: 1px; }
+.skillRow {
+  display: flex; align-items: center; gap: 3px; padding: 1px 2px;
+  background: transparent; border: none; cursor: pointer; text-align: left; border-radius: 3px;
+}
+.skillRow:hover { background: var(--surface-2); }
+.skillCircle { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--border); background: transparent; flex-shrink: 0; }
+.skillCircleProf { background: var(--accent); border-color: var(--accent); }
+.skillCircleExpert { background: var(--gold); border-color: var(--gold); }
+.skillBonus { font-size: 10px; font-weight: 600; color: var(--text); width: 22px; text-align: right; }
+.skillLabel { font-size: 10px; color: var(--text); flex: 1; }
+.skillAb { font-size: 9px; color: var(--text-muted); }
+
+.passivePP { font-size: 10px; color: var(--text-muted); margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--border); }
+.passivePP strong { color: var(--text); }

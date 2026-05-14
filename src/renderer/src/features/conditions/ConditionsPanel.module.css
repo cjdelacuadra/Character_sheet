@@ -1,0 +1,13 @@
+.section { display: flex; flex-direction: column; gap: 4px; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.addBtn { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.addBtn:hover { border-color: var(--accent); color: var(--accent); }
+.conditionPicker { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-2); border-radius: 6px; }
+.condOpt { padding: 3px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
+.condOpt:hover { border-color: var(--accent); }
+.condOptActive { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+.condTags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+.condTag { padding: 2px 8px; font-size: 10px; border-radius: 12px; border: 1px solid var(--danger); background: var(--danger-dim); color: var(--danger); cursor: pointer; }
+.condTag:hover { background: var(--danger); color: #fff; }
+.emptyNote { font-size: 11px; color: var(--text-muted); font-style: italic; }

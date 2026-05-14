@@ -1,0 +1,12 @@
+.section { display: flex; flex-direction: column; gap: 6px; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.resourceList { display: flex; flex-direction: column; gap: 6px; }
+.resourceRow { display: flex; align-items: center; gap: 8px; }
+.resourceName { font-size: 11px; color: var(--text); min-width: 80px; font-weight: 500; }
+.resourcePips { display: flex; flex-wrap: wrap; gap: 3px; flex: 1; }
+.resourcePip { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; }
+.resourcePipFull { background: var(--accent); border-color: var(--accent); }
+.resourcePipEmpty { background: var(--surface-3); }
+.resourceCount { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
+.resourceRecovery { font-size: 9px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; }
