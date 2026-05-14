@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
 
-const DATA_DIR = join(app.getPath('userData'), 'characters')
+let DATA_DIR: string
 
 function ensureDataDir(): void {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
@@ -69,6 +69,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  DATA_DIR = join(app.getPath('userData'), 'characters')
   registerIpc()
   createWindow()
   app.on('activate', () => {

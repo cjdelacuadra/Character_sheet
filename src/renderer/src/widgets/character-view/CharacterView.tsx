@@ -25,30 +25,14 @@ export function CharacterView() {
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
 
-  const char = activeCharacterId ? characters[activeCharacterId] : null
-  if (!char) return null
-
+  // All hooks must appear before any conditional return
   const update = useCallback(
-    (patch: Parameters<typeof updateCharacter>[1]) => updateCharacter(char.id, patch),
-    [char.id, updateCharacter]
+    (patch: Parameters<typeof updateCharacter>[1]) => {
+      if (activeCharacterId) updateCharacter(activeCharacterId, patch)
+    },
+    [activeCharacterId, updateCharacter]
   )
 
-  const classDef = CLASS_BY_ID[char.classId]
-  const xpNext = xpForNextLevel(char.level)
-  const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
-  const nextLevelIsAsi = classDef?.asiLevels?.includes(char.level + 1) ?? false
-
-  function handleLevelUp() {
-    if (nextLevelIsAsi) setLevelUpOpen(true)
-    else levelUp(char.id)
-  }
-
-  function handleAsiConfirm(choice: AsiChoice, newSpellIds?: string[]) {
-    levelUp(char.id, choice, newSpellIds)
-    setLevelUpOpen(false)
-  }
-
-  // 'R' key toggles dice roller
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement
@@ -59,7 +43,14 @@ export function CharacterView() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // suppress unused canLevelUp warning — used by CharacterHeader via onLevelUp
+  const char = activeCharacterId ? characters[activeCharacterId] : null
+  if (!char) return null
+
+  const classDef = CLASS_BY_ID[char.classId]
+  const xpNext = xpForNextLevel(char.level)
+  const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
+  const nextLevelIsAsi = classDef?.asiLevels?.includes(char.level + 1) ?? false
+
   void canLevelUp
 
   return (
@@ -67,7 +58,10 @@ export function CharacterView() {
       <CharacterHeader
         character={char}
         update={update}
-        onLevelUp={handleLevelUp}
+        onLevelUp={() => {
+          if (nextLevelIsAsi) setLevelUpOpen(true)
+          else levelUp(char.id)
+        }}
         onRestToggle={() => setRestOpen(v => !v)}
         onBack={exitCharacter}
       />
@@ -82,32 +76,31 @@ export function CharacterView() {
       )}
 
       <div className={styles.columns}>
-        {/* Left column: vitals + abilities */}
         <aside className={styles.leftCol}>
           <VitalsPanel character={char} update={update} onTempHp={(amt) => setTempHp(char.id, amt)} />
           <ConditionsPanel character={char} update={update} />
           <AbilitiesPanel character={char} update={update} />
         </aside>
 
-        {/* Center column: features + resources + combat */}
         <div className={styles.centerCol}>
           <FeaturesPanel character={char} />
           <ResourcesPanel character={char} update={update} />
           <CombatPanel character={char} update={update} />
         </div>
 
-        {/* Right column: spells */}
         <div className={styles.rightCol}>
           <SpellsPanel character={char} update={update} />
         </div>
       </div>
 
-      {/* Overlays */}
       {levelUpOpen && (
         <LevelUpModal
           character={char}
           newLevel={char.level + 1}
-          onConfirm={handleAsiConfirm}
+          onConfirm={(choice: AsiChoice, newSpellIds?: string[]) => {
+            levelUp(char.id, choice, newSpellIds)
+            setLevelUpOpen(false)
+          }}
           onCancel={() => setLevelUpOpen(false)}
         />
       )}
