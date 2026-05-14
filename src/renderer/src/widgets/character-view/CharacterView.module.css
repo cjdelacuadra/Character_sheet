@@ -1,17 +1,4 @@
-/* ── Design tokens scoped to this view ── */
 .view {
-  --bg-base:     #0f0f12;
-  --bg-surface:  #17171d;
-  --bg-elevated: #1e1e26;
-  --border:      rgba(255, 255, 255, 0.07);
-  --accent:      #8b7cf8;
-  --danger:      #e05c5c;
-  --success:     #4caf7d;
-  --warning:     #e0a84c;
-  --text-primary:   #e8e8f0;
-  --text-secondary: #8888a0;
-  --text-muted:     #55556a;
-
   height: 100vh;
   display: flex;
   flex-direction: column;

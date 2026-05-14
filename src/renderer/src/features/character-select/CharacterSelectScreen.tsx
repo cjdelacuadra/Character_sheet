@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '@/app/store'
+import { useTheme } from '@/app/ThemeContext'
 import type { Character, AbilityScores, AbilityScore } from '@/entities/character/types'
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS, SKILL_BY_KEY } from '@/shared/data/skills'
@@ -24,6 +25,7 @@ const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
 
 export function CharacterSelectScreen() {
   const { characters, setActiveCharacter, addCharacter, deleteCharacter } = useAppStore()
+  const { theme, toggle } = useTheme()
   const [showCreate, setShowCreate] = useState(false)
   const characterList = Object.values(characters)
 
@@ -31,7 +33,12 @@ export function CharacterSelectScreen() {
     <div className={styles.screen}>
       <header className={styles.header}>
         <h1 className={styles.title}>Characters</h1>
-        <button className={styles.createBtn} onClick={() => setShowCreate(true)}>+ New Character</button>
+        <div className={styles.headerRight}>
+          <button className={styles.themeBtn} onClick={toggle} title="Toggle theme">
+            {theme === 'dark' ? '☀ Light' : '◑ Dark'}
+          </button>
+          <button className={styles.createBtn} onClick={() => setShowCreate(true)}>+ New Character</button>
+        </div>
       </header>
 
       {characterList.length === 0 ? (

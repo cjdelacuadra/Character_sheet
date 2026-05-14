@@ -5,6 +5,7 @@
 }
 
 :root {
+  /* Dark theme (default) */
   --bg-base: #0f1117;
   --bg-surface: #1a1d27;
   --bg-elevated: #22263a;
@@ -14,13 +15,40 @@
   --text-muted: #555b75;
   --accent: #7c6af7;
   --accent-dim: #3d3580;
+  --accent-rgb: 124, 106, 247;
   --danger: #e05c5c;
   --success: #4caf7d;
   --warning: #e8a44a;
+  --gold: #d4af37;
+  --text-on-accent: #ffffff;
+
+  /* Aliases used in feature modules */
+  --text: var(--text-primary);
+  --surface-2: var(--bg-surface);
+  --surface-3: var(--bg-elevated);
+
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;
   color: var(--text-primary);
   background: var(--bg-base);
+}
+
+:root[data-theme="light"] {
+  --bg-base: #f0f2f8;
+  --bg-surface: #ffffff;
+  --bg-elevated: #e4e8f2;
+  --border: #c4c9dc;
+  --text-primary: #1a1d2e;
+  --text-secondary: #4a4f6a;
+  --text-muted: #8890a8;
+  --accent: #5b4cd6;
+  --accent-dim: #ece9ff;
+  --accent-rgb: 91, 76, 214;
+  --danger: #c94040;
+  --success: #2e8f5e;
+  --warning: #b07030;
+  --gold: #9a7820;
+  --text-on-accent: #ffffff;
 }
 
 body {

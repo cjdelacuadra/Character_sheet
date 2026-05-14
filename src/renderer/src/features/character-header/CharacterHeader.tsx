@@ -3,6 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { xpForNextLevel } from '@/domain/rules'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { useTheme } from '@/app/ThemeContext'
 import styles from './CharacterHeader.module.css'
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack }: Props) {
   const [xpEdit, setXpEdit] = useState<string | null>(null)
+  const { theme, toggle } = useTheme()
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
   const classDef = CLASS_BY_ID[char.classId]
@@ -103,6 +105,9 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
           })}
         </div>
         <button className={styles.restBtn} onClick={onRestToggle}>Rest</button>
+        <button className={styles.themeBtn} onClick={toggle} title="Toggle theme">
+          {theme === 'dark' ? '☀' : '◑'}
+        </button>
         <button className={styles.backBtn} onClick={onBack}>← Back</button>
       </div>
     </header>
