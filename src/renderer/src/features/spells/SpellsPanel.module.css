@@ -28,6 +28,7 @@
 .spellEntry {
   display: flex; align-items: center; gap: 6px; padding: 4px 6px;
   border-radius: 5px; cursor: pointer; border: 1px solid transparent;
+  background: transparent; color: inherit; width: 100%; text-align: left;
 }
 .spellEntry:hover { background: var(--surface-2); border-color: var(--border); }
 .spellConc { background: rgba(var(--accent-rgb), .08); border-color: rgba(var(--accent-rgb), .3); }
@@ -44,9 +45,20 @@
 .spellConcBtn { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text-muted); padding: 0; }
 .spellConcBtnActive { color: var(--accent); }
 
+/* Learn spell */
+.learnBtn { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent); background: transparent; cursor: pointer; white-space: nowrap; }
+.learnBtn:hover { background: var(--accent-dim); }
+.learnPicker { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 4px; background: var(--bg-elevated); }
+.learnPicker .spellList { max-height: 220px; overflow-y: auto; }
+.emptyNote { padding: 8px 10px; font-size: 11px; color: var(--text-muted); font-style: italic; }
+
+.preparedCount { font-size: 10px; color: var(--text-muted); }
+.prepareBtn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 0; }
+.prepareBtnActive { color: var(--accent); }
+
 /* Spell modal */
-.modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.spellModal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+.modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.spellModal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .spellModalHeader { display: flex; align-items: flex-start; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
 .spellModalName { font-size: 18px; font-weight: 700; color: var(--text); }
 .spellModalSub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
@@ -57,3 +69,13 @@
 .spellModalMeta dd { color: var(--text); margin: 0; }
 .spellModalDesc { padding: 0 16px 14px; font-size: 12px; color: var(--text-muted); line-height: 1.6; margin: 0; overflow-y: auto; }
 .spellModalConcBtn { margin: 0 16px 14px; padding: 7px 16px; background: var(--accent); color: var(--text-on-accent); border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; align-self: flex-start; }
+.spellModalConcBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.spellModalActions { display: flex; flex-direction: column; gap: 4px; padding: 0 16px 14px; }
+.spellModalCastRow { display: flex; align-items: center; gap: 10px; padding: 7px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; width: 100%; }
+.spellModalCastRow:hover { border-color: var(--accent); }
+.spellModalCastLevel { font-size: 12px; font-weight: 600; color: var(--text); min-width: 36px; }
+.spellModalCastDice { font-size: 13px; font-weight: 700; color: var(--accent); flex: 1; }
+.spellModalCastSlots { font-size: 11px; color: var(--text-muted); }
+.spellModalNoSlots { padding: 7px 16px; margin: 0 0 14px; font-size: 12px; color: var(--text-muted); font-style: italic; }
+.spellModalMasteryBtn { display: block; width: calc(100% - 28px); margin: 6px 14px 0; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent); background: rgba(139,124,248,0.12); color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+.spellModalMasteryBtn:hover { background: rgba(139,124,248,0.22); }

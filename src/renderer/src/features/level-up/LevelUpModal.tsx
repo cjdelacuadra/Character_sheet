@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import type { Character, AbilityScore } from '@/entities/character/types'
-import { FEATS, type FeatDef } from '@/shared/data/featsData'
+import { FEATS, FEAT_BY_ID, type FeatDef } from '@/shared/data/featsData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { computeSpellLevelUpConfig } from '@/domain/rules'
 import { SpellSelectionStep } from './SpellSelectionStep'
 import styles from './LevelUpModal.module.css'
 
 export type AsiChoice =
   | { type: 'double'; ability: AbilityScore }
   | { type: 'split'; ability1: AbilityScore; ability2: AbilityScore }
-  | { type: 'feat'; featId: string }
+  | { type: 'feat'; featId: string; featAbilityChoice?: AbilityScore }
 
 interface Props {
   character: Character
   newLevel: number
+  showSpellSelection: boolean
   onConfirm: (choice: AsiChoice, newSpellIds?: string[]) => void
   onCancel: () => void
 }
@@ -24,27 +26,31 @@ const ABILITY_LABELS: Record<AbilityScore, string> = {
 }
 type Mode = 'double' | 'split' | 'feat'
 
-export function LevelUpModal({ character, newLevel, onConfirm, onCancel }: Props) {
+export function LevelUpModal({ character, newLevel, showSpellSelection, onConfirm, onCancel }: Props) {
   const [mode, setMode] = useState<Mode>('double')
   const [doubleAbility, setDoubleAbility] = useState<AbilityScore>('str')
   const [splitA1, setSplitA1] = useState<AbilityScore>('str')
   const [splitA2, setSplitA2] = useState<AbilityScore>('dex')
   const [featSearch, setFeatSearch] = useState('')
   const [selectedFeat, setSelectedFeat] = useState<string | null>(null)
+  const [featAbilityChoice, setFeatAbilityChoice] = useState<AbilityScore | null>(null)
   const [step, setStep] = useState<'asi' | 'spells'>('asi')
   const [pendingChoice, setPendingChoice] = useState<AsiChoice | null>(null)
 
   const classDef = CLASS_BY_ID[character.classId]
   const isSpellcaster = classDef?.isSpellcaster && classDef.spellcastingAbility
-  const needsSpellSelection = isSpellcaster && (
-    classDef?.spellsKnownTable || classDef?.cantripsKnownTable
-  )
+  const spellConfig = classDef ? computeSpellLevelUpConfig(classDef, newLevel - 1, newLevel) : null
+  const needsSpellSelection = showSpellSelection && isSpellcaster && !!spellConfig &&
+    (spellConfig.spellsDelta > 0 || spellConfig.cantripsDelta > 0)
 
   function isValid(): boolean {
     if (mode === 'double') return character.abilityScores[doubleAbility] < 20
     if (mode === 'split') return splitA1 !== splitA2 &&
       character.abilityScores[splitA1] < 20 && character.abilityScores[splitA2] < 20
-    return selectedFeat !== null
+    if (!selectedFeat) return false
+    const featDef = FEAT_BY_ID[selectedFeat]
+    if (featDef?.abilityChoice && !featAbilityChoice) return false
+    return true
   }
 
   function handleAsiConfirm() {
@@ -52,7 +58,7 @@ export function LevelUpModal({ character, newLevel, onConfirm, onCancel }: Props
     let choice: AsiChoice
     if (mode === 'double') choice = { type: 'double', ability: doubleAbility }
     else if (mode === 'split') choice = { type: 'split', ability1: splitA1, ability2: splitA2 }
-    else choice = { type: 'feat', featId: selectedFeat! }
+    else choice = { type: 'feat', featId: selectedFeat!, featAbilityChoice: featAbilityChoice ?? undefined }
 
     if (needsSpellSelection) {
       setPendingChoice(choice)
@@ -174,13 +180,29 @@ export function LevelUpModal({ character, newLevel, onConfirm, onCancel }: Props
                   <button
                     key={feat.id}
                     className={`${styles.featRow} ${selectedFeat === feat.id ? styles.featRowSel : ''}`}
-                    onClick={() => setSelectedFeat(feat.id)}
+                    onClick={() => { setSelectedFeat(feat.id); setFeatAbilityChoice(null) }}
                   >
                     <span className={styles.featName}>{feat.name}</span>
                     <span className={styles.featDesc}>{feat.description}</span>
                   </button>
                 ))}
               </div>
+              {selectedFeat && FEAT_BY_ID[selectedFeat]?.abilityChoice && (
+                <div className={styles.featAbilityPicker}>
+                  <span className={styles.featAbilityLabel}>Choose ability to gain +1:</span>
+                  <div className={styles.featAbilityBtns}>
+                    {FEAT_BY_ID[selectedFeat]!.abilityChoice!.map(ab => (
+                      <button
+                        key={ab}
+                        className={`${styles.featAbilityBtn} ${featAbilityChoice === ab ? styles.featAbilityBtnSel : ''}`}
+                        onClick={() => setFeatAbilityChoice(ab)}
+                      >
+                        {ABILITY_LABELS[ab]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

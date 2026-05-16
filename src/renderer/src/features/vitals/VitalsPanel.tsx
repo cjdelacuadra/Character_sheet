@@ -13,13 +13,15 @@ interface Props {
   character: Character
   update: (patch: Partial<Character>) => void
   onTempHp: (amount: number) => void
+  onDelete?: () => void
 }
 
-export function VitalsPanel({ character: char, update, onTempHp }: Props) {
+export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Props) {
   const [hpEdit, setHpEdit] = useState<string | null>(null)
   const [tempHpEdit, setTempHpEdit] = useState<string | null>(null)
   const [armorOpen, setArmorOpen] = useState(false)
   const [fieldEdit, setFieldEdit] = useState<{ field: 'speed' | 'initiative'; value: string } | null>(null)
+  const [deathDialogOpen, setDeathDialogOpen] = useState(false)
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
@@ -79,6 +81,11 @@ export function VitalsPanel({ character: char, update, onTempHp }: Props) {
   function tickSave(type: 'successes' | 'failures') {
     const cur = char.deathSaves[type]
     const newVal = cur >= 3 ? 0 : cur + 1
+    if (type === 'failures' && newVal >= 3) {
+      update({ deathSaves: { ...char.deathSaves, failures: newVal } })
+      setDeathDialogOpen(true)
+      return
+    }
     if (type === 'successes' && newVal >= 3) {
       update({ deathSaves: { successes: 0, failures: 0 }, hitPoints: { ...hp, current: 1 } })
     } else {
@@ -296,6 +303,21 @@ export function VitalsPanel({ character: char, update, onTempHp }: Props) {
         })}
         <span className={styles.inspirationCount}>{char.inspiration > 0 ? `${char.inspiration}/3` : '—'}</span>
       </div>
+
+      {deathDialogOpen && (
+        <div className={styles.deathDialog}>
+          <div className={styles.deathDialogBody}>
+            <strong>Character Fallen</strong>
+            <p>Your character has suffered 3 death save failures. They are dead. Delete this character?</p>
+            <div className={styles.deathDialogBtns}>
+              <button className={styles.deathDialogDelete}
+                onClick={() => { setDeathDialogOpen(false); onDelete?.() }}>Delete Character</button>
+              <button className={styles.deathDialogKeep}
+                onClick={() => setDeathDialogOpen(false)}>Keep</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

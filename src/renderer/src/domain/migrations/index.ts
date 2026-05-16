@@ -1,6 +1,7 @@
 import type { Character } from '@/entities/character/types'
+import { CLASS_BY_ID } from '@/shared/data/classData'
 
-const CURRENT_SCHEMA_VERSION = 2
+const CURRENT_SCHEMA_VERSION = 4
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -40,12 +41,26 @@ function v1_to_v2(raw: Partial<Character>): Partial<Character> {
   }
 }
 
+function v2_to_v3(char: Partial<Character>): Partial<Character> {
+  if (!char.completedAsiLevels) {
+    const classDef = CLASS_BY_ID[(char as Record<string, unknown>).classId as string]
+    char.completedAsiLevels = (classDef?.asiLevels ?? []).filter((l: number) => l <= (char.level ?? 0))
+  }
+  return { ...char, schemaVersion: 3 }
+}
+
+function v3_to_v4(char: Partial<Character>): Partial<Character> {
+  return { ...char, schemaVersion: 4 }
+}
+
 /** Apply all necessary migrations to bring a raw loaded character up to current schema. */
 export function migrateCharacter(raw: unknown): Character {
   let data = raw as Partial<Character> & { schemaVersion?: number }
 
   const version = data.schemaVersion ?? 1
   if (version < 2) data = v1_to_v2(data) as typeof data
+  if (version < 3) data = v2_to_v3(data) as typeof data
+  if (version < 4) data = v3_to_v4(data) as typeof data
 
   return data as Character
 }

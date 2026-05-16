@@ -56,6 +56,14 @@ body {
   overflow: hidden;
 }
 
+/* Hide scrollbars globally while preserving scroll functionality */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 #root {
   height: 100vh;
   display: flex;

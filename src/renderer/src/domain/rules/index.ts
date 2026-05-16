@@ -1,6 +1,6 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { mod } from '@/shared/data/charCalculations'
-import { CLASS_BY_ID } from '@/shared/data/classData'
+import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
 import { WEAPONS } from '@/shared/data/weaponData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 
@@ -50,7 +50,8 @@ export function computeAttackBonus(character: Character, weapon: Weapon): number
   const isRanged  = weapon.rangeType === 'Ranged'
   const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
   const proficient = isProficientWithWeapon(character, weapon)
-  return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0)
+  const archeryBonus = (character.fightingStyle === 'archery' && isRanged) ? 2 : 0
+  return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0) + archeryBonus
 }
 
 // ── Class-contextual actions ────────────────────────────────────────────────
@@ -79,13 +80,22 @@ const GENERIC_ACTIONS: ActionDef[] = [
   { name: 'Shove',             type: 'Action',       short: 'Push 5ft away or knock prone.',                            full: "Using the Attack action, make a Str (Athletics) check contested by the target's Str (Athletics) or Dex (Acrobatics). On success, push the target 5ft away or knock it prone." },
   { name: 'Disengage',         type: 'Action',       short: 'Your movement does not provoke opportunity attacks.',      full: 'Until the end of your turn, your movement does not provoke opportunity attacks. You can still move and take other actions normally.' },
   { name: 'Escape Grapple',    type: 'Action',       short: "Str/Dex check vs grappler's Str (Athletics).",            full: "Make a Strength (Athletics) or Dexterity (Acrobatics) check contested by the grappler's Strength (Athletics). On a success you escape the grappled condition." },
-  { name: 'Off-Hand Attack',   type: 'Bonus Action', short: 'Attack with your off-hand light weapon (no ability mod to damage).', full: "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative." },
-  { name: 'Cast a Spell (Bonus)', type: 'Bonus Action', short: 'Spells with a casting time of 1 bonus action.',         full: 'Some spells specify a casting time of 1 bonus action. If you cast a bonus action spell, you can still cast a cantrip (not a leveled spell) with your action this turn.' },
   { name: 'Mount / Dismount',  type: 'Bonus Action', short: 'Climb onto or off a willing creature (costs half speed).', full: "Once during your move, you can mount a creature within 5ft of you, or dismount from it. Doing so costs an amount of movement equal to half your speed." },
   { name: 'Opportunity Attack',   type: 'Reaction', short: 'When a hostile creature moves out of your reach.',         full: 'When a hostile creature that you can see moves out of your reach, you can use your reaction to make one melee attack against that creature. The attack occurs right before it leaves your reach.' },
   { name: 'Readied Action',       type: 'Reaction', short: 'When your Ready trigger occurs, take your prepared action.', full: "When the trigger condition you declared with Ready occurs, you can take your reaction to perform the readied action — or choose to ignore it. If you readied a spell, it is released." },
-  { name: 'Cast a Spell (Reaction)', type: 'Reaction', short: 'Some spells (Shield, Counterspell) let you react.',     full: 'Certain spells specify a casting time of 1 reaction, triggered by a particular circumstance. You can only take one reaction per round.' },
 ]
+
+const CAST_BONUS_SPELL: ActionDef = {
+  name: 'Cast a Spell (Bonus)', type: 'Bonus Action',
+  short: 'Spells with a casting time of 1 bonus action.',
+  full: 'Some spells specify a casting time of 1 bonus action. If you cast a bonus action spell, you can still cast a cantrip (not a leveled spell) with your action this turn.',
+}
+
+const CAST_REACTION_SPELL: ActionDef = {
+  name: 'Cast a Spell (Reaction)', type: 'Reaction',
+  short: 'Some spells (Shield, Counterspell) let you react.',
+  full: 'Certain spells specify a casting time of 1 reaction, triggered by a particular circumstance. You can only take one reaction per round.',
+}
 
 const CLASS_ACTIONS: ActionDef[] = [
   // Fighter
@@ -95,6 +105,9 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Action Surge',     type: 'Action',       classOnly: 'Fighter', requiresLevel: 2, resourceKey: 'Action Surge', resourceCost: 1,
     short: 'Take one additional action this turn.',
     full: 'On your turn, take one additional action on top of your regular action and a possible bonus action. Recharges on short or long rest.' },
+  { name: 'Extra Attack',     type: 'Free',         classOnly: 'Fighter', requiresLevel: 5,
+    short: 'Attack twice when you take the Attack action.',
+    full: 'Beginning at 5th level, when you take the Attack action on your turn, you can attack twice instead of once. This increases to three attacks at level 11 and four at level 20.' },
   // Barbarian
   { name: 'Rage',             type: 'Bonus Action', classOnly: 'Barbarian', requiresLevel: 1, resourceKey: 'Rage', resourceCost: 1,
     short: 'Enter a rage for 1 min (+damage, resistance to B/P/S, Str advantage).',
@@ -148,6 +161,11 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Metamagic',        type: 'Free', classOnly: 'Sorcerer', requiresLevel: 3, resourceKey: 'Sorcery Points', resourceCost: 1,
     short: 'Modify a spell with Sorcery Points (1–3 pts depending on option).',
     full: 'When you cast a spell, spend sorcery points to apply a metamagic option. Careful (1pt), Distant (1pt), Empowered (1pt), Extended (1pt), Heightened (3pt), Quickened (2pt), Subtle (1pt), Twinned (spell level in pts). You chose 2 options at level 3.' },
+  // Wizard
+  { name: 'Arcane Recovery', type: 'Action', classOnly: 'Wizard', requiresLevel: 1,
+    resourceKey: 'Arcane Recovery', resourceCost: 1,
+    short: 'Short rest: recover spell slots (total levels ≤ ½ wizard level).',
+    full: 'Once per day after a short rest, choose expended spell slots to recover. The combined level of the recovered slots must be equal to or lower than half your wizard level (rounded up). No slot of 6th level or higher can be recovered.' },
   // Warlock
   { name: 'Eldritch Blast',   type: 'Action', classOnly: 'Warlock', requiresLevel: 1,
     short: 'Cantrip: 1d10 force dmg. Beams scale: 1 at level 1 → 4 at level 17.',
@@ -161,14 +179,84 @@ const CAST_A_SPELL: ActionDef = {
   full: "Cast any spell with a casting time of 1 action. Choose a spell you know or have prepared, expend the required spell slot (if any), and resolve its effects. Cantrips don't expend spell slots.",
 }
 
+const OFF_HAND_ACTION: ActionDef = {
+  name: 'Off-Hand Attack',
+  type: 'Bonus Action',
+  short: 'Attack with your off-hand light weapon (no ability mod to damage).',
+  full: "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative.",
+}
+
 export function getAvailableActions(character: Character): ActionDef[] {
   const classActions = CLASS_ACTIONS.filter(a => {
     if (a.classOnly && a.classOnly !== character.classId) return false
     if (a.requiresLevel && character.level < a.requiresLevel) return false
     return true
   })
-  const spellAction = CLASS_BY_ID[character.classId]?.isSpellcaster ? [CAST_A_SPELL] : []
-  return [...GENERIC_ACTIONS, ...spellAction, ...classActions]
+  const spellAction = CLASS_BY_ID[character.classId]?.isSpellcaster
+    ? [CAST_A_SPELL, CAST_BONUS_SPELL, CAST_REACTION_SPELL]
+    : []
+
+  const lightMelee = (character.weapons ?? []).filter(w =>
+    w.rangeType !== 'Ranged' && (w.properties ?? []).some(p => p.toLowerCase() === 'light')
+  )
+  const offHandActions = lightMelee.length >= 2 ? [OFF_HAND_ACTION] : []
+
+  const featActions: ActionDef[] = []
+  if ((character.feats ?? []).includes('sentinel')) {
+    featActions.push({
+      name: 'Opportunity Attack (Sentinel)', type: 'Reaction',
+      short: 'OA even on Disengage; hit reduces target speed to 0.',
+      full: "Sentinel feat: opportunity attacks trigger even when the creature uses Disengage. When you hit with an opportunity attack, the target's speed drops to 0 for the rest of the turn. Also lets you OA when a creature attacks a different target within 5ft.",
+    })
+  }
+  if ((character.feats ?? []).includes('warCaster')) {
+    featActions.push({
+      name: 'War Caster Reaction Spell', type: 'Reaction',
+      short: 'Cast a spell instead of making an opportunity attack.',
+      full: 'War Caster feat: when a creature provokes an opportunity attack, you can use your reaction to cast a spell at it. The spell must target only that creature and have a casting time of 1 action.',
+    })
+  }
+
+  return [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...featActions]
+}
+
+export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {
+  const abilityMod = mod(abilityScore)
+  if (classId === 'Paladin') return Math.max(1, Math.floor(level / 2) + abilityMod)
+  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard') return Math.max(1, level + abilityMod)
+  return 0
+}
+
+// ── Spell level-up logic ────────────────────────────────────────────────────
+
+export function spellsKnownAt(level: number, table: Partial<Record<number, number>>): number {
+  let count = 0
+  for (let l = 1; l <= level; l++) {
+    if (table[l] !== undefined) count = table[l]!
+  }
+  return count
+}
+
+export interface SpellLevelUpConfig {
+  spellsDelta: number
+  cantripsDelta: number
+  maxSlotLevel: number
+}
+
+export function computeSpellLevelUpConfig(classDef: ClassDef, oldLevel: number, newLevel: number): SpellLevelUpConfig {
+  const spellsDelta = Math.max(0,
+    spellsKnownAt(newLevel, classDef.spellsKnownTable ?? {}) -
+    spellsKnownAt(oldLevel, classDef.spellsKnownTable ?? {})
+  )
+  const cantripsDelta = Math.max(0,
+    spellsKnownAt(newLevel, classDef.cantripsKnownTable ?? {}) -
+    spellsKnownAt(oldLevel, classDef.cantripsKnownTable ?? {})
+  )
+  return {
+    spellsDelta,
+    cantripsDelta,
+    maxSlotLevel: Math.min(9, Math.ceil(newLevel / 2)),
+  }
 }
 
 // ── Special attacks ─────────────────────────────────────────────────────────
@@ -248,6 +336,39 @@ export function getSpecialAttacks(character: Character): SpecialAttack[] {
     })
   }
 
+  return attacks
+}
+
+export function getWeaponSpecialAttacks(character: Character, weapon: Weapon): SpecialAttack[] {
+  const attacks: SpecialAttack[] = []
+  const { level, classId, feats = [], spellIds = [] } = character
+  const props = (weapon.properties ?? []).map(p => p.toLowerCase())
+  const isHeavy = props.includes('heavy')
+  const isFinesse = props.includes('finesse')
+  const isMelee = weapon.rangeType !== 'Ranged'
+  const isRanged = weapon.rangeType === 'Ranged'
+
+  if (classId === 'Rogue' && (isFinesse || isRanged)) {
+    attacks.push({ name: 'Sneak Attack', dice: `${Math.ceil(level / 2)}d6`,
+      note: 'Once per turn — advantage or ally adjacent to target' })
+  }
+  if (classId === 'Barbarian' && level >= 2) {
+    attacks.push({ name: 'Reckless Attack',
+      note: 'Adv on first STR attack; attackers gain adv vs you' })
+  }
+  if (classId === 'Paladin' && level >= 2 && isMelee) {
+    attacks.push({ name: 'Divine Smite', dice: '2d8 radiant',
+      note: 'Expend a spell slot on hit (+1d8/level above 1st, max 5d8)' })
+  }
+  if (feats.includes('greatWeaponMaster') && isHeavy && isMelee) {
+    attacks.push({ name: 'GWM Power Attack', note: '−5 to hit / +10 damage' })
+  }
+  if (feats.includes('sharpshooter') && isRanged) {
+    attacks.push({ name: 'Sharpshooter', note: '−5 to hit / +10 damage' })
+  }
+  if (classId === 'Ranger' && spellIds.includes('hunter-s-mark')) {
+    attacks.push({ name: "Hunter's Mark", dice: '+1d6', note: 'Per attack on marked target' })
+  }
   return attacks
 }
 

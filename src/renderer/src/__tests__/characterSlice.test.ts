@@ -1,0 +1,206 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+vi.mock('@/services/ipc', () => ({
+  ipcService: {
+    save: vi.fn(),
+    load: vi.fn().mockResolvedValue(null),
+    list: vi.fn().mockResolvedValue([]),
+    delete: vi.fn(),
+  }
+}))
+
+import { createStore } from 'zustand/vanilla'
+import type { CharacterSlice } from '@/app/store/characterSlice'
+import { createCharacterSlice } from '@/app/store/characterSlice'
+import { makeChar } from './helpers'
+
+function makeStore() {
+  return createStore<CharacterSlice>(createCharacterSlice)
+}
+
+describe('updateCharacter', () => {
+  it('merges patch into character', () => {
+    const store = makeStore()
+    const char = makeChar({ name: 'Bob' })
+    store.getState().addCharacter(char)
+    store.getState().updateCharacter(char.id, { name: 'Alice' })
+    expect(store.getState().characters[char.id].name).toBe('Alice')
+  })
+  it('bumps updatedAt', () => {
+    const store = makeStore()
+    const char = makeChar()
+    store.getState().addCharacter(char)
+    const before = store.getState().characters[char.id].updatedAt
+    store.getState().updateCharacter(char.id, { notes: 'hi' })
+    const after = store.getState().characters[char.id].updatedAt
+    expect(after).not.toBe(before)
+  })
+})
+
+describe('shortRest', () => {
+  it('heals roll + CON modifier, capped at max HP', () => {
+    const store = makeStore()
+    const char = makeChar({
+      abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, // CON mod = 0
+      hitPoints: { current: 5, max: 20, temp: 0 },
+      hitDiceUsed: 0,
+    })
+    store.getState().addCharacter(char)
+    store.getState().shortRest(char.id, 8) // roll 8, CON mod 0
+    expect(store.getState().characters[char.id].hitPoints.current).toBe(13)
+  })
+  it('heals with positive CON modifier', () => {
+    const store = makeStore()
+    const char = makeChar({
+      abilityScores: { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 }, // CON mod = +2
+      hitPoints: { current: 10, max: 30, temp: 0 },
+      hitDiceUsed: 0,
+    })
+    store.getState().addCharacter(char)
+    store.getState().shortRest(char.id, 6) // roll 6, CON mod +2
+    expect(store.getState().characters[char.id].hitPoints.current).toBe(18)
+  })
+  it('does not heal above max HP', () => {
+    const store = makeStore()
+    const char = makeChar({ hitPoints: { current: 18, max: 20, temp: 0 }, hitDiceUsed: 0 })
+    store.getState().addCharacter(char)
+    store.getState().shortRest(char.id, 10)
+    expect(store.getState().characters[char.id].hitPoints.current).toBe(20)
+  })
+  it('increments hitDiceUsed by 1', () => {
+    const store = makeStore()
+    const char = makeChar({ hitPoints: { current: 5, max: 20, temp: 0 }, hitDiceUsed: 0 })
+    store.getState().addCharacter(char)
+    store.getState().shortRest(char.id, 5)
+    expect(store.getState().characters[char.id].hitDiceUsed).toBe(1)
+  })
+  it('does nothing when no hit dice remain', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 1, hitPoints: { current: 5, max: 20, temp: 0 }, hitDiceUsed: 1 })
+    store.getState().addCharacter(char)
+    store.getState().shortRest(char.id, 8)
+    expect(store.getState().characters[char.id].hitPoints.current).toBe(5)
+  })
+})
+
+describe('longRest', () => {
+  it('restores HP to max', () => {
+    const store = makeStore()
+    const char = makeChar({ hitPoints: { current: 3, max: 20, temp: 5 } })
+    store.getState().addCharacter(char)
+    store.getState().longRest(char.id)
+    const hp = store.getState().characters[char.id].hitPoints
+    expect(hp.current).toBe(20)
+    expect(hp.temp).toBe(0)
+  })
+  it('resets all spell slots to 0 used', () => {
+    const store = makeStore()
+    const char = makeChar({
+      classId: 'Wizard',
+      spellSlots: { 1: { used: 2, total: 4 }, 2: { used: 1, total: 2 } },
+    })
+    store.getState().addCharacter(char)
+    store.getState().longRest(char.id)
+    const slots = store.getState().characters[char.id].spellSlots
+    expect(slots[1]?.used).toBe(0)
+    expect(slots[2]?.used).toBe(0)
+  })
+  it('clears non-exhaustion conditions', () => {
+    const store = makeStore()
+    const char = makeChar({
+      conditionIds: [{ conditionId: 'poisoned' }, { conditionId: 'exhaustion' }],
+    })
+    store.getState().addCharacter(char)
+    store.getState().longRest(char.id)
+    const conditions = store.getState().characters[char.id].conditionIds
+    expect(conditions.map(c => c.conditionId)).toEqual(['exhaustion'])
+  })
+  it('recovers half the character level in hit dice (min 1)', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 4, hitDiceUsed: 4 })
+    store.getState().addCharacter(char)
+    store.getState().longRest(char.id)
+    // recovers floor(4/2) = 2 hit dice
+    expect(store.getState().characters[char.id].hitDiceUsed).toBe(2)
+  })
+})
+
+describe('levelUp', () => {
+  it('increments level by 1', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 3 })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id)
+    expect(store.getState().characters[char.id].level).toBe(4)
+  })
+  it('applies +2 ASI double choice', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 3, abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id, { type: 'double', ability: 'str' })
+    expect(store.getState().characters[char.id].abilityScores.str).toBe(12)
+  })
+  it('applies +1/+1 split ASI choice', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 3, abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id, { type: 'split', ability1: 'str', ability2: 'dex' })
+    const { str, dex } = store.getState().characters[char.id].abilityScores
+    expect(str).toBe(11)
+    expect(dex).toBe(11)
+  })
+  it('records new level in completedAsiLevels when ASI choice made', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 3, completedAsiLevels: [] })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id, { type: 'double', ability: 'str' })
+    expect(store.getState().characters[char.id].completedAsiLevels).toContain(4)
+  })
+  it('does NOT add to completedAsiLevels when no ASI choice passed', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 4, completedAsiLevels: [] })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id) // no ASI
+    expect(store.getState().characters[char.id].completedAsiLevels).toEqual([])
+  })
+  it('caps ability score at 20', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 3, abilityScores: { str: 19, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+    store.getState().levelUp(char.id, { type: 'double', ability: 'str' })
+    expect(store.getState().characters[char.id].abilityScores.str).toBe(20)
+  })
+})
+
+describe('applyPendingAsi', () => {
+  it('applies ASI choice without changing level', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 5, abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+    store.getState().applyPendingAsi(char.id, 4, { type: 'double', ability: 'str' })
+    const updated = store.getState().characters[char.id]
+    expect(updated.level).toBe(5)
+    expect(updated.abilityScores.str).toBe(12)
+  })
+  it('records the asi level in completedAsiLevels', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 5, completedAsiLevels: [] })
+    store.getState().addCharacter(char)
+    store.getState().applyPendingAsi(char.id, 4, { type: 'double', ability: 'str' })
+    expect(store.getState().characters[char.id].completedAsiLevels).toEqual([4])
+  })
+  it('appends to existing completedAsiLevels', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 9, completedAsiLevels: [4] })
+    store.getState().addCharacter(char)
+    store.getState().applyPendingAsi(char.id, 8, { type: 'double', ability: 'dex' })
+    expect(store.getState().characters[char.id].completedAsiLevels).toEqual([4, 8])
+  })
+  it('applies feat choice', () => {
+    const store = makeStore()
+    const char = makeChar({ level: 5, feats: [] })
+    store.getState().addCharacter(char)
+    store.getState().applyPendingAsi(char.id, 4, { type: 'feat', featId: 'alert' })
+    expect(store.getState().characters[char.id].feats).toContain('alert')
+  })
+})

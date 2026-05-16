@@ -3,7 +3,7 @@ import type { Character } from '@/entities/character/types'
 import styles from './ConditionsPanel.module.css'
 
 const CONDITIONS = [
-  'Blinded', 'Charmed', 'Deafened', 'Exhaustion', 'Frightened',
+  'Blinded', 'Charmed', 'Concentration', 'Deafened', 'Exhaustion', 'Frightened',
   'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified',
   'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious',
 ]

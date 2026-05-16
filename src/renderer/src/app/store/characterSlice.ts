@@ -8,6 +8,16 @@ import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import { migrateCharacter } from '@/domain/migrations'
 import { ipcService } from '@/services/ipc'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
+
+const ABILITY_SHORT: Record<string, string> = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' }
+function formatAsiChoice(choice: AsiChoice): string {
+  if (choice.type === 'double') return `+2 ${ABILITY_SHORT[choice.ability]}`
+  if (choice.type === 'split') return `+1 ${ABILITY_SHORT[choice.ability1]} / +1 ${ABILITY_SHORT[choice.ability2]}`
+  const featName = FEAT_BY_ID[choice.featId]?.name ?? choice.featId
+  const abSuffix = choice.featAbilityChoice ? ` (+1 ${ABILITY_SHORT[choice.featAbilityChoice]})` : ''
+  return `Feat: ${featName}${abSuffix}`
+}
 
 export interface CharacterSlice {
   activeCharacterId: string | null
@@ -23,6 +33,7 @@ export interface CharacterSlice {
   shortRest: (id: string, hdRolled: number) => void
   longRest: (id: string) => void
   levelUp: (id: string, asiChoice?: AsiChoice, newSpellIds?: string[]) => void
+  applyPendingAsi: (id: string, asiLevel: number, choice: AsiChoice) => void
   setTempHp: (id: string, amount: number) => void
 }
 
@@ -174,6 +185,9 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
           }
         } else if (asiChoice.type === 'feat') {
           newFeats = [...newFeats, asiChoice.featId]
+          if (asiChoice.featAbilityChoice) {
+            newScores = { ...newScores, [asiChoice.featAbilityChoice]: Math.min(20, newScores[asiChoice.featAbilityChoice] + 1) }
+          }
         }
       }
 
@@ -204,9 +218,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
           : { used: 0, total: def.total }
       }
 
-      const mergedSpellIds = newSpellIds
-        ? [...new Set([...char.spellIds, ...newSpellIds])]
-        : char.spellIds
+      const racialSpellsAtLevel = RACE_BY_ID[char.race]?.racialSpells?.[newLevel] ?? []
+      const mergedSpellIds = [...new Set([
+        ...(newSpellIds ? [...char.spellIds, ...newSpellIds] : char.spellIds),
+        ...racialSpellsAtLevel,
+      ])]
 
       const updated: Character = {
         ...char,
@@ -226,6 +242,47 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         spellSlots: mergedSlots,
         resources: newResources,
         spellIds: mergedSpellIds,
+        completedAsiLevels: asiChoice
+          ? [...(char.completedAsiLevels ?? []), newLevel]
+          : (char.completedAsiLevels ?? []),
+        completedAsiChoices: asiChoice
+          ? { ...(char.completedAsiChoices ?? {}), [newLevel]: formatAsiChoice(asiChoice) }
+          : (char.completedAsiChoices ?? {}),
+      }
+      ipcService.save(id, updated)
+      return { characters: { ...state.characters, [id]: updated } }
+    })
+  },
+
+  applyPendingAsi: (id, asiLevel, choice) => {
+    set((state) => {
+      const char = state.characters[id]
+      if (!char) return state
+
+      let newScores = { ...char.abilityScores }
+      let newFeats = [...char.feats]
+      if (choice.type === 'double') {
+        newScores = { ...newScores, [choice.ability]: Math.min(20, newScores[choice.ability] + 2) }
+      } else if (choice.type === 'split') {
+        newScores = {
+          ...newScores,
+          [choice.ability1]: Math.min(20, newScores[choice.ability1] + 1),
+          [choice.ability2]: Math.min(20, newScores[choice.ability2] + 1),
+        }
+      } else if (choice.type === 'feat') {
+        newFeats = [...newFeats, choice.featId]
+        if (choice.featAbilityChoice) {
+          newScores = { ...newScores, [choice.featAbilityChoice]: Math.min(20, newScores[choice.featAbilityChoice] + 1) }
+        }
+      }
+
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        abilityScores: newScores,
+        feats: newFeats,
+        completedAsiLevels: [...(char.completedAsiLevels ?? []), asiLevel],
+        completedAsiChoices: { ...(char.completedAsiChoices ?? {}), [asiLevel]: formatAsiChoice(choice) },
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }

@@ -59,6 +59,7 @@ export interface Character {
   race: string
   classId: string
   subclass?: string
+  subclassLocked?: boolean
   background: string
   level: number
   experiencePoints: number
@@ -76,6 +77,7 @@ export interface Character {
   skillProficiencies: Partial<Record<Skill, 'proficient' | 'expert'>>
 
   spellIds: string[]
+  masterySpells?: { level1?: string; level2?: string }
   preparedSpellIds: string[]
   spellSlots: SpellSlots
   concentrationSpellId: string | null
@@ -87,5 +89,9 @@ export interface Character {
   inspiration: number
   hitDiceUsed: number
   feats: string[]
+  fightingStyle?: string
+  fightingStyleLocked?: boolean
+  completedAsiLevels: number[]
+  completedAsiChoices?: Record<number, string>
   notes: string
 }

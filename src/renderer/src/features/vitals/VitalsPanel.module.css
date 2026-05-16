@@ -46,6 +46,16 @@
 .dotSuccess { background: var(--success); border-color: var(--success); }
 .dotFail { background: var(--danger); border-color: var(--danger); }
 
+.deathDialog { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.deathDialogBody { background: var(--bg-elevated); border: 1px solid var(--danger); border-radius: 10px; padding: 20px 24px; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+.deathDialogBody strong { font-size: 16px; color: var(--danger); }
+.deathDialogBody p { font-size: 13px; color: var(--text); margin: 0; line-height: 1.5; }
+.deathDialogBtns { display: flex; gap: 8px; justify-content: flex-end; }
+.deathDialogDelete { padding: 7px 14px; background: var(--danger); color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.deathDialogDelete:hover { opacity: 0.85; }
+.deathDialogKeep { padding: 7px 14px; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 5px; cursor: pointer; font-size: 12px; }
+.deathDialogKeep:hover { border-color: var(--accent); }
+
 .hpBar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
 .hpFill { height: 100%; border-radius: 3px; transition: width 0.3s ease, background 0.3s; }
 

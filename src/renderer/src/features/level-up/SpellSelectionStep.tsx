@@ -2,15 +2,8 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { SPELLS } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { computeSpellLevelUpConfig } from '@/domain/rules'
 import styles from './SpellSelectionStep.module.css'
-
-function spellsKnownAt(level: number, table: Partial<Record<number, number>>): number {
-  let count = 0
-  for (let l = 1; l <= level; l++) {
-    if (table[l] !== undefined) count = table[l]!
-  }
-  return count
-}
 
 interface Props {
   character: Character
@@ -22,49 +15,38 @@ interface Props {
 export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel }: Props) {
   const classDef = CLASS_BY_ID[character.classId]
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set(character.spellIds))
+  // Only newly selected spells — existing spellIds are merged by the store on confirm
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   if (!classDef) return null
 
-  const spellsKnownNew = spellsKnownAt(newLevel, classDef.spellsKnownTable ?? {})
-  const cantripsKnownNew = spellsKnownAt(newLevel, classDef.cantripsKnownTable ?? {})
+  const oldLevel = newLevel - 1
+  const { spellsDelta, cantripsDelta, maxSlotLevel } = computeSpellLevelUpConfig(classDef, oldLevel, newLevel)
 
-  const currentCantrips = character.spellIds.filter(id => {
-    const s = SPELLS.find(sp => sp.id === id)
-    return s?.level === 0
-  })
-  const currentSpells = character.spellIds.filter(id => {
-    const s = SPELLS.find(sp => sp.id === id)
-    return s && s.level > 0
-  })
+  const maxCantrips = cantripsDelta
+  const maxSpells = spellsDelta
 
-  const maxCantrips = cantripsKnownNew
-  const maxSpells = spellsKnownNew
+  const selectedCantrips = [...selected].filter(id => SPELLS.find(s => s.id === id)?.level === 0)
+  const selectedSpells   = [...selected].filter(id => { const s = SPELLS.find(sp => sp.id === id); return s && s.level > 0 })
 
-  const selectedCantrips = [...selected].filter(id => {
-    const s = SPELLS.find(sp => sp.id === id)
-    return s?.level === 0
-  })
-  const selectedSpells = [...selected].filter(id => {
-    const s = SPELLS.find(sp => sp.id === id)
-    return s && s.level > 0
-  })
-
-  const classSpells = SPELLS.filter(s => s.classes.includes(character.classId))
+  // Already-known spells must not appear in the picker
+  const knownIds = new Set(character.spellIds)
+  const classSpells = SPELLS.filter(s => s.classes.includes(character.classId) && !knownIds.has(s.id))
 
   function toggle(id: string, level: number) {
     const isCantrip = level === 0
     const cap = isCantrip ? maxCantrips : maxSpells
     const currentGroup = isCantrip ? selectedCantrips : selectedSpells
     const has = selected.has(id)
-    if (!has && currentGroup.length >= cap) return  // at cap
+    if (!has && currentGroup.length >= cap) return
     const next = new Set(selected)
     if (has) next.delete(id); else next.add(id)
     setSelected(next)
   }
 
-  const filteredCantrips = classSpells.filter(s => s.level === 0 && s.name.toLowerCase().includes(search.toLowerCase()))
-  const filteredSpells = classSpells.filter(s => s.level > 0 && s.level <= Math.ceil(newLevel / 2) && s.name.toLowerCase().includes(search.toLowerCase()))
+  const query = search.toLowerCase()
+  const filteredCantrips = classSpells.filter(s => s.level === 0 && s.name.toLowerCase().includes(query))
+  const filteredSpells   = classSpells.filter(s => s.level > 0 && s.level <= maxSlotLevel && s.name.toLowerCase().includes(query))
 
   return (
     <div className={styles.overlay} onClick={onCancel}>
@@ -131,6 +113,9 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel }:
                 )
               })}
             </>
+          )}
+          {maxCantrips === 0 && maxSpells === 0 && (
+            <p className={styles.groupLabel}>No new spells to pick at this level.</p>
           )}
         </div>
 

@@ -1,0 +1,142 @@
+/* ── Detail pane ── */
+.detailEmpty {
+  background: var(--bg-elevated); border: 1px dashed var(--border); border-radius: 10px;
+  padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 12px;
+  font-style: italic; line-height: 1.5;
+}
+
+.detailPane {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+
+.detailHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.detailName { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+
+.detailBadge {
+  font-size: 10px; font-weight: 600; padding: 2px 9px; border-radius: 20px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.badgeAction      { background: rgba(139,124,248,0.12); color: var(--accent); }
+.badgeBonusAction { background: rgba(224,168,76,0.12);  color: var(--warning); }
+.badgeReaction    { background: rgba(76,175,125,0.12);  color: var(--success); }
+.badgeFree        { background: rgba(139,124,248,0.08); color: rgba(139,124,248,0.7); }
+
+.detailFull { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+
+.detailResource {
+  font-size: 11px; color: var(--warning); font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+}
+.detailResourceRemaining { color: var(--text-muted); font-weight: 400; }
+
+/* ── Fighting style picker ── */
+.fightingStyleList { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.fightingStyleOption {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+  border-radius: 7px; border: 1px solid var(--border); background: transparent;
+  cursor: pointer; text-align: left; transition: all 0.12s;
+}
+.fightingStyleOption:hover { border-color: var(--accent); background: var(--bg-elevated); }
+.fightingStyleOptionActive { border-color: var(--accent); background: rgba(139,124,248,0.1); }
+.fightingStyleName { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.fightingStyleDesc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+/* ── Spells wrapper ── */
+.spellsWrapper { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Weapons section ── */
+.section { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.addBtn { padding: 2px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.addBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.weaponTable { width: 100%; border-collapse: collapse; font-size: 11px; }
+.weaponTable th { font-size: 9px; color: var(--text-muted); text-align: left; padding: 2px 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+.wthName { width: 38%; }
+.wthAtk, .wthDmg, .wthType, .wthRange { width: 13%; }
+.wthDel { width: 24px; }
+.weaponRow td { padding: 4px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text); }
+.weaponRow:hover td { background: var(--bg-elevated); }
+.weaponName { font-weight: 500; color: var(--text-primary); }
+.weaponAtk { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.weaponDmg { color: var(--text-muted); }
+.weaponDel { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0 4px; }
+.weaponDel:hover { color: var(--danger); }
+.weaponEmpty { text-align: center; color: var(--text-muted); font-style: italic; font-size: 11px; padding: 8px; }
+.enchantBadge { display: inline-block; margin-left: 4px; padding: 1px 4px; background: var(--accent); color: #fff; border-radius: 3px; font-size: 10px; font-weight: 700; }
+
+/* ── Attack breakdown ── */
+.attackDetailWeapons { display: flex; flex-direction: column; gap: 6px; }
+
+.attackDetailCard {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; display: flex; flex-direction: column; gap: 5px;
+}
+.attackDetailCardName { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.attackDetailCardStats { display: flex; gap: 12px; flex-wrap: wrap; }
+.attackDetailStat { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 4px; }
+.attackDetailStatLbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+
+.specialAttackList { display: flex; flex-direction: column; gap: 4px; }
+.specialAttackRow { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.specialAttackName { font-size: 13px; font-weight: 600; color: var(--text-primary); flex-shrink: 0; }
+.specialAttackDice { font-size: 12px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.specialAttackNote { font-size: 11px; color: var(--text-secondary); flex: 1; }
+
+/* ── Per-weapon special attacks ── */
+.weaponSpecialList { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; background: var(--surface-2); border-top: 1px solid var(--border); border-radius: 0 0 6px 6px; }
+.weaponSpecialRow { display: flex; align-items: baseline; gap: 6px; }
+.weaponSpecialName { font-size: 11px; font-weight: 600; color: var(--accent); min-width: 110px; }
+.weaponSpecialDice { font-size: 11px; color: var(--text); font-weight: 700; }
+.weaponSpecialNote { font-size: 10px; color: var(--text-muted); flex: 1; }
+
+/* ── Armory modal ── */
+.modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.armoryModal { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; width: 520px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+.armoryHeader { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.armoryTitle { font-size: 16px; font-weight: 700; color: var(--text-primary); flex: 1; }
+.modalClose { background: none; border: none; font-size: 20px; color: var(--text-muted); cursor: pointer; }
+.modalClose:hover { color: var(--danger); }
+.armoryTabs { display: flex; gap: 4px; padding: 8px 16px; }
+.armoryTab { padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; background: transparent; border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+.armoryTab:hover { color: var(--text-primary); }
+.armoryTabActive { background: var(--accent); border-color: var(--accent); color: #fff; }
+.searchInput { margin: 0 16px 8px; padding: 6px 10px; font-size: 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); }
+.armoryList { overflow-y: auto; flex: 1; padding: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+.armoryGroup { display: flex; flex-direction: column; gap: 2px; }
+.armoryGroupLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 4px 0 2px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
+.armoryEntry { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; background: transparent; border: none; cursor: pointer; text-align: left; transition: background 0.1s; width: 100%; }
+.armoryEntry:hover { background: var(--bg-elevated); }
+.armoryEntryName { font-size: 13px; font-weight: 600; color: var(--text-primary); min-width: 140px; }
+.armoryEntryDmg { font-size: 12px; color: var(--text-secondary); min-width: 80px; }
+.armoryEntryProps { font-size: 11px; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armoryCustomForm { padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.armoryField { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+.armoryError { font-size: 12px; color: var(--danger); }
+.armoryAddBtn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; align-self: flex-start; }
+.armoryAddBtn:hover { opacity: 0.85; }
+.armoryAddBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.arcaneSlotGrid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.arcaneSlotBtn {
+  padding: 5px 12px; border-radius: 5px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-size: 12px; cursor: pointer;
+  transition: all 0.12s;
+}
+.arcaneSlotBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.arcaneSlotBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.arcaneSlotBtnPicked { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.input { padding: 6px 10px; font-size: 12px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 5px; color: var(--text-primary); }
+.input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Spell Mastery picker ── */
+.masterySlotPicker { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.masterySpellLabel { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-top: 6px; }
+.masterySpellGrid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.masterySpellChip { font-size: 11px; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; color: var(--text); }
+.masterySpellChip:hover { border-color: var(--accent); }
+.masterySpellChipActive { border-color: var(--accent); background: rgba(139,124,248,0.15); color: var(--accent); font-weight: 600; }
+.masterySpellEmpty { font-size: 11px; color: var(--text-muted); font-style: italic; }

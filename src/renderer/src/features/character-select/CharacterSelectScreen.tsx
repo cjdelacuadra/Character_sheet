@@ -8,6 +8,8 @@ import { RACE_LABELS, RACE_BY_ID } from '@/shared/data/raceData'
 import { CLASS_LABELS, CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { weaponsForClass, type WeaponDef } from '@/shared/data/weaponData'
+import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
+import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingStylesData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
 import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/armorData'
 import {
@@ -15,7 +17,7 @@ import {
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL
 } from '@/shared/data/charCalculations'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
-import { spellsForClass, type SpellEntry } from '@/shared/data/spellData'
+import { spellsForClass, getSelectableSpells, type SpellEntry } from '@/shared/data/spellData'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import styles from './CharacterSelectScreen.module.css'
 
@@ -123,6 +125,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
 
   // Variant Human free +1 picks
   const [freeAbilityPicks, setFreeAbilityPicks] = useState<AbilityScore[]>([])
+  const [chosenFeat, setChosenFeat] = useState<string | undefined>()
+  const [chosenFeatAbility, setChosenFeatAbility] = useState<AbilityScore | null>(null)
+  const [chosenFightingStyle, setChosenFightingStyle] = useState<string | undefined>()
 
   const classDef = CLASS_BY_ID[basics.classId]
   const raceDef = RACE_BY_ID[basics.race]
@@ -143,6 +148,15 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       ABILITY_KEYS.forEach(k => { base[k] = (base[k] || 10) + (raceDef.abilityBonus[k] ?? 0) })
     }
     freeAbilityPicks.forEach(k => { base[k] = (base[k] || 10) + 1 })
+    if (chosenFeat) {
+      const featDef = FEAT_BY_ID[chosenFeat]
+      if (featDef?.abilityBonus) {
+        ABILITY_KEYS.forEach(k => { base[k] = (base[k] || 10) + (featDef.abilityBonus![k] ?? 0) })
+      }
+      if (featDef?.abilityChoice && chosenFeatAbility) {
+        base[chosenFeatAbility] = Math.min(20, (base[chosenFeatAbility] || 10) + 1)
+      }
+    }
     return base
   }
 
@@ -151,10 +165,15 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield, shieldId: hasShield ? 'shield-generic' : null }
     const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass }
     const ac = computeAC(charBase)
-    const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
+    const raceBonusHp = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
+    const toughBonus = chosenFeat === 'tough' ? 2 : 0
+    const bonusHpPerLevel = raceBonusHp + toughBonus
+    const alertBonus = chosenFeat === 'alert' ? 5 : 0
+    const mobileBonus = chosenFeat === 'mobile' ? 10 : 0
     const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
-    const speed = computeSpeed(basics.race)
+    const speed = computeSpeed(basics.race) + mobileBonus
     const dexMod = mod(scores.dex)
+    const initiative = dexMod + alertBonus
     const prof = profBonus(basics.level)
 
     const skillProf: Partial<Record<Skill, 'proficient' | 'expert'>> = {}
@@ -179,7 +198,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
-      schemaVersion: 2,
+      schemaVersion: 3,
       createdAt: now,
       updatedAt: now,
       name: basics.name.trim(),
@@ -195,13 +214,22 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       hitPoints: { current: maxHp, max: maxHp, temp: 0 },
       armorClass: ac,
       speed,
-      initiative: dexMod,
+      initiative,
       proficiencyBonus: prof,
       bonusHpPerLevel,
       equipment,
       savingThrowProficiencies: classDef ? [...classDef.savingThrows] : [],
       skillProficiencies: skillProf,
-      spellIds: chosenSpells,
+      spellIds: (() => {
+        const raceDef = RACE_BY_ID[basics.race]
+        const allRacialSpells: string[] = []
+        if (raceDef?.racialSpells) {
+          for (const [lvl, ids] of Object.entries(raceDef.racialSpells)) {
+            if (Number(lvl) <= basics.level) allRacialSpells.push(...(ids ?? []))
+          }
+        }
+        return [...new Set([...chosenSpells, ...allRacialSpells])]
+      })(),
       preparedSpellIds: [],
       concentrationSpellId: null,
       spellSlots: defaultSpellSlots(basics.classId, basics.level),
@@ -211,7 +239,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       deathSaves: { successes: 0, failures: 0 },
       inspiration: 0,
       hitDiceUsed: 0,
-      feats: [],
+      feats: chosenFeat ? [chosenFeat] : [],
+      fightingStyle: chosenFightingStyle,
+      completedAsiLevels: [],
       notes: '',
     }
   }
@@ -233,7 +263,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
         {step === 'basics' && (
           <StepBasics
             value={basics}
-            onChange={(v) => { setBasics(v); if (v.classId !== basics.classId) setChosenSpells([]); if (v.race !== basics.race) setFreeAbilityPicks([]) }}
+            onChange={(v) => { setBasics(v); if (v.classId !== basics.classId) { setChosenSpells([]); setChosenFightingStyle(undefined) } if (v.race !== basics.race) { setFreeAbilityPicks([]); setChosenFeat(undefined) } }}
             onNext={() => setStep('scores')}
             onCancel={onClose}
           />
@@ -249,6 +279,10 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             raceDef={raceDef}
             freeAbilityPicks={freeAbilityPicks}
             setFreeAbilityPicks={setFreeAbilityPicks}
+            chosenFeat={chosenFeat}
+            setChosenFeat={setChosenFeat}
+            chosenFeatAbility={chosenFeatAbility}
+            setChosenFeatAbility={setChosenFeatAbility}
             onBack={() => setStep('basics')}
             onNext={() => setStep('equipment')}
           />
@@ -262,6 +296,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             hasShield={hasShield} setHasShield={setHasShield}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
             chosenWeapons={chosenWeapons} setChosenWeapons={setChosenWeapons}
+            chosenFightingStyle={chosenFightingStyle} setChosenFightingStyle={setChosenFightingStyle}
             onBack={() => setStep('scores')}
             onNext={isSpellcaster ? () => setStep('spells') : undefined}
             onCreate={isSpellcaster ? undefined : () => onCreate(buildCharacter())}
@@ -417,6 +452,8 @@ function StepScores({
   rollAssign, setRollAssign,
   raceDef,
   freeAbilityPicks, setFreeAbilityPicks,
+  chosenFeat, setChosenFeat,
+  chosenFeatAbility, setChosenFeatAbility,
   onBack, onNext,
 }: {
   method: ScoreMethod; setMethod: (m: ScoreMethod) => void
@@ -426,6 +463,8 @@ function StepScores({
   rollAssign: Partial<Record<AbilityScore, number>>; setRollAssign: (v: Partial<Record<AbilityScore, number>>) => void
   raceDef?: typeof RACE_BY_ID[string]
   freeAbilityPicks: AbilityScore[]; setFreeAbilityPicks: (v: AbilityScore[]) => void
+  chosenFeat: string | undefined; setChosenFeat: (id: string | undefined) => void
+  chosenFeatAbility: AbilityScore | null; setChosenFeatAbility: (v: AbilityScore | null) => void
   onBack: () => void; onNext: () => void
 }) {
   const racialBonus = (k: AbilityScore) => raceDef?.abilityBonus?.[k] ?? 0
@@ -473,7 +512,9 @@ function StepScores({
   const rollComplete = rolled.length === 6 && ABILITY_KEYS.every(k => rollAssign[k] !== undefined)
 
   const freePointsDone = !raceDef?.freeAbilityPoints || freeAbilityPicks.length >= raceDef.freeAbilityPoints
-  const canContinue = (method === 'standard' ? stdComplete : method === 'pointbuy' ? true : rollComplete) && freePointsDone
+  const featDone = !raceDef?.freeFeat || !!chosenFeat
+  const featAbilityDone = !chosenFeat || !FEAT_BY_ID[chosenFeat]?.abilityChoice || !!chosenFeatAbility
+  const canContinue = (method === 'standard' ? stdComplete : method === 'pointbuy' ? true : rollComplete) && freePointsDone && featDone && featAbilityDone
 
   function getPreview(k: AbilityScore): number | null {
     const bonus = racialBonus(k)
@@ -616,6 +657,43 @@ function StepScores({
         </div>
       )}
 
+      {raceDef?.freeFeat && (
+        <div className={styles.infoBox}>
+          <span className={styles.infoLabel}>
+            {raceDef.label}: choose one feat
+            {chosenFeat ? ' ✓' : ' (required)'}
+          </span>
+          <select
+            className={styles.input}
+            value={chosenFeat ?? ''}
+            onChange={e => { setChosenFeat(e.target.value || undefined); setChosenFeatAbility(null) }}
+            style={{ marginTop: 6 }}
+          >
+            <option value="">— Choose a feat —</option>
+            {FEATS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          {chosenFeat && FEAT_BY_ID[chosenFeat] && (
+            <span className={styles.infoValue} style={{ marginTop: 4, fontStyle: 'italic' }}>
+              {FEAT_BY_ID[chosenFeat].description}
+            </span>
+          )}
+          {chosenFeat && FEAT_BY_ID[chosenFeat]?.abilityChoice && (
+            <div style={{ marginTop: 8 }}>
+              <span className={styles.infoLabel}>Choose ability to gain +1{chosenFeatAbility ? ' ✓' : ' (required)'}:</span>
+              <div className={styles.scorePips} style={{ marginTop: 6 }}>
+                {FEAT_BY_ID[chosenFeat]!.abilityChoice!.map(ab => (
+                  <button
+                    key={ab}
+                    className={`${styles.scorePip} ${chosenFeatAbility === ab ? styles.scorePipSelected : ''}`}
+                    onClick={() => setChosenFeatAbility(ab)}
+                  >{ABILITY_LABELS[ab]}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className={styles.actions}>
         <button type="button" className={styles.cancelBtn} onClick={onBack}>← Back</button>
         <button type="button" className={styles.nextBtn} disabled={!canContinue} onClick={onNext}>Equipment →</button>
@@ -624,11 +702,29 @@ function StepScores({
   )
 }
 
+// ── STARTER WEAPON PACKS ──
+const STARTER_PACKS: Record<string, { label: string; ids: string[] }[]> = {
+  Fighter:   [{ label: 'Longsword', ids: ['longsword'] }, { label: 'Handaxe ×2', ids: ['handaxe', 'handaxe'] }, { label: 'Greatsword', ids: ['greatsword'] }],
+  Paladin:   [{ label: 'Longsword', ids: ['longsword'] }, { label: 'Warhammer', ids: ['warhammer'] }],
+  Rogue:     [{ label: 'Rapier', ids: ['rapier'] }, { label: 'Shortsword ×2', ids: ['shortsword', 'shortsword'] }],
+  Ranger:    [{ label: 'Longbow + Shortsword', ids: ['longbow', 'shortsword'] }, { label: 'Shortsword ×2', ids: ['shortsword', 'shortsword'] }],
+  Barbarian: [{ label: 'Greataxe', ids: ['greataxe'] }, { label: 'Handaxe ×2', ids: ['handaxe', 'handaxe'] }],
+  Monk:      [{ label: 'Shortsword', ids: ['shortsword'] }, { label: 'Dagger ×2', ids: ['dagger', 'dagger'] }],
+  Cleric:    [{ label: 'Mace', ids: ['mace'] }, { label: 'Warhammer', ids: ['warhammer'] }],
+  Bard:      [{ label: 'Rapier', ids: ['rapier'] }, { label: 'Longsword', ids: ['longsword'] }],
+  Druid:     [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Scimitar', ids: ['scimitar'] }],
+  Wizard:    [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
+  Sorcerer:  [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
+  Warlock:   [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
+  Artificer: [{ label: 'Light Crossbow', ids: ['lightCrossbow'] }, { label: 'Dagger ×2', ids: ['dagger', 'dagger'] }],
+}
+
 // ── STEP 3: EQUIPMENT & SKILLS ──
 
 function StepEquipment({
   basics, scores, armorId, setArmorId, hasShield, setHasShield,
   chosenSkills, setChosenSkills, chosenWeapons, setChosenWeapons,
+  chosenFightingStyle, setChosenFightingStyle,
   onBack, onNext, onCreate,
 }: {
   basics: Basics; scores: AbilityScores
@@ -636,6 +732,7 @@ function StepEquipment({
   hasShield: boolean; setHasShield: (v: boolean) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
   chosenWeapons: WeaponDef[]; setChosenWeapons: (v: WeaponDef[]) => void
+  chosenFightingStyle: string | undefined; setChosenFightingStyle: (v: string | undefined) => void
   onBack: () => void; onNext?: () => void; onCreate?: () => void
 }) {
   const classDef = CLASS_BY_ID[basics.classId]
@@ -681,7 +778,9 @@ function StepEquipment({
     }
   }
 
-  const ready = chosenSkills.length === skillsNeeded || skillsNeeded === 0
+  const fightingStyleLevel = FIGHTING_STYLE_CLASSES[basics.classId]
+  const needsFightingStyle = fightingStyleLevel !== undefined && basics.level >= fightingStyleLevel
+  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle)
 
   return (
     <div className={styles.stepContent}>
@@ -742,9 +841,57 @@ function StepEquipment({
         </div>
       )}
 
+      {/* Fighting Style */}
+      {needsFightingStyle && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            Fighting Style — choose {chosenFightingStyle ? '✓ done' : '1'}
+          </div>
+          <div className={styles.skillChoices}>
+            {FIGHTING_STYLES.map(s => (
+              <button
+                key={s.id}
+                className={`${styles.skillChoice} ${chosenFightingStyle === s.id ? styles.skillChoiceSelected : ''}`}
+                onClick={() => setChosenFightingStyle(chosenFightingStyle === s.id ? undefined : s.id)}
+                title={s.description}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+          {chosenFightingStyle && (
+            <div className={styles.infoBox}>
+              <span className={styles.infoValue}>
+                {FIGHTING_STYLES.find(s => s.id === chosenFightingStyle)?.description}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Weapons */}
       <div className={styles.equipSection}>
         <div className={styles.equipLabel}>Starting Weapons — choose any (can add more later)</div>
+        {STARTER_PACKS[basics.classId] && (
+          <div className={styles.starterPackGrid}>
+            {STARTER_PACKS[basics.classId].map(pack => (
+              <button
+                key={pack.label}
+                className={styles.starterPackBtn}
+                onClick={() => {
+                  const toAdd: WeaponDef[] = []
+                  for (const id of pack.ids) {
+                    const w = availableWeapons.find(w => w.id === id)
+                    if (w) toAdd.push(w)
+                  }
+                  setChosenWeapons(toAdd)
+                }}
+              >
+                {pack.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className={styles.weaponGrid}>
           {availableWeapons.map(w => {
             const chosen = !!chosenWeapons.find(cw => cw.id === w.id)
@@ -790,7 +937,9 @@ function StepSpells({
 }) {
   const [search, setSearch] = useState('')
   const cls = CLASS_BY_ID[basics.classId]
-  const availableSpells = spellsForClass(basics.classId)
+  const rawSlots = defaultSpellSlots(basics.classId, basics.level)
+  const maxSlotLevel = Object.keys(rawSlots).length > 0 ? Math.max(...Object.keys(rawSlots).map(Number)) : 1
+  const availableSpells = getSelectableSpells(basics.classId, maxSlotLevel)
 
   // Determine how many cantrips and spells the player can pick
   const cantripsKnownTable = cls?.cantripsKnownTable ?? {}

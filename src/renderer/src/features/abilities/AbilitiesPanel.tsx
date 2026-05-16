@@ -16,8 +16,18 @@ interface Props {
   update: (patch: Partial<Character>) => void
 }
 
+const SAVE_DESCS: Record<AbilityScore, string> = {
+  str: 'Resist effects that physically force you — crushing, restraining, or shoving you away.',
+  dex: 'Dodge area effects and avoid explosions, traps, and environmental hazards.',
+  con: 'Endure sustained harm, illness, and maintain concentration on spells.',
+  int: 'Resist effects that assault your reasoning and mental acuity.',
+  wis: 'Resist charm, fear, and mind-affecting effects like Hold Person.',
+  cha: 'Resist effects that sap your identity — Banishment and possession.',
+}
+
 export function AbilitiesPanel({ character: char, update }: Props) {
   const [fieldEdit, setFieldEdit] = useState<{ key: AbilityScore; value: string } | null>(null)
+  const [selectedDetail, setSelectedDetail] = useState<{ type: 'save' | 'skill'; key: string } | null>(null)
   const hp = char.hitPoints
   const prof = char.proficiencyBonus
 
@@ -57,6 +67,7 @@ export function AbilitiesPanel({ character: char, update }: Props) {
      char.skillProficiencies['perception'] === 'proficient' ? prof : 0)
 
   return (
+    <>
     <div className={styles.statsSubGrid}>
       {/* Ability score blocks */}
       <div className={styles.statsSubLeft}>
@@ -102,17 +113,26 @@ export function AbilitiesPanel({ character: char, update }: Props) {
         {ABILITY_KEYS.map(ab => {
           const isProficient = char.savingThrowProficiencies.includes(ab)
           const bonus = mod(char.abilityScores[ab]) + (isProficient ? prof : 0)
+          const isSel = selectedDetail?.type === 'save' && selectedDetail.key === ab
           return (
-            <div key={ab} className={styles.saveRow}>
+            <div
+              key={ab}
+              className={`${styles.saveRow} ${isSel ? styles.saveRowSel : ''}`}
+              onClick={() => setSelectedDetail(d => d?.type === 'save' && d.key === ab ? null : { type: 'save', key: ab })}
+            >
               <button
                 className={`${styles.saveCircle} ${isProficient ? styles.saveCircleFilled : ''}`}
-                onClick={() => {
+                onClick={e => {
+                  e.stopPropagation()
                   const current = char.savingThrowProficiencies
                   update({ savingThrowProficiencies: isProficient ? current.filter(x => x !== ab) : [...current, ab] })
                 }}
               />
               <span className={styles.saveBonus}>{fmtMod(bonus)}</span>
               <span className={styles.saveAb}>{ab.toUpperCase()}</span>
+              <span className={styles.saveFormula}>
+                d20{fmtMod(mod(char.abilityScores[ab]))}{isProficient ? `+${prof}p` : ''}
+              </span>
             </div>
           )
         })}
@@ -125,13 +145,24 @@ export function AbilitiesPanel({ character: char, update }: Props) {
             const state = char.skillProficiencies[key] ?? 'none'
             const bonus = mod(char.abilityScores[ability]) +
               (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
+            const isSel = selectedDetail?.type === 'skill' && selectedDetail.key === key
             return (
-              <button key={key} className={styles.skillRow} onClick={() => cycleSkill(key)}>
-                <span className={`${styles.skillCircle} ${state === 'expert' ? styles.skillCircleExpert : state === 'proficient' ? styles.skillCircleProf : ''}`} />
+              <div
+                key={key}
+                className={`${styles.skillRow} ${isSel ? styles.skillRowSel : ''}`}
+                onClick={() => setSelectedDetail(d => d?.type === 'skill' && d.key === key ? null : { type: 'skill', key })}
+              >
+                <button
+                  className={`${styles.skillCircle} ${state === 'expert' ? styles.skillCircleExpert : state === 'proficient' ? styles.skillCircleProf : ''}`}
+                  onClick={e => { e.stopPropagation(); cycleSkill(key) }}
+                />
                 <span className={styles.skillBonus}>{fmtMod(bonus)}</span>
                 <span className={styles.skillLabel}>{label}</span>
                 <span className={styles.skillAb}>{ability.toUpperCase()}</span>
-              </button>
+                <span className={styles.skillFormula}>
+                  d20{fmtMod(mod(char.abilityScores[ability]))}{state !== 'none' ? `+${state === 'expert' ? prof * 2 : prof}${state === 'expert' ? 'e' : 'p'}` : ''}
+                </span>
+              </div>
             )
           })}
         </div>
@@ -141,5 +172,45 @@ export function AbilitiesPanel({ character: char, update }: Props) {
         </div>
       </div>
     </div>
+
+    {selectedDetail && (() => {
+      if (selectedDetail.type === 'save') {
+        const ab = selectedDetail.key as AbilityScore
+        const isProficient = char.savingThrowProficiencies.includes(ab)
+        const abilMod = mod(char.abilityScores[ab])
+        const bonus = abilMod + (isProficient ? prof : 0)
+        return (
+          <div className={styles.detailOverlay} onClick={() => setSelectedDetail(null)}>
+            <div className={styles.detailModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.detailModalTitle}>{ABILITY_LABELS[ab]} Saving Throw</div>
+              <div className={styles.detailModalFormula}>
+                d20 {fmtMod(abilMod)}{isProficient ? ` + ${prof} (prof)` : ''} = <strong>{fmtMod(bonus)}</strong>
+              </div>
+              <div className={styles.detailModalDesc}>{SAVE_DESCS[ab]}</div>
+              {isProficient && <div className={styles.detailModalProf}>Proficient</div>}
+            </div>
+          </div>
+        )
+      } else {
+        const skill = SKILLS.find(s => s.key === selectedDetail.key)!
+        const state = char.skillProficiencies[skill.key] ?? 'none'
+        const abilMod = mod(char.abilityScores[skill.ability])
+        const bonus = abilMod + (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
+        const profLabel = state === 'expert' ? 'Expertise' : state === 'proficient' ? 'Proficient' : null
+        return (
+          <div className={styles.detailOverlay} onClick={() => setSelectedDetail(null)}>
+            <div className={styles.detailModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.detailModalTitle}>{skill.label} ({ABILITY_LABELS[skill.ability]})</div>
+              <div className={styles.detailModalFormula}>
+                d20 {fmtMod(abilMod)}{state !== 'none' ? ` + ${state === 'expert' ? prof * 2 : prof} (${state === 'expert' ? 'expertise' : 'prof'})` : ''} = <strong>{fmtMod(bonus)}</strong>
+              </div>
+              <div className={styles.detailModalDesc}>{skill.description}</div>
+              {profLabel && <div className={styles.detailModalProf}>{profLabel}</div>}
+            </div>
+          </div>
+        )
+      }
+    })()}
+    </>
   )
 }

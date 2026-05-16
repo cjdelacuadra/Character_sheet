@@ -20,6 +20,10 @@ export interface RaceDef {
   bonusHpPerLevel?: number
   /** number of free +1 ability point assignments the player picks (2 for Variant Human) */
   freeAbilityPoints?: number
+  /** race grants one free feat at character creation (Variant Human) */
+  freeFeat?: boolean
+  /** spell IDs granted automatically at each character level */
+  racialSpells?: Partial<Record<number, string[]>>
 }
 
 export const RACES: RaceDef[] = [
@@ -37,6 +41,7 @@ export const RACES: RaceDef[] = [
     speed: 30,
     abilityBonus: {},
     freeAbilityPoints: 2,
+    freeFeat: true,
     traits: ['+1 to two different ability scores of your choice', 'One skill proficiency of choice', 'One feat of choice'],
     size: 'medium',
   },
@@ -107,6 +112,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { int: 2, dex: 1 },
     traits: ['Darkvision 60ft', 'Gnome Cunning (advantage INT/WIS/CHA saves vs magic)', 'Natural Illusionist', 'Speak with Small Beasts'],
     size: 'small',
+    racialSpells: { 1: ['minor-illusion'] },
   },
   {
     id: 'Tiefling',
@@ -115,6 +121,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { int: 1, cha: 2 },
     traits: ['Darkvision 60ft', 'Hellish Resistance (fire resistance)', 'Infernal Legacy (Thaumaturgy cantrip; Hellish Rebuke/Darkness as spell)'],
     size: 'medium',
+    racialSpells: { 1: ['thaumaturgy'], 3: ['hellish-rebuke'], 5: ['darkness'] },
   },
   {
     id: 'Dragonborn',
@@ -147,6 +154,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, cha: 1 },
     traits: ['Superior Darkvision 120ft', 'Keen Senses (Perception proficiency)', 'Fey Ancestry', 'Trance', 'Sunlight Sensitivity (disadvantage on attack/Perception in direct sunlight)', 'Drow Magic (Dancing Lights; Faerie Fire; Darkness as spells)'],
     size: 'medium',
+    racialSpells: { 1: ['dancing-lights'], 3: ['faerie-fire'], 5: ['darkness'] },
   },
   {
     id: 'Aasimar',
@@ -155,6 +163,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { wis: 1, cha: 2 },
     traits: ['Darkvision 60ft', 'Celestial Resistance (necrotic & radiant resistance)', 'Healing Hands (touch to heal HP equal to level, 1/LR)', 'Light Bearer (Light cantrip)'],
     size: 'medium',
+    racialSpells: { 1: ['light'] },
   },
   {
     id: 'Kenku',
@@ -206,6 +215,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { str: 2, int: 1 },
     traits: ['Decadent Mastery (proficiency in 1 language, skill, or tool)', 'Martial Prodigy (light & medium armor proficiency, shortsword & longsword & greatsword proficiency)', 'Githyanki Psionics (Mage Hand cantrip; Jump; Misty Step — using INT)'],
     size: 'medium',
+    racialSpells: { 1: ['mage-hand'], 3: ['jump'], 5: ['misty-step'] },
   },
   {
     id: 'Githzerai',
@@ -215,6 +225,7 @@ export const RACES: RaceDef[] = [
     traits: ['Mental Discipline (advantage vs charmed & frightened)', 'Githzerai Psionics (Mage Hand cantrip; Shield; Detect Thoughts — using WIS)', 'Psychic Defense (unarmored AC = 10 + DEX mod + WIS mod)'],
     naturalAC: (scores) => 10 + Math.floor((scores.dex - 10) / 2) + Math.floor((scores.wis - 10) / 2),
     size: 'medium',
+    racialSpells: { 1: ['mage-hand'], 3: ['shield'], 5: ['detect-thoughts'] },
   },
 ]
 

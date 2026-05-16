@@ -13,3 +13,5 @@
 .featureLevel { font-size: 10px; color: var(--text-muted); background: var(--surface-3); border-radius: 3px; padding: 1px 5px; }
 .featureChevron { font-size: 10px; color: var(--text-muted); }
 .featureDesc { padding: 6px 8px; font-size: 11px; color: var(--text-muted); line-height: 1.4; background: var(--surface); border-top: 1px solid var(--border); margin: 0; }
+.featureCardSel { border-color: var(--accent) !important; background: rgba(139,124,248,0.06); }
+.featureSub { font-size: 10px; color: var(--accent); display: block; margin-top: 1px; }

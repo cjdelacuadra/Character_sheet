@@ -24,8 +24,8 @@ export function computeMaxHP(classId: string, level: number, conScore: number, b
   return hitDie + conMod + (level - 1) * (avgPerLevel + conMod) + level * bonusHpPerLevel
 }
 
-/** Computes AC from equipment, scores, class, race, and optional subclass. */
-export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 'classId' | 'race'> & { subclass?: string }): number {
+/** Computes AC from equipment, scores, class, race, and optional subclass/fightingStyle. */
+export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 'classId' | 'race'> & { subclass?: string; fightingStyle?: string }): number {
   const { abilityScores, equipment, classId, race, subclass } = char
   const dexMod = mod(abilityScores.dex)
   const conMod = mod(abilityScores.con)
@@ -64,7 +64,8 @@ export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 
     armor.dexCap === 0         ? 0      :
     Math.min(dexMod, armor.dexCap)
 
-  return armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield
+  const defenseBonus = char.fightingStyle === 'defense' ? 1 : 0
+  return armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield + defenseBonus
 }
 
 /** Computes race-adjusted speed (class modifications applied separately). */

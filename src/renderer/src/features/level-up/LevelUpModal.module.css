@@ -59,6 +59,12 @@
 .featRowSel { border-color: #8b7cf8; background: rgba(139,124,248,.12); }
 .featName { font-size: 13px; font-weight: 600; color: #e8e8f0; }
 .featDesc { font-size: 11px; color: #8888a0; line-height: 1.5; text-align: left; }
+.featAbilityPicker { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: rgba(139,124,248,.06); border: 1px solid rgba(139,124,248,.2); border-radius: 8px; }
+.featAbilityLabel { font-size: 12px; color: #8888a0; }
+.featAbilityBtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.featAbilityBtn { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,.07); background: #1e1e26; color: #8888a0; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.featAbilityBtn:hover { border-color: #8b7cf8; color: #c8c0ff; }
+.featAbilityBtnSel { border-color: #8b7cf8; background: rgba(139,124,248,.18); color: #8b7cf8; }
 .footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,.07); flex-shrink: 0; }
 .cancelBtn {
   background: transparent; border: 1px solid rgba(255,255,255,.09); color: #8888a0;

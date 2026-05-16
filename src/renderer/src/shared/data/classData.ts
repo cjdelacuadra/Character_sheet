@@ -213,6 +213,11 @@ export const CLASSES: ClassDef[] = [
     spellcastingAbility: 'int',
     isSpellcaster: true,
     cantripsKnownTable: { 1:3, 4:4, 10:5 },
+    // Wizards add 2 spells to their spellbook each level; starting spellbook = 6 at level 1
+    spellsKnownTable: {
+      1:6, 2:8, 3:10, 4:12, 5:14, 6:16, 7:18, 8:20, 9:22, 10:24,
+      11:26, 12:28, 13:30, 14:32, 15:34, 16:36, 17:38, 18:40, 19:42, 20:44,
+    },
     asiLevels: [4, 8, 12, 16, 19],
     resources: [{ name: 'Arcane Recovery', recoverOn: 'none', fixedTotal: 1 }],
   },

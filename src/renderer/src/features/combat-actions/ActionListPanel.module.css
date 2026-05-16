@@ -1,0 +1,65 @@
+.section { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: none; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.actionTypeCount { font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 0px 7px; font-variant-numeric: tabular-nums; }
+
+.actionList { display: flex; flex-direction: column; gap: 2px; }
+
+.actionCompact {
+  width: 100%; display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 10px; border-radius: 7px; border: 1px solid transparent;
+  background: transparent; cursor: pointer; text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+.actionCompact:hover { background: var(--bg-elevated); border-color: var(--border); }
+.actionCompactSel.selAction   { background: rgba(139,124,248,0.1); border-color: var(--accent); }
+.actionCompactSel.selBonus    { background: rgba(224,168,76,0.1);  border-color: var(--warning); }
+.actionCompactSel.selReaction { background: rgba(76,175,125,0.1);  border-color: var(--success); }
+
+.labelAction   { color: var(--accent) !important; }
+.labelBonus    { color: var(--warning) !important; }
+.labelReaction { color: var(--success) !important; }
+
+.actionDepleted { opacity: 0.4; }
+
+.actionName  { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.actionCost  { font-size: 10px; color: var(--warning); font-weight: 600; }
+.actionShort { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+/* ── Resource chips ── */
+.chipGroup { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 2px; }
+
+.subclassNote {
+  font-size: 9px; color: var(--text-muted); font-style: italic;
+  letter-spacing: 0.04em; padding: 0 2px;
+}
+
+.resourceChip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 6px;
+  background: rgba(224,168,76,0.08); border: 1px solid rgba(224,168,76,0.3);
+}
+
+.chipName { font-size: 11px; font-weight: 600; color: var(--warning); min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.chipPips { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+
+.chipPip {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: none; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0;
+  padding: 0;
+}
+
+.chipPipFull  { background: var(--warning); }
+.chipPipFull:hover  { opacity: 0.6; }
+.chipPipEmpty { background: rgba(224,168,76,0.2); border: 1.5px solid rgba(224,168,76,0.4); }
+.chipPipEmpty:hover { background: rgba(224,168,76,0.45); }
+
+.chipCount { font-size: 10px; color: var(--warning); font-variant-numeric: tabular-nums; }
+
+.chipRecovery {
+  font-size: 9px; font-weight: 700; color: var(--text-muted);
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 4px; flex-shrink: 0; letter-spacing: 0.05em;
+}
