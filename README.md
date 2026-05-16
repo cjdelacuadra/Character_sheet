@@ -2,6 +2,47 @@
 
 A desktop companion app for D&D 5th Edition, built with Electron + React + TypeScript.
 
+## Preview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Sylara Ashveil                                          ◐  Dark Mode   │
+│  Tiefling · Wizard · Level 5 · Sage                                     │
+│  HP  32 / 32   AC 13   Initiative +3   Speed 30 ft                      │
+│  Spell Save DC 14   Spell Attack +6   Prof +3                           │
+├──────────────────────┬──────────────────────────────────────────────────┤
+│  ABILITIES           │  SAVING THROWS                     Prof +3       │
+│                      │  ○ −1  STR   d20−1                               │
+│   (−1)  STR   8      │  ○ +3  DEX   d20+3                               │
+│   (+3)  DEX  16      │  ● +5  CON   d20+2+3p     ← proficient           │
+│   (+2)  CON  14      │  ● +7  INT   d20+4+3p     ← proficient           │
+│   (+4)  INT  18      │  ○ +1  WIS   d20+1                               │
+│   (+1)  WIS  12      │  ○ +0  CHA   d20+0                               │
+│   (+0)  CHA  10      │                                                  │
+│                      │  SKILLS                                          │
+│                      │  ◆◆ +10 Arcana         INT   ← expertise        │
+│                      │  ◆  +7  History        INT   ← proficient        │
+│                      │  ◆  +7  Investigation  INT                        │
+│                      │  ○  +1  Perception     WIS                        │
+│                      │  ○  +3  Stealth        DEX                        │
+│                      │  Passive Perception: 11                          │
+├──────────────────────┴──────────────────────────────────────────────────┤
+│  SPELLS              SPELL SLOTS  1st ◆◆◆◆  2nd ◆◆◆  3rd ◆◆           │
+│  Cantrips: Fire Bolt · Mage Hand · Prestidigitation · Thaumaturgy*      │
+│  ───────────────────────────────────────────────────────────────────    │
+│  1st  Burning Hands · Magic Missile · Shield · Hellish Rebuke*          │
+│  2nd  Misty Step · Scorching Ray · Darkness*                            │
+│  3rd  Fireball · Counterspell                                           │
+│  * Racial spells — granted by Tiefling heritage, free once per day      │
+├─────────────────────────────────────────────────────────────────────────┤
+│  FEATURES            Arcane Tradition: School of Evocation              │
+│  ───────────────────────────────────────────────────────────────────    │
+│  Arcane Recovery   ◆◆◆  (recover up to 3 levels of slots · SR)         │
+│  Sculpt Spells     Automatically exclude allies from AoE spells         │
+│  Empowered Evocation  Add +4 to damage rolls of evocation spells        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Stack
 
 - **Electron 34** — native desktop shell, file-based character persistence
@@ -15,6 +56,7 @@ A desktop companion app for D&D 5th Edition, built with Electron + React + TypeS
 ### Character Management
 - Create, load, and delete characters; all data persisted to disk per-character
 - Character selection screen with HP bar, AC, and background at a glance
+- Dark / light mode toggle
 
 ### Character Creation Wizard
 - **Step 1 — Basics**: name, race, class, subclass (required for level-1 subclasses such as Cleric, Sorcerer, Warlock), background, level
@@ -34,26 +76,44 @@ A desktop companion app for D&D 5th Edition, built with Electron + React + TypeS
 - Click-to-edit any ability score; AC and HP recalculate live
 - Full skill list with proficiency / expertise markers and computed bonuses
 - Saving throw proficiencies per class
+- Click any save or skill row to open a detail card with formula breakdown and description of what the stat is used for
 
 ### Attacks & Weapons
 - Weapon table showing computed attack bonus (STR / DEX / max for Finesse, DEX for ranged), damage die, and damage type
 - Inline "Add Weapon" row for custom entries
+- **Opportunity Attack** — auto-generated melee-weapon action when enemies leave reach
+- **Off-Hand Attack** — auto-generated for Light melee weapons; damage mod omitted unless Two-Weapon Fighting style is active
 
 ### Spells
 - Known spells panel with level badge, school, and concentration marker
 - Click any spell to open a full stat card modal (casting time, range, components, duration, description)
-- Concentration tracker — one-click activate / drop
+- Concentration tracker — one-click activate / drop; concentration spells highlighted
 - Spell slot pips per level with used / total tracking
+- **Spell Mastery** *(Wizard level 18)*: designate one 1st-level and one 2nd-level spell for at-will free casts; a "Cast (Mastery)" button appears in the spell modal for both chosen spells
+
+### Racial Spells
+Races that grant innate spellcasting automatically receive the correct spells at the right levels — both on character creation and when leveling up:
+
+| Race | Level 1 | Level 3 | Level 5 |
+|------|---------|---------|---------|
+| Tiefling | Thaumaturgy | Hellish Rebuke | Darkness |
+| Drow | Dancing Lights | Faerie Fire | Darkness |
+| Gnome (Forest) | Minor Illusion | — | — |
+| Aasimar | Light | — | — |
+| Githyanki | Mage Hand | Jump | Misty Step |
+| Githzerai | Mage Hand | Shield | Detect Thoughts |
+
+### Class Features & Subclasses
+- Actions panel grouped by type (Action / Bonus Action / Reaction / Class Abilities)
+- Filtered by class and level — only shows abilities the character has unlocked
+- Resource cost displayed; depleted-resource actions visually grayed out
+- **Fighting Style** *(Fighters, Rangers, Paladins)*: confirmation step before locking in; permanent once confirmed
+- **Arcane Tradition** *(Wizard level 2)*: choose from 8 schools of magic with a confirmation step; permanent once confirmed; shown on the Features card and in the feature detail pane
 
 ### Resources
 - Class resources (Rage, Ki, Channel Divinity, Sorcery Points, etc.) as pip trackers
 - Totals scale with level from per-class tables
 - Recovery type badge (SR / LR) shown per resource
-
-### Actions
-- Actions panel grouped by type (Action / Bonus Action / Reaction / Class Abilities)
-- Filtered by class and level — only shows abilities the character has unlocked
-- Resource cost displayed; depleted-resource actions visually grayed out
 
 ### Rest
 - **Short Rest**: Hit Dice roller (auto-roll or manual entry), HP recovery capped at max, SR resources reset
@@ -62,6 +122,7 @@ A desktop companion app for D&D 5th Edition, built with Electron + React + TypeS
 ### XP & Leveling
 - XP tracker with inline edit; threshold shown per 5e table (level 2–20)
 - Level Up button pulses when XP threshold is reached; increments level, recalculates proficiency bonus and max HP
+- ASI / Feat picker on eligible levels; partial ASI support for characters created at higher levels with pending choices
 
 ### Conditions
 - Toggle standard 5e conditions (Blinded, Charmed, Exhaustion, etc.)
@@ -72,10 +133,12 @@ A desktop companion app for D&D 5th Edition, built with Electron + React + TypeS
 |------|----------|
 | `weaponData.ts` | 36 SRD weapons — Simple + Martial, melee + ranged — with damage die, damage type, range classification, and properties (Finesse, Light, Heavy, Versatile, Thrown, Ammunition, Reach, Loading, Two-Handed) |
 | `armorData.ts` | All standard armor (light / medium / heavy) plus 7 magic +1 variants; STR requirements for Chain Mail (13), Splint (15), Plate (15) |
-| `spellData.ts` | 70+ SRD spells (cantrips through level 5) with full stat blocks |
+| `spellData.ts` | 75+ SRD spells (cantrips through level 5) with full stat blocks |
 | `classData.ts` | 14 classes (Barbarian through Wizard + Artificer) with hit die, saving throws, proficiencies, resource scaling tables, spell tables |
 | `subclassData.ts` | Full subclass list with unlock levels; Life Domain grants Heavy Armor, Draconic Bloodline overrides unarmored AC to 13 + DEX |
-| `raceData.ts` | 23 races with ability bonuses, natural AC formulas, speed, traits; Hill Dwarf has +1 HP/level and bonus weapon proficiencies |
+| `raceData.ts` | 23 races with ability bonuses, natural AC formulas, speed, traits, and racial spell grants by level |
+| `arcaneTraditonsData.ts` | 8 Wizard arcane traditions (Abjuration through Transmutation) with descriptions |
+| `featsData.ts` | Feat list with ability score improvements (Alert, Mobile, Tough, War Caster, etc.) |
 
 ## Domain Rules (`src/renderer/src/domain/rules/`)
 
@@ -99,6 +162,9 @@ npm run dev
 # TypeScript check
 npm run typecheck
 
+# Run tests
+npm test
+
 # Production build
 npm run build
 ```
@@ -113,11 +179,16 @@ src/
   preload/               Context bridge (exposes characterStore IPC)
   renderer/src/
     app/                 Zustand store (state + actions)
-    domain/rules/        Pure game logic functions
+    domain/              Migrations + pure game logic
     entities/character/  Character type definitions
     features/
+      abilities/         Ability scores, saving throws, skills panel
       character-select/  Character list + creation wizard
+      combat-actions/    Actions panel with feature detail pane
+      features-panel/    Class features list
+      level-up/          Level Up modal (ASI / Feat picker)
+      spells/            Spells panel + slot tracker
     shared/data/         Static SRD data files
     widgets/
-      character-view/    Main character sheet UI
+      character-view/    Main character sheet layout and tabs
 ```
