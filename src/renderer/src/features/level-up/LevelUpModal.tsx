@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Character, AbilityScore } from '@/entities/character/types'
 import { FEATS, FEAT_BY_ID, type FeatDef } from '@/shared/data/featsData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASSES_BY_CLASS } from '@/shared/data/subclassData'
 import { computeSpellLevelUpConfig } from '@/domain/rules'
 import { SpellSelectionStep } from './SpellSelectionStep'
 import styles from './LevelUpModal.module.css'
@@ -15,7 +16,7 @@ interface Props {
   character: Character
   newLevel: number
   showSpellSelection: boolean
-  onConfirm: (choice: AsiChoice, newSpellIds?: string[]) => void
+  onConfirm: (choice: AsiChoice | null, newSpellIds?: string[], subclassId?: string) => void
   onCancel: () => void
 }
 
@@ -25,8 +26,12 @@ const ABILITY_LABELS: Record<AbilityScore, string> = {
   int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma',
 }
 type Mode = 'double' | 'split' | 'feat'
+type Step = 'subclass' | 'asi' | 'spells'
 
 export function LevelUpModal({ character, newLevel, showSpellSelection, onConfirm, onCancel }: Props) {
+  const subclassUnlockLevel = SUBCLASSES_BY_CLASS[character.classId]?.[0]?.unlocksAtLevel
+  const needsSubclass = newLevel === subclassUnlockLevel && !character.subclass
+
   const [mode, setMode] = useState<Mode>('double')
   const [doubleAbility, setDoubleAbility] = useState<AbilityScore>('str')
   const [splitA1, setSplitA1] = useState<AbilityScore>('str')
@@ -34,14 +39,16 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
   const [featSearch, setFeatSearch] = useState('')
   const [selectedFeat, setSelectedFeat] = useState<string | null>(null)
   const [featAbilityChoice, setFeatAbilityChoice] = useState<AbilityScore | null>(null)
-  const [step, setStep] = useState<'asi' | 'spells'>('asi')
+  const [step, setStep] = useState<Step>(needsSubclass ? 'subclass' : 'asi')
   const [pendingChoice, setPendingChoice] = useState<AsiChoice | null>(null)
+  const [selectedSubclass, setSelectedSubclass] = useState<string | null>(null)
 
   const classDef = CLASS_BY_ID[character.classId]
   const isSpellcaster = classDef?.isSpellcaster && classDef.spellcastingAbility
   const spellConfig = classDef ? computeSpellLevelUpConfig(classDef, newLevel - 1, newLevel) : null
   const needsSpellSelection = showSpellSelection && isSpellcaster && !!spellConfig &&
     (spellConfig.spellsDelta > 0 || spellConfig.cantripsDelta > 0)
+  const isAsiLevel = classDef?.asiLevels?.includes(newLevel) ?? false
 
   function isValid(): boolean {
     if (mode === 'double') return character.abilityScores[doubleAbility] < 20
@@ -51,6 +58,18 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
     const featDef = FEAT_BY_ID[selectedFeat]
     if (featDef?.abilityChoice && !featAbilityChoice) return false
     return true
+  }
+
+  function handleSubclassConfirm() {
+    if (!selectedSubclass) return
+    if (isAsiLevel) {
+      setStep('asi')
+    } else if (needsSpellSelection) {
+      setPendingChoice(null)
+      setStep('spells')
+    } else {
+      onConfirm(null, undefined, selectedSubclass)
+    }
   }
 
   function handleAsiConfirm() {
@@ -64,12 +83,12 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
       setPendingChoice(choice)
       setStep('spells')
     } else {
-      onConfirm(choice)
+      onConfirm(choice, undefined, selectedSubclass ?? undefined)
     }
   }
 
   function handleSpellsDone(newSpellIds: string[]) {
-    onConfirm(pendingChoice!, newSpellIds)
+    onConfirm(pendingChoice!, newSpellIds, selectedSubclass ?? undefined)
   }
 
   if (step === 'spells' && needsSpellSelection) {
@@ -80,6 +99,49 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
         onConfirm={handleSpellsDone}
         onCancel={onCancel}
       />
+    )
+  }
+
+  if (step === 'subclass') {
+    const subclassOptions = SUBCLASSES_BY_CLASS[character.classId] ?? []
+    return (
+      <div className={styles.overlay} onClick={onCancel}>
+        <div className={styles.modal} onClick={e => e.stopPropagation()}>
+          <div className={styles.header}>
+            <div className={styles.titleBlock}>
+              <span className={styles.title}>Level Up — Level {newLevel}</span>
+              <span className={styles.subtitle}>Choose your {character.classId} subclass</span>
+            </div>
+            <button className={styles.closeBtn} onClick={onCancel}>×</button>
+          </div>
+          <div className={styles.body}>
+            <div className={styles.featPicker}>
+              <div className={styles.featList}>
+                {subclassOptions.map(sc => (
+                  <button
+                    key={sc.id}
+                    className={`${styles.featRow} ${selectedSubclass === sc.id ? styles.featRowSel : ''}`}
+                    onClick={() => setSelectedSubclass(sc.id)}
+                  >
+                    <span className={styles.featName}>{sc.label}</span>
+                    {sc.description && <span className={styles.featDesc}>{sc.description}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className={styles.footer}>
+            <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+            <button
+              className={styles.confirmBtn}
+              onClick={handleSubclassConfirm}
+              disabled={!selectedSubclass}
+            >
+              {isAsiLevel ? 'Next: Ability Scores →' : needsSpellSelection ? 'Next: Pick Spells →' : 'Confirm & Level Up'}
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 

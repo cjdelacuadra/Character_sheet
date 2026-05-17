@@ -1,0 +1,1 @@
+https://github.com/obra/superpowers/blob/main/CLAUDE.md

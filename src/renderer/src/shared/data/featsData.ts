@@ -210,6 +210,86 @@ export const FEATS: FeatDef[] = [
     name: 'Weapon Master',
     description: 'Gain proficiency with four weapons of your choice.',
   },
+  // ── Tasha's Cauldron of Everything ──
+  {
+    id: 'artificer-initiate',
+    name: 'Artificer Initiate',
+    description: 'Learn one cantrip and one 1st-level spell from the Artificer list (INT is your spellcasting ability). Cast the 1st-level spell once per long rest for free, or with a spell slot if you have one. Gain proficiency with one tool of your choice.',
+  },
+  {
+    id: 'chef',
+    name: 'Chef',
+    description: '+1 STR or CON. Gain proficiency with cook\'s utensils if you lack it. At the end of a short rest, prepare a number of treats equal to your proficiency bonus; each heals 1d8 HP when eaten. During a long rest, cook a meal for up to 8 creatures; each creature that eats it regains extra HP equal to your proficiency bonus when it finishes the rest.',
+    abilityChoice: ['str', 'con'],
+  },
+  {
+    id: 'crusher',
+    name: 'Crusher',
+    description: '+1 STR or CON. Once per turn on a hit with bludgeoning damage, push the target 5 ft. On a critical hit with bludgeoning damage, all attack rolls against that target have advantage until the start of your next turn.',
+    abilityChoice: ['str', 'con'],
+  },
+  {
+    id: 'eldritch-adept',
+    name: 'Eldritch Adept',
+    description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn one Eldritch Invocation option from the Warlock class. If the invocation has a prerequisite, you must meet it. You can replace this invocation with another when you gain a level.',
+  },
+  {
+    id: 'fey-touched',
+    name: 'Fey Touched',
+    description: '+1 INT, WIS, or CHA. Learn Misty Step and one 1st-level spell from the enchantment or divination school (using the chosen ability as your spellcasting ability). Cast each spell once per long rest for free, or with a spell slot if you have one.',
+    abilityChoice: ['int', 'wis', 'cha'],
+  },
+  {
+    id: 'fighting-initiate',
+    name: 'Fighting Initiate',
+    description: 'Prerequisite: proficiency with a martial weapon. Learn one Fighting Style option from the Fighter class. Whenever you gain a level, you can replace this style with another Fighter Fighting Style.',
+  },
+  {
+    id: 'gunner',
+    name: 'Gunner',
+    description: '+1 DEX. Gain proficiency with firearms. Ignore the loading property of firearms. Being within 5 ft of a hostile creature doesn\'t impose disadvantage on your ranged attack rolls.',
+    abilityChoice: ['dex'],
+  },
+  {
+    id: 'metamagic-adept',
+    name: 'Metamagic Adept',
+    description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn two Metamagic options from the Sorcerer class. Gain 2 sorcery points to spend only on those Metamagic options; these points are regained on a long rest.',
+  },
+  {
+    id: 'piercer',
+    name: 'Piercer',
+    description: '+1 STR or DEX. Once per turn on a hit with piercing damage, reroll one of the damage dice and use the higher result. On a critical hit with piercing damage, roll one additional damage die.',
+    abilityChoice: ['str', 'dex'],
+  },
+  {
+    id: 'poisoner',
+    name: 'Poisoner',
+    description: 'Ignore resistance to poison damage. As a bonus action, coat one piercing or slashing weapon with a poison that lasts for 1 minute; the next time it hits a creature, that creature must succeed on a DC 14 CON save or take 2d8 poison damage and be poisoned until the start of your next turn.',
+  },
+  {
+    id: 'shadow-touched',
+    name: 'Shadow Touched',
+    description: '+1 INT, WIS, or CHA. Learn Invisibility and one 1st-level spell from the illusion or necromancy school (using the chosen ability). Cast each spell once per long rest for free, or with a spell slot if you have one.',
+    abilityChoice: ['int', 'wis', 'cha'],
+  },
+  {
+    id: 'slasher',
+    name: 'Slasher',
+    description: '+1 STR or DEX. Once per turn on a hit with slashing damage, reduce the target\'s speed by 10 ft until the start of your next turn. On a critical hit with slashing damage, the target has disadvantage on attack rolls until the start of your next turn.',
+    abilityChoice: ['str', 'dex'],
+  },
+  {
+    id: 'telekinetic',
+    name: 'Telekinetic',
+    description: '+1 INT, WIS, or CHA. Learn Mage Hand or improve its range and make it invisible. As a bonus action, telekinetically shove one creature within 30 ft (STR save DC 8 + proficiency + spellcasting modifier); on a fail, push it up to 5 ft or pull it up to 5 ft toward you.',
+    abilityChoice: ['int', 'wis', 'cha'],
+  },
+  {
+    id: 'telepathic',
+    name: 'Telepathic',
+    description: '+1 INT, WIS, or CHA. Speak telepathically to any creature you can see within 60 ft (no common language required). Cast Detect Thoughts once per long rest without expending a spell slot (using the chosen ability as your spellcasting ability).',
+    abilityChoice: ['int', 'wis', 'cha'],
+  },
 ]
 
 export const FEAT_BY_ID = Object.fromEntries(FEATS.map(f => [f.id, f])) as Record<string, FeatDef>

@@ -21,10 +21,10 @@ const BASE_V1 = {
 }
 
 describe('migrateCharacter', () => {
-  describe('v1 → v4', () => {
-    it('assigns schemaVersion 4', () => {
+  describe('v1 → v8', () => {
+    it('assigns schemaVersion 8', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(4)
+      expect(result.schemaVersion).toBe(8)
     })
     it('fills missing notes with empty string', () => {
       const result = migrateCharacter(BASE_V1)
@@ -87,16 +87,16 @@ describe('migrateCharacter', () => {
     })
   })
 
-  describe('v3 → v4', () => {
-    it('v3 character migrates to schemaVersion 4', () => {
+  describe('v3 → v8', () => {
+    it('v3 character migrates to schemaVersion 8', () => {
       const raw = { ...BASE_V1, schemaVersion: 3, completedAsiLevels: [4] }
       const result = migrateCharacter(raw)
-      expect(result.schemaVersion).toBe(4)
+      expect(result.schemaVersion).toBe(8)
     })
 
-    it('v1 character also ends up at schemaVersion 4', () => {
+    it('v1 character also ends up at schemaVersion 8', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(4)
+      expect(result.schemaVersion).toBe(8)
     })
 
     it('existing character without fightingStyle gets fightingStyle: undefined', () => {
@@ -109,6 +109,31 @@ describe('migrateCharacter', () => {
       const raw = { ...BASE_V1, schemaVersion: 3, completedAsiLevels: [4], fightingStyle: 'archery' }
       const result = migrateCharacter(raw as Parameters<typeof migrateCharacter>[0])
       expect(result.fightingStyle).toBe('archery')
+    })
+  })
+
+  describe('v6 → v7 (equipment slots)', () => {
+    it('adds new equipment slots as null', () => {
+      const raw = { ...BASE_V1, schemaVersion: 6, completedAsiLevels: [4] }
+      const result = migrateCharacter(raw)
+      expect(result.equipment.helmetId).toBeNull()
+      expect(result.equipment.necklaceId).toBeNull()
+      expect(result.equipment.capeId).toBeNull()
+      expect(result.equipment.legsId).toBeNull()
+      expect(result.equipment.bootsId).toBeNull()
+      expect(result.equipment.glovesId).toBeNull()
+      expect(result.equipment.quiverId).toBeNull()
+      expect(result.equipment.ring1Id).toBeNull()
+      expect(result.equipment.ring2Id).toBeNull()
+      expect(result.equipment.amuletId).toBeNull()
+    })
+    it('preserves existing equipment slot values through migration', () => {
+      const raw = {
+        ...BASE_V1, schemaVersion: 6, completedAsiLevels: [4],
+        equipment: { ...BASE_V1.equipment, helmetId: 'leather-helm' },
+      }
+      const result = migrateCharacter(raw as Parameters<typeof migrateCharacter>[0])
+      expect(result.equipment.helmetId).toBe('leather-helm')
     })
   })
 })

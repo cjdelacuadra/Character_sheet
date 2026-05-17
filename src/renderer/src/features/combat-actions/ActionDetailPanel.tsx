@@ -8,7 +8,11 @@ import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
 import { FEATS } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_BY_ID } from '@/shared/data/fightingStylesData'
-import { ARCANE_TRADITIONS, ARCANE_TRADITION_BY_ID } from '@/shared/data/arcaneTraditonsData'
+import { SUBCLASSES, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { INVOCATIONS, maxInvocations } from '@/shared/data/invocationsData'
+import { MANEUVERS, MANEUVER_BY_ID } from '@/shared/data/maneuversData'
+import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID } from '@/shared/data/arcaneShotsData'
+import { SKILLS } from '@/shared/data/skills'
 import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
 import { SpellsPanel } from '@/features/spells/SpellsPanel'
 import type { FeatureEntry } from '@/shared/data/classFeaturesData'
@@ -16,7 +20,101 @@ import styles from './ActionDetailPanel.module.css'
 
 const CAST_SPELL_NAMES = new Set(['Cast a Spell', 'Cast a Spell (Bonus)', 'Cast a Spell (Reaction)'])
 
+const SUBCLASS_FEATURE_NAMES = new Set([
+  'Arcane Tradition', 'Otherworldly Patron', 'Divine Domain',
+  'Martial Archetype', 'Primal Path', 'Bard College', 'Druid Circle',
+  'Monastic Tradition', 'Sacred Oath', 'Ranger Archetype',
+  'Roguish Archetype', 'Sorcerous Origin',
+])
+
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
+
+interface AttackRow {
+  id: string
+  name: string
+  toHit: number | null
+  dmg: string | null
+  dmgType: string | null
+  bonusDmg: string | null
+  bonusDmgType: string | null
+}
+
+function buildAttackRows(
+  char: Character,
+  w: Weapon,
+  opts?: { offHand?: boolean; hasTWF?: boolean },
+): AttackRow[] {
+  const strMod = mod(char.abilityScores.str)
+  const dexMod = mod(char.abilityScores.dex)
+  const props = (w.properties ?? []).map(p => p.toLowerCase())
+  const isFinesse = props.includes('finesse')
+  const isTwoHanded = props.includes('two-handed')
+  const isMelee = w.rangeType !== 'Ranged'
+  const rawDmgMod = isFinesse ? Math.max(strMod, dexMod) : isMelee ? strMod : dexMod
+  const dmgMod = opts?.offHand ? (opts.hasTWF ? rawDmgMod : Math.min(0, rawDmgMod)) : rawDmgMod
+  const enchBonus = w.enchantmentBonus ?? 0
+  const duelingBonus = char.fightingStyle === 'dueling' && isMelee && !isTwoHanded && !opts?.offHand ? 2 : 0
+  const totalDmgMod = dmgMod + enchBonus + duelingBonus
+  const dmgExpr = w.damage && w.damage !== '—'
+    ? totalDmgMod > 0 ? `${w.damage}+${totalDmgMod}` : totalDmgMod < 0 ? `${w.damage}${totalDmgMod}` : w.damage
+    : w.damage ?? '—'
+
+  const rows: AttackRow[] = [{
+    id: 'normal',
+    name: 'Normal',
+    toHit: computeAttackBonus(char, w),
+    dmg: dmgExpr,
+    dmgType: w.damageType ?? null,
+    bonusDmg: w.bonusDamageDie ?? null,
+    bonusDmgType: w.bonusDamageType ?? null,
+  }]
+
+  // Versatile two-handed row (only when no off-hand melee weapon)
+  const versatileProp = props.find(p => p.startsWith('versatile ('))
+  if (versatileProp && isMelee) {
+    const versatileDieMatch = versatileProp.match(/versatile \((\d+d\d+)\)/)
+    const versatileDie = versatileDieMatch?.[1]
+    const soloMelee = char.weapons.filter(cw => cw.rangeType !== 'Ranged').length === 1
+    if (versatileDie && soloMelee) {
+      const versExpr = totalDmgMod > 0 ? `${versatileDie}+${totalDmgMod}` : totalDmgMod < 0 ? `${versatileDie}${totalDmgMod}` : versatileDie
+      rows.push({ id: 'two-handed', name: 'Two-Handed', toHit: computeAttackBonus(char, w), dmg: versExpr, dmgType: w.damageType ?? null, bonusDmg: null, bonusDmgType: null })
+    }
+  }
+
+  for (const sa of getWeaponSpecialAttacks(char, w)) {
+    let toHit: number | null = null
+    let bonusDmg: string | null = null
+    let bonusDmgType: string | null = null
+    if (sa.name === 'GWM Power Attack' || sa.name === 'Sharpshooter') {
+      toHit = -5; bonusDmg = '+10'; bonusDmgType = w.damageType ?? null
+    } else if (sa.dice) {
+      bonusDmg = sa.dice
+      bonusDmgType = sa.name === 'Sneak Attack' ? 'piercing'
+        : sa.name === 'Divine Smite' ? 'radiant'
+        : w.damageType ?? null
+    }
+    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType })
+  }
+
+  if (char.subclass === 'BattleMaster') {
+    const dieSize = char.level >= 10 ? 'd10' : 'd8'
+    for (const id of (char.battleMasterManeuvers ?? [])) {
+      const m = MANEUVER_BY_ID[id]
+      if (!m) continue
+      rows.push({
+        id: `maneuver-${id}`,
+        name: m.name,
+        toHit: null,
+        dmg: null,
+        dmgType: null,
+        bonusDmg: dieSize,
+        bonusDmgType: id === 'precision-attack' ? 'to hit' : (w.damageType ?? null),
+      })
+    }
+  }
+
+  return rows
+}
 
 interface Props {
   character: Character
@@ -37,7 +135,20 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
   const [arcanePickedLevels, setArcanePickedLevels] = useState<number[]>([])
   const [spellDetailId, setSpellDetailId] = useState<string | null>(null)
   const [pendingStyle, setPendingStyle] = useState<string | null>(null)
-  const [pendingTradition, setPendingTradition] = useState<string | null>(null)
+  const [pendingSubclass, setPendingSubclass] = useState<string | null>(null)
+  const [pendingBoon, setPendingBoon] = useState<string | null>(null)
+  const [maneuverPickerOpen, setManeuverPickerOpen] = useState(false)
+  const [arcanePickerOpen, setArcanePickerOpen] = useState(false)
+  const [activeRows, setActiveRows] = useState<Record<string, Record<string, boolean>>>({})
+  const [rollMap, setRollMap] = useState<Record<string, { d1: number; d2: number; adv: 'n' | 'a' | 'd' }>>({})
+
+  function rollWeapon(wid: string) {
+    const adv = rollMap[wid]?.adv ?? 'n'
+    setRollMap(prev => ({ ...prev, [wid]: { d1: Math.ceil(Math.random() * 20), d2: Math.ceil(Math.random() * 20), adv } }))
+  }
+  function setWeaponAdv(wid: string, adv: 'n' | 'a' | 'd') {
+    setRollMap(prev => ({ ...prev, [wid]: { ...(prev[wid] ?? { d1: 0, d2: 0 }), adv } }))
+  }
 
   const availableActions = getAvailableActions(char)
   const selectedActionDef = selectedAction ? availableActions.find(a => a.name === selectedAction) : null
@@ -368,16 +479,142 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
       )
     }
 
-    const isArcaneTradition = selectedFeature.name === 'Arcane Tradition'
-    if (isArcaneTradition) {
-      const chosen = char.subclass ? ARCANE_TRADITION_BY_ID[char.subclass] : null
+    // ── Generic subclass picker (Arcane Tradition, Otherworldly Patron, Divine Domain, etc.) ──
+    const isSubclassPicker = SUBCLASS_FEATURE_NAMES.has(selectedFeature.name)
+    if (isSubclassPicker) {
+      const candidates = SUBCLASSES.filter(s => s.classId === char.classId)
+      const chosen = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
       const isLocked = char.subclassLocked ?? false
+      const featureName = selectedFeature.name
       return (
         <>
           <ResourcesPanel character={char} update={update} />
           <div className={styles.detailPane}>
             <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Arcane Tradition</span>
+              <span className={styles.detailName}>{featureName}</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            </div>
+            {isLocked ? (
+              <>
+                {chosen && (
+                  <>
+                    <p className={styles.detailFull}><strong>{chosen.label}</strong></p>
+                    {chosen.description && <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{chosen.description}</p>}
+                  </>
+                )}
+                <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
+                  Subclass locked — this choice is permanent.
+                </p>
+              </>
+            ) : (
+              <>
+                {!chosen && !pendingSubclass && (
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your {featureName.toLowerCase()}:</p>
+                )}
+                <div className={styles.fightingStyleList}>
+                  {candidates.map(s => (
+                    <button
+                      key={s.id}
+                      className={`${styles.fightingStyleOption} ${(pendingSubclass ?? char.subclass) === s.id ? styles.fightingStyleOptionActive : ''}`}
+                      onClick={() => setPendingSubclass(s.id)}
+                    >
+                      <span className={styles.fightingStyleName}>{s.label}</span>
+                      {s.description && <span className={styles.fightingStyleDesc}>{s.description}</span>}
+                    </button>
+                  ))}
+                </div>
+                {(pendingSubclass || char.subclass) && (
+                  <button
+                    className={styles.armoryAddBtn}
+                    style={{ marginTop: 8 }}
+                    onClick={() => {
+                      update({ subclass: pendingSubclass ?? char.subclass ?? undefined, subclassLocked: true })
+                      setPendingSubclass(null)
+                    }}
+                  >
+                    Confirm {featureName}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )
+    }
+
+    // ── Eldritch Invocations ──────────────────────────────────────────
+    const isEldritchInvocations = selectedFeature.name === 'Eldritch Invocations'
+    if (isEldritchInvocations) {
+      const known = char.warlockInvocations ?? []
+      const maxKnown = maxInvocations(char.level)
+      const eligible = INVOCATIONS.filter(inv =>
+        (inv.prerequisiteLevel ?? 2) <= char.level &&
+        (!inv.prerequisite || inv.prerequisite === 'Pact of the Blade' ? char.pactBoon === 'blade' :
+          inv.prerequisite === 'Pact of the Tome' ? char.pactBoon === 'tome' : true)
+      )
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Eldritch Invocations</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            </div>
+            <div className={styles.detailResource}>{known.length} / {maxKnown} invocations known</div>
+            <div className={styles.fightingStyleList}>
+              {INVOCATIONS.map(inv => {
+                const isKnown = known.includes(inv.id)
+                const levelOk = (inv.prerequisiteLevel ?? 2) <= char.level
+                const prereqOk = !inv.prerequisite ||
+                  (inv.prerequisite === 'Pact of the Blade' && char.pactBoon === 'blade') ||
+                  (inv.prerequisite === 'Pact of the Tome' && char.pactBoon === 'tome')
+                const canAdd = !isKnown && known.length < maxKnown && levelOk && prereqOk
+                const isDisabled = !isKnown && !canAdd
+                return (
+                  <button
+                    key={inv.id}
+                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
+                    style={isDisabled ? { opacity: 0.4 } : undefined}
+                    disabled={isDisabled && !isKnown}
+                    onClick={() => {
+                      if (!levelOk || !prereqOk) return
+                      const updated = isKnown
+                        ? known.filter(id => id !== inv.id)
+                        : known.length < maxKnown ? [...known, inv.id] : known
+                      update({ warlockInvocations: updated })
+                    }}
+                  >
+                    <span className={styles.fightingStyleName}>
+                      {inv.name}
+                      {inv.prerequisite && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {inv.prerequisite}</span>}
+                      {(inv.prerequisiteLevel ?? 2) > 2 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · Level {inv.prerequisiteLevel}+</span>}
+                    </span>
+                    <span className={styles.fightingStyleDesc}>{inv.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )
+    }
+
+    // ── Pact Boon ─────────────────────────────────────────────────────
+    const isPactBoon = selectedFeature.name === 'Pact Boon'
+    if (isPactBoon) {
+      const PACT_OPTIONS = [
+        { id: 'blade', name: 'Pact of the Blade', description: 'Use your action to create a pact weapon in your empty hand. You can choose its form. It counts as magical and you are proficient with it. Disappears if it is more than 5 ft from you for 1 minute.' },
+        { id: 'chain', name: 'Pact of the Chain', description: 'Learn Find Familiar. Your familiar can take one of the following forms: imp, pseudodragon, quasit, or sprite. It can attack as a reaction while you cast a spell.' },
+        { id: 'tome', name: 'Pact of the Tome', description: 'Your patron gives you a grimoire called a Book of Shadows. It contains 3 cantrips of your choice from any class. These count as warlock spells for you.' },
+      ]
+      const isLocked = char.pactBoonLocked ?? false
+      const chosen = char.pactBoon ? PACT_OPTIONS.find(p => p.id === char.pactBoon) : null
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Pact Boon</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
             </div>
             {isLocked ? (
@@ -389,40 +626,364 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                   </>
                 )}
                 <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
-                  Tradition locked — this choice is permanent.
+                  Pact Boon locked — this choice is permanent.
                 </p>
               </>
             ) : (
               <>
-                {!chosen && !pendingTradition && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your arcane tradition:</p>
+                {!chosen && !pendingBoon && (
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your Pact Boon:</p>
                 )}
                 <div className={styles.fightingStyleList}>
-                  {ARCANE_TRADITIONS.map(t => (
+                  {PACT_OPTIONS.map(p => (
                     <button
-                      key={t.id}
-                      className={`${styles.fightingStyleOption} ${(pendingTradition ?? char.subclass) === t.id ? styles.fightingStyleOptionActive : ''}`}
-                      onClick={() => setPendingTradition(t.id)}
+                      key={p.id}
+                      className={`${styles.fightingStyleOption} ${(pendingBoon ?? char.pactBoon) === p.id ? styles.fightingStyleOptionActive : ''}`}
+                      onClick={() => setPendingBoon(p.id)}
                     >
-                      <span className={styles.fightingStyleName}>{t.name}</span>
-                      <span className={styles.fightingStyleDesc}>{t.description}</span>
+                      <span className={styles.fightingStyleName}>{p.name}</span>
+                      <span className={styles.fightingStyleDesc}>{p.description}</span>
                     </button>
                   ))}
                 </div>
-                {(pendingTradition || char.subclass) && (
+                {(pendingBoon || char.pactBoon) && (
                   <button
                     className={styles.armoryAddBtn}
                     style={{ marginTop: 8 }}
                     onClick={() => {
-                      update({ subclass: pendingTradition ?? char.subclass ?? undefined, subclassLocked: true })
-                      setPendingTradition(null)
+                      update({ pactBoon: pendingBoon ?? char.pactBoon, pactBoonLocked: true })
+                      setPendingBoon(null)
                     }}
                   >
-                    Confirm Tradition
+                    Confirm Pact Boon
                   </button>
                 )}
               </>
             )}
+          </div>
+        </>
+      )
+    }
+
+    // ── Channel Divinity ──────────────────────────────────────────────
+    const isChannelDivinity = selectedFeature.name === 'Channel Divinity (1/rest)'
+    if (isChannelDivinity) {
+      const domainAbility = char.subclass ? SUBCLASS_BY_ID[char.subclass]?.channelDivinityDesc : null
+      const cdRes = char.resources['Channel Divinity']
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Channel Divinity</span>
+              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
+            </div>
+            {cdRes && (
+              <div className={styles.detailResource}>
+                {cdRes.total - cdRes.used} / {cdRes.total} uses remaining
+              </div>
+            )}
+            {domainAbility && (
+              <>
+                <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Domain Ability</p>
+                <p className={styles.detailFull}>{domainAbility}</p>
+              </>
+            )}
+            <p className={styles.detailFull} style={{ fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Turn Undead</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
+              Each undead that can see or hear you within 30 ft must make a WIS save (DC 8 + Prof + WIS). On a failed save, the creature is turned for 1 minute.
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Rage ──────────────────────────────────────────────────────────
+    const isRage = selectedFeature.name === 'Rage'
+    if (isRage) {
+      const rageRes = char.resources['Rage']
+      const canRage = rageRes ? rageRes.used < rageRes.total : false
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Rage</span>
+              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+            </div>
+            {char.isRaging ? (
+              <div className={styles.detailResource} style={{ color: 'var(--danger, #ef4444)' }}>Currently Raging</div>
+            ) : (
+              rageRes && <div className={styles.detailResource}>{rageRes.total - rageRes.used} / {rageRes.total} rages remaining</div>
+            )}
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>While raging:</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +2 damage on STR-based weapon attacks</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on STR checks and STR saving throws</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Resistance to bludgeoning, piercing, and slashing damage</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Rage ends if you don't attack or take damage since your last turn, or you fall unconscious.</p>
+            {char.isRaging ? (
+              <button
+                className={styles.armoryAddBtn}
+                style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
+                onClick={() => update({ isRaging: false })}
+              >
+                End Rage
+              </button>
+            ) : (
+              <button
+                className={styles.armoryAddBtn}
+                style={{ marginTop: 8 }}
+                disabled={!canRage}
+                onClick={() => {
+                  if (!canRage) return
+                  const newResources = { ...char.resources }
+                  if (newResources['Rage']) newResources['Rage'] = { ...newResources['Rage'], used: newResources['Rage'].used + 1 }
+                  update({ isRaging: true, resources: newResources })
+                }}
+              >
+                Begin Raging
+              </button>
+            )}
+          </div>
+        </>
+      )
+    }
+
+    // ── Unarmored Defense ─────────────────────────────────────────────
+    const isUnarmoredDefense = selectedFeature.name === 'Unarmored Defense'
+    if (isUnarmoredDefense) {
+      const dexMod = Math.floor((char.abilityScores.dex - 10) / 2)
+      const conMod = Math.floor((char.abilityScores.con - 10) / 2)
+      const wisMod = Math.floor((char.abilityScores.wis - 10) / 2)
+      const formula = char.classId === 'Barbarian'
+        ? `10 + DEX (${dexMod >= 0 ? '+' : ''}${dexMod}) + CON (${conMod >= 0 ? '+' : ''}${conMod}) = ${10 + dexMod + conMod}`
+        : `10 + DEX (${dexMod >= 0 ? '+' : ''}${dexMod}) + WIS (${wisMod >= 0 ? '+' : ''}${wisMod}) = ${10 + dexMod + wisMod}`
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Unarmored Defense</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+            </div>
+            <div className={styles.detailResource}>Current AC: {char.armorClass}</div>
+            <p className={styles.detailFull}>Formula: {formula}</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+              Only applies when not wearing armor. A shield is still allowed.
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Wild Shape ────────────────────────────────────────────────────
+    const isWildShape = selectedFeature.name === 'Wild Shape'
+    if (isWildShape) {
+      const wsRes = char.resources['Wild Shape']
+      const isMoon = char.subclass === 'CircleOfTheMoon'
+      const crLimit = char.level >= 8 ? 'CR 1' : char.level >= 4 ? 'CR ½' : 'CR ¼'
+      const moonCr = char.level >= 9 ? 'CR ' + Math.floor(char.level / 3) : char.level >= 6 ? 'CR 2' : 'CR 1'
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Wild Shape</span>
+              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action · SR</span>
+            </div>
+            {wsRes && (
+              <div className={styles.detailResource}>{wsRes.total - wsRes.used} / {wsRes.total} uses remaining</div>
+            )}
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>
+              CR limit: <strong>{isMoon ? moonCr : crLimit}</strong>
+              {isMoon && <span style={{ color: 'var(--accent)', marginLeft: 6, fontSize: 11 }}>Circle of the Moon</span>}
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
+              {char.level < 4 ? '• No fly or swim speed' : char.level < 8 ? '• No fly speed' : '• Fly and swim speeds allowed'}
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+              You retain your personality, memories, and mental ability scores. You revert when reduced to 0 HP, you choose to, or the duration ends (hours = ½ druid level).
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Martial Arts ──────────────────────────────────────────────────
+    const isMartialArts = selectedFeature.name === 'Martial Arts'
+    if (isMartialArts) {
+      const die = char.level >= 17 ? 'd10' : char.level >= 11 ? 'd8' : char.level >= 5 ? 'd6' : 'd4'
+      const dexMod = Math.floor((char.abilityScores.dex - 10) / 2)
+      const strMod = Math.floor((char.abilityScores.str - 10) / 2)
+      const atkMod = Math.max(strMod, dexMod) + char.proficiencyBonus
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Martial Arts</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+            </div>
+            <div className={styles.detailResource}>Unarmed die: <strong>{die}</strong> · Attack: {atkMod >= 0 ? '+' : ''}{atkMod}</div>
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>
+              You can use DEX instead of STR for unarmed strikes and monk weapons. Your unarmed strikes use the {die} damage die.
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+              Die scales: d4 (1–4) → d6 (5–10) → d8 (11–16) → d10 (17–20)
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Ki abilities (Flurry, Patient Defense, Step of the Wind) ─────
+    const isKiAbility = ['Flurry of Blows', 'Patient Defense', 'Step of the Wind'].includes(selectedFeature.name)
+    if (isKiAbility) {
+      const kiRes = char.resources['Ki']
+      const desc: Record<string, string> = {
+        'Flurry of Blows': 'Immediately after you take the Attack action on your turn, make two unarmed strikes as a bonus action.',
+        'Patient Defense': 'Take the Dodge action as a bonus action. Until the start of your next turn, attack rolls against you have disadvantage, and you make DEX saves with advantage.',
+        'Step of the Wind': 'Take the Disengage or Dash action as a bonus action. Your jump distance is also doubled for the turn.',
+      }
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>{selectedFeature.name}</span>
+              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus · 1 Ki</span>
+            </div>
+            {kiRes && (
+              <div className={styles.detailResource}>{kiRes.total - kiRes.used} / {kiRes.total} Ki remaining</div>
+            )}
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>{desc[selectedFeature.name]}</p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Bardic Inspiration ────────────────────────────────────────────
+    const isBardicInspiration = selectedFeature.name === 'Bardic Inspiration'
+    if (isBardicInspiration) {
+      const die = char.level >= 15 ? 'd12' : char.level >= 10 ? 'd10' : char.level >= 5 ? 'd8' : 'd6'
+      const biRes = char.resources['Bardic Inspiration']
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Bardic Inspiration</span>
+              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+            </div>
+            <div className={styles.detailResource}>
+              Inspiration die: <strong>{die}</strong>
+              {biRes && ` · ${biRes.total - biRes.used} / ${biRes.total} uses`}
+            </div>
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>
+              Choose one creature other than yourself within 60 ft that can hear you. That creature gains one Bardic Inspiration die ({die}).
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
+              The creature can add the die to one ability check, attack roll, or saving throw within the next 10 minutes. Only one die at a time.
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+              Die scales: d6 (1–4) → d8 (5–9) → d10 (10–14) → d12 (15+)
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Reckless Attack ───────────────────────────────────────────────
+    const isRecklessAttack = selectedFeature.name === 'Reckless Attack'
+    if (isRecklessAttack) {
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Reckless Attack</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+            </div>
+            <p className={styles.detailFull}>
+              When you make your first attack on your turn, you can choose to attack recklessly. Doing so gives you advantage on melee weapon attack rolls using Strength this turn.
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>
+              Until the start of your next turn, attack rolls against you also have advantage.
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Danger Sense ─────────────────────────────────────────────────
+    const isDangerSense = selectedFeature.name === 'Danger Sense'
+    if (isDangerSense) {
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Danger Sense</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+            </div>
+            <p className={styles.detailFull}>
+              You have advantage on Dexterity saving throws against effects that you can see, such as traps and spells.
+            </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>
+              Does not apply if you are blinded, deafened, or incapacitated.
+            </p>
+          </div>
+        </>
+      )
+    }
+
+    // ── Expertise ─────────────────────────────────────────────────────
+    const isExpertise = selectedFeature.name === 'Expertise'
+    if (isExpertise) {
+      const maxExpertise = char.classId === 'Rogue'
+        ? (char.level >= 6 ? 4 : 2)
+        : char.classId === 'Bard'
+        ? (char.level >= 10 ? 4 : 2)
+        : 2
+      const currentExpertCount = Object.values(char.skillProficiencies).filter(v => v === 'expert').length
+      const proficientSkills = SKILLS.filter(s => char.skillProficiencies[s.key])
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Expertise</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            </div>
+            <div className={styles.detailResource}>{currentExpertCount} / {maxExpertise} expertise slots used</div>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
+              Click a proficient skill to upgrade it to expertise (double proficiency). Click an expert skill to revert.
+            </p>
+            <div className={styles.masterySpellGrid}>
+              {proficientSkills.map(s => {
+                const state = char.skillProficiencies[s.key]
+                const isExpert = state === 'expert'
+                const canUpgrade = !isExpert && currentExpertCount < maxExpertise
+                return (
+                  <button
+                    key={s.key}
+                    className={`${styles.masterySpellChip} ${isExpert ? styles.masterySpellChipActive : ''}`}
+                    disabled={!isExpert && !canUpgrade}
+                    style={!isExpert && !canUpgrade ? { opacity: 0.4 } : undefined}
+                    onClick={() => {
+                      const newProfs = { ...char.skillProficiencies }
+                      newProfs[s.key] = isExpert ? 'proficient' : 'expert'
+                      update({ skillProficiencies: newProfs })
+                    }}
+                  >
+                    {s.label}{isExpert ? ' ★' : ''}
+                  </button>
+                )
+              })}
+              {proficientSkills.length === 0 && (
+                <span className={styles.masterySpellEmpty}>No proficient skills yet.</span>
+              )}
+            </div>
           </div>
         </>
       )
@@ -502,88 +1063,100 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
 
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionLabel}>Weapons</span>
-            <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add</button>
+        {char.weapons.length === 0 && (
+          <div className={styles.noWeaponsHint}>
+            No weapons equipped —{' '}
+            <button className={styles.addWeaponLink} onClick={() => setArmoryOpen(true)}>add a weapon</button>
           </div>
-          <table className={styles.weaponTable}>
-            <thead>
-              <tr>
-                <th className={styles.wthName}>Name</th>
-                <th className={styles.wthAtk}>Atk</th>
-                <th className={styles.wthDmg}>Damage</th>
-                <th className={styles.wthType}>Type</th>
-                <th className={styles.wthRange}>Range</th>
-                <th className={styles.wthDel} />
-              </tr>
-            </thead>
-            <tbody>
-              {char.weapons.map(w => {
-                const computed = computeAttackBonus(char, w)
-                const proficient = isProficientWithWeapon(char, w)
-                const rangeLabel = w.rangeType === 'Melee' ? 'Melee' : w.rangeType === 'Ranged' ? 'Ranged' : w.rangeType === 'Melee or Ranged' ? 'M/R' : '—'
-                return (
-                  <tr key={w.id} className={styles.weaponRow}>
-                    <td className={styles.weaponName}>{w.name}</td>
-                    <td className={styles.weaponAtk} style={proficient ? undefined : { opacity: 0.5 }}>
-                      {fmtMod(computed)}
-                      {!proficient && <span title="Not proficient"> ⚠</span>}
-                    </td>
-                    <td className={styles.weaponDmg}>
-                      {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
-                      {w.damage}
-                    </td>
-                    <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
-                    <td className={styles.weaponDmg}>{rangeLabel}</td>
-                    <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
-                  </tr>
-                )
-              })}
-              {char.weapons.length === 0 && (
-                <tr><td colSpan={6} className={styles.weaponEmpty}>No weapons — click + Add</td></tr>
-              )}
-            </tbody>
-          </table>
-        </section>
+        )}
 
         {char.weapons.length > 0 && (
           <div className={styles.attackDetailWeapons}>
+            <div className={styles.attackDetailWeaponsHead}>
+              <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add weapon</button>
+            </div>
             {char.weapons.map(w => {
-              const atk = computeAttackBonus(char, w)
-              const strMod = mod(char.abilityScores.str)
-              const dexMod = mod(char.abilityScores.dex)
-              const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
-              const dmgMod = isFinesse ? Math.max(strMod, dexMod) : w.rangeType === 'Ranged' ? dexMod : strMod
-              const enchBonus = w.enchantmentBonus ?? 0
-              const isTwoHanded = (w.properties ?? []).some(p => p.toLowerCase() === 'two-handed')
-              const isWeaponMelee = w.rangeType !== 'Ranged'
-              const duelingBonus = char.fightingStyle === 'dueling' && isWeaponMelee && !isTwoHanded ? 2 : 0
-              const totalDmgMod = dmgMod + enchBonus + duelingBonus
-              const dmgExpr = w.damage && w.damage !== '—'
-                ? totalDmgMod >= 0 ? `${w.damage}+${totalDmgMod}` : `${w.damage}${totalDmgMod}`
-                : w.damage ?? '—'
-              const wAtks = getWeaponSpecialAttacks(char, w)
+              const rows = buildAttackRows(char, w)
+              const wActive = activeRows[w.id] ?? {}
+              const isActive = (rid: string) => rid === 'normal' ? true : (wActive[rid] ?? false)
+              function toggleActive(rid: string) {
+                if (rid === 'normal') return
+                setActiveRows(prev => ({
+                  ...prev,
+                  [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) }
+                }))
+              }
+              const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
+              const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
+              const normalRow = rows.find(r => r.id === 'normal')
+              const totalDmg = normalRow?.dmg ?? '—'
+              const totalDmgType = normalRow?.dmgType ?? '—'
+              const bonusParts = rows
+                .filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit')
+                .map(r => r.bonusDmg as string)
+              const totalBonusDmg = bonusParts.length > 0 ? bonusParts.join(' + ') : '—'
+              const rollState = rollMap[w.id]
+              const adv = rollState?.adv ?? 'n'
+              const d20 = rollState
+                ? adv === 'a' ? Math.max(rollState.d1, rollState.d2)
+                : adv === 'd' ? Math.min(rollState.d1, rollState.d2)
+                : rollState.d1
+                : null
               return (
-                <div key={w.id} className={styles.attackDetailCard}>
-                  <div className={styles.attackDetailCardName}>{w.name}</div>
-                  <div className={styles.attackDetailCardStats}>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {fmtMod(atk)}</span>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Dmg</span> {parseDieType(w.damage ?? '') && <DiceIcon die={parseDieType(w.damage ?? '')!} size={14} />} {dmgExpr} {w.damageType ?? ''}</span>
-                    {w.bonusDamageDie && <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>+</span>{w.bonusDamageDie} {w.bonusDamageType ?? ''}</span>}
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Range</span> {w.rangeType ?? 'Melee'}</span>
-                  </div>
-                  {wAtks.length > 0 && (
-                    <div className={styles.weaponSpecialList}>
-                      {wAtks.map(sa => (
-                        <div key={sa.name} className={styles.weaponSpecialRow}>
-                          <span className={styles.weaponSpecialName}>{sa.name}</span>
-                          {sa.dice && <span className={styles.weaponSpecialDice}>{sa.dice}</span>}
-                          <span className={styles.weaponSpecialNote}>{sa.note}</span>
-                        </div>
-                      ))}
+                <div key={w.id} className={styles.attackBreakdownSection}>
+                  <div className={styles.attackBreakdownHead}>
+                    <span>{w.name}</span>
+                    <div className={styles.attackHeadActions}>
+                      <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
+                      <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
+                      <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
+                      <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
+                      <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
                     </div>
-                  )}
+                  </div>
+                  <table className={styles.attackBreakdownTable}>
+                    <thead>
+                      <tr>
+                        <th>Attack</th>
+                        <th>To Hit</th>
+                        <th>DMG</th>
+                        <th>DMG Type</th>
+                        <th>Bonus DMG</th>
+                        <th>Bonus Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(row => (
+                        <tr
+                          key={row.id}
+                          className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
+                          onClick={() => toggleActive(row.id)}
+                        >
+                          <td>{row.name}</td>
+                          <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                          <td>{row.dmg ?? '—'}</td>
+                          <td>{row.dmgType ?? '—'}</td>
+                          <td>{row.bonusDmg ?? '—'}</td>
+                          <td>{row.bonusDmgType ?? '—'}</td>
+                        </tr>
+                      ))}
+                      <tr className={styles.attackBreakdownTotalRow}>
+                        <td>Total</td>
+                        <td>
+                          {d20 !== null && totalToHit !== null
+                            ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}`
+                            : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                          {rollState && adv !== 'n' && (
+                            <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
+                          )}
+                        </td>
+                        <td>{totalDmg}</td>
+                        <td>{totalDmgType}</td>
+                        <td>{totalBonusDmg}</td>
+                        <td>—</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               )
             })}
@@ -612,6 +1185,115 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 })}
               </div>
             )}
+            {char.subclass === 'BattleMaster' && (() => {
+              const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
+              const dieSize = char.level >= 10 ? 'd10' : 'd8'
+              const usedDice = char.superiorityDiceUsed ?? 0
+              const leftDice = Math.max(0, totalDice - usedDice)
+              const dc = 8 + char.proficiencyBonus + mod(char.abilityScores.str)
+              const selectedManeuvers = char.battleMasterManeuvers ?? []
+              const maxManeuvers = char.level >= 15 ? 9 : char.level >= 7 ? 5 : 3
+              return (
+                <div className={styles.specialAttackList}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className={styles.sectionLabel}>
+                      Maneuvers · DC {dc} · {leftDice}/{totalDice} {dieSize}
+                    </span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {leftDice > 0 && (
+                        <button
+                          className={styles.addBtn}
+                          onClick={() => update({ superiorityDiceUsed: Math.min(totalDice, usedDice + 1) })}
+                          title="Use a Superiority Die"
+                        >Use Die</button>
+                      )}
+                      {usedDice > 0 && (
+                        <button
+                          className={styles.addBtn}
+                          onClick={() => update({ superiorityDiceUsed: Math.max(0, usedDice - 1) })}
+                          title="Recover a Superiority Die"
+                        >Recover</button>
+                      )}
+                      {selectedManeuvers.length < maxManeuvers && (
+                        <button className={styles.addBtn} onClick={() => setManeuverPickerOpen(true)}>+ Maneuvers</button>
+                      )}
+                    </div>
+                  </div>
+                  {selectedManeuvers.map(id => {
+                    const m = MANEUVER_BY_ID[id]
+                    if (!m) return null
+                    return (
+                      <div key={id} className={styles.weaponSpecialRow}>
+                        <span className={styles.weaponSpecialName}>{m.name}</span>
+                        <button
+                          className={styles.weaponDel}
+                          onClick={() => update({ battleMasterManeuvers: selectedManeuvers.filter(x => x !== id) })}
+                          title="Remove maneuver"
+                        >×</button>
+                        <span className={styles.weaponSpecialNote}>{m.desc}</span>
+                      </div>
+                    )
+                  })}
+                  {selectedManeuvers.length === 0 && (
+                    <span className={styles.emptyNote}>No maneuvers selected — click + Maneuvers to choose.</span>
+                  )}
+                </div>
+              )
+            })()}
+            {char.subclass === 'ArcaneArcher' && (() => {
+              const totalShots = char.level >= 18 ? 4 : 2
+              const arcaneResource = char.resources['Arcane Shot']
+              const usedShots = arcaneResource?.used ?? 0
+              const leftShots = Math.max(0, totalShots - usedShots)
+              const selectedShots = char.arcaneShots ?? []
+              const maxShots = char.level >= 18 ? 6 : char.level >= 15 ? 5 : char.level >= 10 ? 4 : char.level >= 7 ? 3 : 2
+              return (
+                <div className={styles.specialAttackList}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className={styles.sectionLabel}>
+                      Arcane Shots · {leftShots}/{totalShots}
+                    </span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {leftShots > 0 && (
+                        <button
+                          className={styles.addBtn}
+                          onClick={() => update({ resources: { ...char.resources, 'Arcane Shot': { total: totalShots, used: Math.min(totalShots, usedShots + 1) } } })}
+                          title="Use an Arcane Shot"
+                        >Use Shot</button>
+                      )}
+                      {usedShots > 0 && (
+                        <button
+                          className={styles.addBtn}
+                          onClick={() => update({ resources: { ...char.resources, 'Arcane Shot': { total: totalShots, used: Math.max(0, usedShots - 1) } } })}
+                          title="Recover an Arcane Shot"
+                        >Recover</button>
+                      )}
+                      {selectedShots.length < maxShots && (
+                        <button className={styles.addBtn} onClick={() => setArcanePickerOpen(true)}>+ Choose Shots</button>
+                      )}
+                    </div>
+                  </div>
+                  {selectedShots.map(id => {
+                    const s = ARCANE_SHOT_BY_ID[id]
+                    if (!s) return null
+                    return (
+                      <div key={id} className={styles.weaponSpecialRow}>
+                        <span className={styles.weaponSpecialName}>{s.name}</span>
+                        <button
+                          className={styles.weaponDel}
+                          onClick={() => update({ arcaneShots: selectedShots.filter(x => x !== id) })}
+                          title="Remove shot"
+                        >×</button>
+                        <span className={styles.weaponSpecialNote}>{s.desc}</span>
+                      </div>
+                    )
+                  })}
+                  {selectedShots.length === 0 && (
+                    <span className={styles.emptyNote}>No arcane shots selected — click + Choose Shots.</span>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -640,6 +1322,58 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             </div>
           )
         })()}
+
+        {maneuverPickerOpen && (
+          <div className={styles.modalOverlay} onClick={() => setManeuverPickerOpen(false)}>
+            <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.armoryHeader}>
+                <span className={styles.armoryTitle}>Choose Maneuvers</span>
+                <button className={styles.modalClose} onClick={() => setManeuverPickerOpen(false)}>×</button>
+              </div>
+              <div className={styles.armoryList}>
+                {MANEUVERS.filter(m => !(char.battleMasterManeuvers ?? []).includes(m.id)).map(m => (
+                  <button
+                    key={m.id}
+                    className={styles.armoryEntry}
+                    onClick={() => {
+                      update({ battleMasterManeuvers: [...(char.battleMasterManeuvers ?? []), m.id] })
+                      setManeuverPickerOpen(false)
+                    }}
+                  >
+                    <span className={styles.armoryEntryName}>{m.name}</span>
+                    <span className={styles.armoryEntryMeta}>{m.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {arcanePickerOpen && (
+          <div className={styles.modalOverlay} onClick={() => setArcanePickerOpen(false)}>
+            <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.armoryHeader}>
+                <span className={styles.armoryTitle}>Choose Arcane Shots</span>
+                <button className={styles.modalClose} onClick={() => setArcanePickerOpen(false)}>×</button>
+              </div>
+              <div className={styles.armoryList}>
+                {ARCANE_SHOTS.filter(s => !(char.arcaneShots ?? []).includes(s.id)).map(s => (
+                  <button
+                    key={s.id}
+                    className={styles.armoryEntry}
+                    onClick={() => {
+                      update({ arcaneShots: [...(char.arcaneShots ?? []), s.id] })
+                      setArcanePickerOpen(false)
+                    }}
+                  >
+                    <span className={styles.armoryEntryName}>{s.name}</span>
+                    <span className={styles.armoryEntryMeta}>{s.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {armoryOpen && (
           <div className={styles.modalOverlay} onClick={() => setArmoryOpen(false)}>
@@ -722,6 +1456,58 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
     return renderArcaneRecovery(selectedActionDef.full)
   }
 
+  // FIGHTING SPIRIT — Samurai usage tracker
+  if (selectedAction === 'Fighting Spirit') {
+    const total = 3
+    const res = char.resources?.['Fighting Spirit']
+    const used = res?.used ?? 0
+    const left = Math.max(0, total - used)
+    const tempHp = char.level >= 15 ? 15 : char.level >= 10 ? 10 : 5
+    return (
+      <>
+        <div className={styles.detailPane}>
+          <div className={styles.detailHeader}>
+            <span className={styles.detailName}>{selectedActionDef.name}</span>
+            <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>{selectedActionDef.type}</span>
+          </div>
+          <p className={styles.detailFull}>{selectedActionDef.full}</p>
+          <div className={styles.detailResource}>
+            <span>{left}/{total} uses</span>
+            <span className={styles.detailResourceRemaining}>· +{tempHp} temp HP · Long rest recharge</span>
+          </div>
+        </div>
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionLabel}>Usage</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {left > 0 && (
+                <button className={styles.addBtn}
+                  onClick={() => update({ resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.min(total, used + 1) } } })}>
+                  Use
+                </button>
+              )}
+              {used > 0 && (
+                <button className={styles.addBtn}
+                  onClick={() => update({ resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.max(0, used - 1) } } })}>
+                  Recover
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, paddingTop: 4 }}>
+            {Array.from({ length: total }, (_, i) => (
+              <span key={i} style={{
+                width: 10, height: 10, borderRadius: '50%',
+                background: i < (total - used) ? 'var(--accent)' : 'var(--border)',
+                border: '1px solid var(--border)',
+              }} />
+            ))}
+          </div>
+        </section>
+      </>
+    )
+  }
+
   // OPPORTUNITY ATTACK — melee weapons only
   if (selectedAction === 'Opportunity Attack') {
     const meleeWeapons = char.weapons.filter(w => w.rangeType !== 'Ranged')
@@ -737,91 +1523,67 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
 
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionLabel}>Melee Weapons</span>
-          </div>
-          <table className={styles.weaponTable}>
-            <thead>
-              <tr>
-                <th className={styles.wthName}>Name</th>
-                <th className={styles.wthAtk}>Atk</th>
-                <th className={styles.wthDmg}>Damage</th>
-                <th className={styles.wthType}>Type</th>
-                <th className={styles.wthRange}>Range</th>
-                <th className={styles.wthDel} />
-              </tr>
-            </thead>
-            <tbody>
-              {meleeWeapons.map(w => {
-                const computed = computeAttackBonus(char, w)
-                const proficient = isProficientWithWeapon(char, w)
-                return (
-                  <tr key={w.id} className={styles.weaponRow}>
-                    <td className={styles.weaponName}>{w.name}</td>
-                    <td className={styles.weaponAtk} style={proficient ? undefined : { opacity: 0.5 }}>
-                      {fmtMod(computed)}
-                      {!proficient && <span title="Not proficient"> ⚠</span>}
-                    </td>
-                    <td className={styles.weaponDmg}>
-                      {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
-                      {w.damage}
-                    </td>
-                    <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
-                    <td className={styles.weaponDmg}>Melee</td>
-                    <td />
-                  </tr>
-                )
-              })}
-              {meleeWeapons.length === 0 && (
-                <tr><td colSpan={6} className={styles.weaponEmpty}>No melee weapons equipped.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-
-        {meleeWeapons.length > 0 && (
-          <div className={styles.attackDetailWeapons}>
-            {meleeWeapons.map(w => {
-              const atk = computeAttackBonus(char, w)
-              const strMod = mod(char.abilityScores.str)
-              const dexMod = mod(char.abilityScores.dex)
-              const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
-              const dmgMod = isFinesse ? Math.max(strMod, dexMod) : strMod
-              const enchBonus = w.enchantmentBonus ?? 0
-              const isTwoHanded = (w.properties ?? []).some(p => p.toLowerCase() === 'two-handed')
-              const duelingBonus = char.fightingStyle === 'dueling' && !isTwoHanded ? 2 : 0
-              const totalDmgMod = dmgMod + enchBonus + duelingBonus
-              const dmgExpr = w.damage && w.damage !== '—'
-                ? totalDmgMod === 0 ? w.damage
-                  : totalDmgMod > 0 ? `${w.damage}+${totalDmgMod}` : `${w.damage}${totalDmgMod}`
-                : w.damage ?? '—'
-              const wAtks = getWeaponSpecialAttacks(char, w)
-              return (
-                <div key={w.id} className={styles.attackDetailCard}>
-                  <div className={styles.attackDetailCardName}>{w.name}</div>
-                  <div className={styles.attackDetailCardStats}>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {fmtMod(atk)}</span>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Dmg</span> {parseDieType(w.damage ?? '') && <DiceIcon die={parseDieType(w.damage ?? '')!} size={14} />} {dmgExpr} {w.damageType ?? ''}</span>
-                    {w.bonusDamageDie && <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>+</span>{w.bonusDamageDie} {w.bonusDamageType ?? ''}</span>}
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Range</span> Melee</span>
-                  </div>
-                  {wAtks.length > 0 && (
-                    <div className={styles.weaponSpecialList}>
-                      {wAtks.map(sa => (
-                        <div key={sa.name} className={styles.weaponSpecialRow}>
-                          <span className={styles.weaponSpecialName}>{sa.name}</span>
-                          {sa.dice && <span className={styles.weaponSpecialDice}>{sa.dice}</span>}
-                          <span className={styles.weaponSpecialNote}>{sa.note}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        {meleeWeapons.length === 0 && (
+          <div className={styles.noWeaponsHint}>No melee weapons equipped.</div>
         )}
+
+        <div className={styles.attackDetailWeapons}>
+          {meleeWeapons.map(w => {
+            const rows = buildAttackRows(char, w)
+            const wActive = activeRows[w.id] ?? {}
+            const isActive = (rid: string) => rid === 'normal' ? true : (wActive[rid] ?? false)
+            function toggleActive(rid: string) {
+              if (rid === 'normal') return
+              setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
+            }
+            const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
+            const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
+            const normalRow = rows.find(r => r.id === 'normal')
+            const bonusParts = rows.filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit').map(r => r.bonusDmg as string)
+            const rollState = rollMap[w.id]
+            const adv = rollState?.adv ?? 'n'
+            const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
+            return (
+              <div key={w.id} className={styles.attackBreakdownSection}>
+                <div className={styles.attackBreakdownHead}>
+                  <span>{w.name}</span>
+                  <div className={styles.attackHeadActions}>
+                    <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
+                    <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
+                    <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
+                    <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
+                  </div>
+                </div>
+                <table className={styles.attackBreakdownTable}>
+                  <thead>
+                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr key={row.id}
+                        className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
+                        onClick={() => toggleActive(row.id)}
+                      >
+                        <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
+                        <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownTotalRow}>
+                      <td>Total</td>
+                      <td>
+                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                        {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
+                      </td>
+                      <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>
+                      <td>{bonusParts.length > 0 ? bonusParts.join(' + ') : '—'}</td><td>—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
       </>
     )
   }
@@ -852,94 +1614,67 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           )}
         </div>
 
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <span className={styles.sectionLabel}>Light Melee Weapons</span>
-          </div>
-          <table className={styles.weaponTable}>
-            <thead>
-              <tr>
-                <th className={styles.wthName}>Name</th>
-                <th className={styles.wthAtk}>Atk</th>
-                <th className={styles.wthDmg}>Damage</th>
-                <th className={styles.wthType}>Type</th>
-                <th className={styles.wthDel} />
-              </tr>
-            </thead>
-            <tbody>
-              {offHandWeapons.map(w => {
-                const computed = computeAttackBonus(char, w)
-                const proficient = isProficientWithWeapon(char, w)
-                const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
-                const abilityMod = isFinesse ? Math.max(strMod, dexMod) : strMod
-                const abilityModForOffhand = hasTWF ? abilityMod : Math.min(0, abilityMod)
-                const enchBonus = w.enchantmentBonus ?? 0
-                const totalDmgMod = abilityModForOffhand + enchBonus
-                const dmgExpr = w.damage && w.damage !== '—'
-                  ? totalDmgMod === 0 ? w.damage
-                    : totalDmgMod > 0 ? `${w.damage}+${totalDmgMod}` : `${w.damage}${totalDmgMod}`
-                  : w.damage ?? '—'
-                return (
-                  <tr key={w.id} className={styles.weaponRow}>
-                    <td className={styles.weaponName}>{w.name}</td>
-                    <td className={styles.weaponAtk} style={proficient ? undefined : { opacity: 0.5 }}>
-                      {fmtMod(computed)}
-                      {!proficient && <span title="Not proficient"> ⚠</span>}
-                    </td>
-                    <td className={styles.weaponDmg}>
-                      {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
-                      {dmgExpr}
-                    </td>
-                    <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
-                    <td />
-                  </tr>
-                )
-              })}
-              {offHandWeapons.length === 0 && (
-                <tr><td colSpan={5} className={styles.weaponEmpty}>No light melee weapons equipped.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-
-        {offHandWeapons.length > 0 && (
-          <div className={styles.attackDetailWeapons}>
-            {offHandWeapons.map(w => {
-              const atk = computeAttackBonus(char, w)
-              const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
-              const abilityMod = isFinesse ? Math.max(strMod, dexMod) : strMod
-              const abilityModForOffhand = hasTWF ? abilityMod : Math.min(0, abilityMod)
-              const enchBonus = w.enchantmentBonus ?? 0
-              const totalDmgMod = abilityModForOffhand + enchBonus
-              const dmgExpr = w.damage && w.damage !== '—'
-                ? totalDmgMod === 0 ? w.damage
-                  : totalDmgMod > 0 ? `${w.damage}+${totalDmgMod}` : `${w.damage}${totalDmgMod}`
-                : w.damage ?? '—'
-              const wAtks = getWeaponSpecialAttacks(char, w)
-              return (
-                <div key={w.id} className={styles.attackDetailCard}>
-                  <div className={styles.attackDetailCardName}>{w.name}</div>
-                  <div className={styles.attackDetailCardStats}>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {fmtMod(atk)}</span>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Dmg</span> {parseDieType(w.damage ?? '') && <DiceIcon die={parseDieType(w.damage ?? '')!} size={14} />} {dmgExpr} {w.damageType ?? ''}</span>
-                    <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Range</span> Melee</span>
-                  </div>
-                  {wAtks.length > 0 && (
-                    <div className={styles.weaponSpecialList}>
-                      {wAtks.map(sa => (
-                        <div key={sa.name} className={styles.weaponSpecialRow}>
-                          <span className={styles.weaponSpecialName}>{sa.name}</span>
-                          {sa.dice && <span className={styles.weaponSpecialDice}>{sa.dice}</span>}
-                          <span className={styles.weaponSpecialNote}>{sa.note}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+        {offHandWeapons.length === 0 && (
+          <div className={styles.noWeaponsHint}>No light melee weapons equipped.</div>
         )}
+
+        <div className={styles.attackDetailWeapons}>
+          {offHandWeapons.map(w => {
+            const rows = buildAttackRows(char, w, { offHand: true, hasTWF })
+            const wActive = activeRows[w.id] ?? {}
+            const isActive = (rid: string) => rid === 'normal' ? true : (wActive[rid] ?? false)
+            function toggleActive(rid: string) {
+              if (rid === 'normal') return
+              setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
+            }
+            const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
+            const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
+            const normalRow = rows.find(r => r.id === 'normal')
+            const bonusParts = rows.filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit').map(r => r.bonusDmg as string)
+            const rollState = rollMap[w.id]
+            const adv = rollState?.adv ?? 'n'
+            const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
+            return (
+              <div key={w.id} className={styles.attackBreakdownSection}>
+                <div className={styles.attackBreakdownHead}>
+                  <span>{w.name}</span>
+                  <div className={styles.attackHeadActions}>
+                    <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
+                    <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
+                    <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
+                    <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
+                  </div>
+                </div>
+                <table className={styles.attackBreakdownTable}>
+                  <thead>
+                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr key={row.id}
+                        className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
+                        onClick={() => toggleActive(row.id)}
+                      >
+                        <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
+                        <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownTotalRow}>
+                      <td>Total</td>
+                      <td>
+                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                        {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
+                      </td>
+                      <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>
+                      <td>{bonusParts.length > 0 ? bonusParts.join(' + ') : '—'}</td><td>—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
       </>
     )
   }

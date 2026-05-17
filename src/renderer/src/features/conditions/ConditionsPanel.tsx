@@ -51,7 +51,12 @@ export function ConditionsPanel({ character: char, update }: Props) {
         </div>
       )}
       <div className={styles.condTags}>
-        {char.conditionIds.length === 0 && !open && (
+        {char.isRaging && (
+          <div className={`${styles.condTag} ${styles.condTagRage}`} title="Rage is active">
+            raging — +{char.level >= 16 ? 4 : char.level >= 9 ? 3 : 2} dmg · resistance: B/P/S · adv STR
+          </div>
+        )}
+        {char.conditionIds.length === 0 && !open && !char.isRaging && (
           <span className={styles.emptyNote}>None</span>
         )}
         {char.conditionIds.map(c => (

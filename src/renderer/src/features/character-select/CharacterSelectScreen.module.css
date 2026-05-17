@@ -170,7 +170,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -580,6 +580,11 @@
   color: var(--text-muted);
 }
 
+.validationHint {
+  color: var(--warning);
+  font-weight: 700;
+}
+
 .armorGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -638,6 +643,9 @@
 }
 
 .shieldToggle input { cursor: pointer; accent-color: var(--accent); }
+
+.shieldRow { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.shieldLabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
 
 .skillChoices {
   display: flex;
@@ -716,6 +724,13 @@
 
 .spellChoiceSelected .spellChoiceMeta { color: var(--text-secondary); }
 
+.spellAboveSlotNote {
+  font-size: 9px;
+  color: var(--warning);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
 /* ── STARTER PACKS ── */
 .starterPackGrid {
   display: flex;
@@ -739,12 +754,16 @@
 .starterPackBtn:hover { background: var(--accent-dim); }
 
 /* ── WEAPON CHOICES (step 3) ── */
+.weaponRangeLabel {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-muted); margin: 8px 0 3px;
+}
+.weaponRangeLabel:first-child { margin-top: 0; }
+
 .weaponGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 6px;
-  max-height: 260px;
-  overflow-y: auto;
 }
 
 .weaponOption {

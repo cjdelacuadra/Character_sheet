@@ -4,6 +4,7 @@ import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
 import { mod, computeAC, computeMaxHP } from '@/shared/data/charCalculations'
 import { RACE_BY_ID } from '@/shared/data/raceData'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -62,9 +63,25 @@ export function AbilitiesPanel({ character: char, update }: Props) {
     update({ skillProficiencies: updated })
   }
 
+  const featAsiMap: Partial<Record<AbilityScore, string[]>> = {}
+  for (const featId of char.feats) {
+    const def = FEAT_BY_ID[featId]
+    if (def?.abilityBonus) {
+      for (const [ab, bonus] of Object.entries(def.abilityBonus) as [AbilityScore, number][]) {
+        if (bonus) {
+          if (!featAsiMap[ab]) featAsiMap[ab] = []
+          featAsiMap[ab]!.push(`+${bonus} ${def.name}`)
+        }
+      }
+    }
+  }
+
+  const hasJoAT = char.classId === 'Bard' && char.level >= 2
+  const joatBonus = hasJoAT ? Math.floor(prof / 2) : 0
+
   const passivePerception = 10 + mod(char.abilityScores.wis) +
     (char.skillProficiencies['perception'] === 'expert' ? prof * 2 :
-     char.skillProficiencies['perception'] === 'proficient' ? prof : 0)
+     char.skillProficiencies['perception'] === 'proficient' ? prof : joatBonus)
 
   return (
     <>
@@ -98,6 +115,9 @@ export function AbilitiesPanel({ character: char, update }: Props) {
                   <span className={styles.abilityScoreNum}>{val}</span>
                 )}
               </div>
+              {featAsiMap[key]?.map((note, i) => (
+                <span key={i} className={styles.featAsiBadge}>{note}</span>
+              ))}
               <span className={styles.abilityName}>{ABILITY_LABELS[key]}</span>
             </div>
           )
@@ -144,7 +164,7 @@ export function AbilitiesPanel({ character: char, update }: Props) {
           {SKILLS.map(({ key, label, ability }) => {
             const state = char.skillProficiencies[key] ?? 'none'
             const bonus = mod(char.abilityScores[ability]) +
-              (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
+              (state === 'none' ? joatBonus : state === 'proficient' ? prof : prof * 2)
             const isSel = selectedDetail?.type === 'skill' && selectedDetail.key === key
             return (
               <div
@@ -160,7 +180,7 @@ export function AbilitiesPanel({ character: char, update }: Props) {
                 <span className={styles.skillLabel}>{label}</span>
                 <span className={styles.skillAb}>{ability.toUpperCase()}</span>
                 <span className={styles.skillFormula}>
-                  d20{fmtMod(mod(char.abilityScores[ability]))}{state !== 'none' ? `+${state === 'expert' ? prof * 2 : prof}${state === 'expert' ? 'e' : 'p'}` : ''}
+                  d20{fmtMod(mod(char.abilityScores[ability]))}{state !== 'none' ? `+${state === 'expert' ? prof * 2 : prof}${state === 'expert' ? 'e' : 'p'}` : (hasJoAT ? `+${joatBonus}j` : '')}
                 </span>
               </div>
             )
@@ -195,14 +215,14 @@ export function AbilitiesPanel({ character: char, update }: Props) {
         const skill = SKILLS.find(s => s.key === selectedDetail.key)!
         const state = char.skillProficiencies[skill.key] ?? 'none'
         const abilMod = mod(char.abilityScores[skill.ability])
-        const bonus = abilMod + (state === 'none' ? 0 : state === 'proficient' ? prof : prof * 2)
-        const profLabel = state === 'expert' ? 'Expertise' : state === 'proficient' ? 'Proficient' : null
+        const bonus = abilMod + (state === 'none' ? joatBonus : state === 'proficient' ? prof : prof * 2)
+        const profLabel = state === 'expert' ? 'Expertise' : state === 'proficient' ? 'Proficient' : (hasJoAT && state === 'none') ? 'Jack of All Trades' : null
         return (
           <div className={styles.detailOverlay} onClick={() => setSelectedDetail(null)}>
             <div className={styles.detailModal} onClick={e => e.stopPropagation()}>
               <div className={styles.detailModalTitle}>{skill.label} ({ABILITY_LABELS[skill.ability]})</div>
               <div className={styles.detailModalFormula}>
-                d20 {fmtMod(abilMod)}{state !== 'none' ? ` + ${state === 'expert' ? prof * 2 : prof} (${state === 'expert' ? 'expertise' : 'prof'})` : ''} = <strong>{fmtMod(bonus)}</strong>
+                d20 {fmtMod(abilMod)}{state !== 'none' ? ` + ${state === 'expert' ? prof * 2 : prof} (${state === 'expert' ? 'expertise' : 'prof'})` : (hasJoAT ? ` + ${joatBonus} (JoAT)` : '')} = <strong>{fmtMod(bonus)}</strong>
               </div>
               <div className={styles.detailModalDesc}>{skill.description}</div>
               {profLabel && <div className={styles.detailModalProf}>{profLabel}</div>}

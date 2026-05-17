@@ -26,6 +26,8 @@
   --text: var(--text-primary);
   --surface-2: var(--bg-surface);
   --surface-3: var(--bg-elevated);
+  --bg: var(--bg-surface);
+  --bg-alt: var(--bg-elevated);
 
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   font-size: 14px;

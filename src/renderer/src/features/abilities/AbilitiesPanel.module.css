@@ -22,6 +22,7 @@
 .abilityScoreNum { font-size: 14px; font-weight: 600; color: var(--text); }
 .abilityEditInput { width: 30px; font-size: 13px; text-align: center; background: transparent; border: none; color: var(--text); }
 .abilityName { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.featAsiBadge { font-size: 9px; color: var(--accent); font-style: italic; display: block; text-align: center; }
 
 .statsSubRight { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .savesHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }

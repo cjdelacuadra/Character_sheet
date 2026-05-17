@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
-import type { Character, AbilityScores } from '@/entities/character/types'
-import { profBonus, computeMaxHP, computeSpeed, mod } from '@/shared/data/charCalculations'
+import type { Character, AbilityScores, Equipment } from '@/entities/character/types'
+import { profBonus, computeMaxHP, computeSpeed, computeInitiative, mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
@@ -35,6 +35,10 @@ export interface CharacterSlice {
   levelUp: (id: string, asiChoice?: AsiChoice, newSpellIds?: string[]) => void
   applyPendingAsi: (id: string, asiLevel: number, choice: AsiChoice) => void
   setTempHp: (id: string, amount: number) => void
+  updateEquipmentSlot: (id: string, slot: keyof Equipment, value: string | null) => void
+  buyItem: (charId: string, itemId: string, cost: number) => void
+  equipItemToSlot: (charId: string, slot: keyof Equipment, itemId: string | null) => void
+  unequipSlot: (charId: string, slot: keyof Equipment) => void
 }
 
 export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => ({
@@ -125,6 +129,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         hitDiceUsed: newHdUsed,
         resources: newResources,
         spellSlots: newSlots,
+        superiorityDiceUsed: 0,
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
@@ -159,6 +164,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         deathSaves: { successes: 0, failures: 0 },
         concentrationSpellId: null,
         conditionIds: char.conditionIds.filter(c => c.conditionId === 'exhaustion'),
+        superiorityDiceUsed: 0,
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
@@ -193,7 +199,6 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
 
       const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
       const bonusHpPerLevel = raceBonusHp + (newFeats.includes('tough') ? 2 : 0)
-      const alertBonus = newFeats.includes('alert') ? 5 : 0
       const mobileBonus = newFeats.includes('mobile') ? 10 : 0
 
       const newMaxHp = computeMaxHP(char.classId, newLevel, newScores.con, bonusHpPerLevel)
@@ -232,7 +237,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         abilityScores: newScores,
         feats: newFeats,
         bonusHpPerLevel,
-        initiative: mod(newScores.dex) + alertBonus,
+        initiative: computeInitiative(newScores, char.classId, newLevel, newProf, newFeats, char.subclass),
         speed: mobileBonus > 0 ? computeSpeed(char.race) + mobileBonus : char.speed,
         hitPoints: {
           ...char.hitPoints,
@@ -301,5 +306,43 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
+  },
+
+  updateEquipmentSlot: (id, slot, value) => {
+    set((state) => {
+      const char = state.characters[id]
+      if (!char) return state
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        equipment: { ...char.equipment, [slot]: value },
+      }
+      ipcService.save(id, updated)
+      return { characters: { ...state.characters, [id]: updated } }
+    })
+  },
+
+  buyItem: (charId, itemId, cost) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char || char.gold < cost) return state
+      if (char.ownedItemIds.includes(itemId)) return state
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        gold: char.gold - cost,
+        ownedItemIds: [...char.ownedItemIds, itemId],
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  equipItemToSlot: (charId, slot, itemId) => {
+    get().updateEquipmentSlot(charId, slot, itemId)
+  },
+
+  unequipSlot: (charId, slot) => {
+    get().updateEquipmentSlot(charId, slot, null)
   },
 })

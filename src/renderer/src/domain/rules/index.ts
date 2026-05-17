@@ -201,6 +201,19 @@ export function getAvailableActions(character: Character): ActionDef[] {
   )
   const offHandActions = lightMelee.length >= 2 ? [OFF_HAND_ACTION] : []
 
+  const subclassActions: ActionDef[] = []
+  if (character.subclass === 'Samurai' && character.level >= 3) {
+    const fightingSpiritRes = character.resources?.['Fighting Spirit']
+    const used = fightingSpiritRes?.used ?? 0
+    const total = 3
+    subclassActions.push({
+      name: 'Fighting Spirit',
+      type: 'Bonus Action',
+      short: `Advantage on attacks + temp HP until end of turn. ${total - used}/${total} remaining.`,
+      full: 'As a bonus action on your turn, you can give yourself advantage on all weapon attack rolls until the end of the current turn. When you do so, you also gain 5 temporary HP at level 3 (10 at level 10, 15 at level 15). Usable 3/long rest.',
+    })
+  }
+
   const featActions: ActionDef[] = []
   if ((character.feats ?? []).includes('sentinel')) {
     featActions.push({
@@ -217,7 +230,7 @@ export function getAvailableActions(character: Character): ActionDef[] {
     })
   }
 
-  return [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...featActions]
+  return [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...subclassActions, ...featActions]
 }
 
 export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {
@@ -272,7 +285,7 @@ export interface SpecialAttack {
 export const SPELL_ATTACK_IDS = new Set([
   'fire-bolt', 'ray-of-frost', 'chill-touch', 'eldritch-blast',
   'guiding-bolt', 'inflict-wounds', 'spiritual-weapon',
-  'toll-the-dead',
+  'toll-the-dead', 'booming-blade',
 ])
 
 export function getSpecialAttacks(character: Character): SpecialAttack[] {

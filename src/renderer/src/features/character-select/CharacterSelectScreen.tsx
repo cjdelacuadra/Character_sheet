@@ -13,7 +13,7 @@ import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingS
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
 import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/armorData'
 import {
-  computeAC, computeMaxHP, computeSpeed, profBonus, mod,
+  computeAC, computeMaxHP, computeSpeed, computeInitiative, profBonus, mod,
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL
 } from '@/shared/data/charCalculations'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
@@ -116,7 +116,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
 
   // Step 3 state
   const [armorId, setArmorId] = useState<string>('none')
-  const [hasShield, setHasShield] = useState(false)
+  const [shieldId, setShieldId] = useState<string | null>(null)
   const [chosenSkills, setChosenSkills] = useState<Skill[]>([])
   const [chosenWeapons, setChosenWeapons] = useState<WeaponDef[]>([])
 
@@ -142,7 +142,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     } else if (method === 'pointbuy') {
       ABILITY_KEYS.forEach(k => { base[k] = pbScores[k] })
     } else {
-      ABILITY_KEYS.forEach(k => { if (rollAssign[k] !== undefined) base[k] = rollAssign[k]! })
+      ABILITY_KEYS.forEach(k => { if (rollAssign[k] !== undefined) base[k] = rolled[rollAssign[k]!] })
     }
     if (raceDef?.abilityBonus) {
       ABILITY_KEYS.forEach(k => { base[k] = (base[k] || 10) + (raceDef.abilityBonus[k] ?? 0) })
@@ -162,19 +162,25 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
 
   function buildCharacter(): Character {
     const scores = getScores()
-    const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield, shieldId: hasShield ? 'shield-generic' : null }
+    const equipment = {
+      armorId: armorId === 'none' ? null : armorId,
+      hasShield: !!shieldId,
+      shieldId,
+      helmetId: null, necklaceId: null, capeId: null,
+      legsId: null, bootsId: null, glovesId: null, quiverId: null,
+      ring1Id: null, ring2Id: null, amuletId: null,
+    }
     const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass }
     const ac = computeAC(charBase)
     const raceBonusHp = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
     const toughBonus = chosenFeat === 'tough' ? 2 : 0
     const bonusHpPerLevel = raceBonusHp + toughBonus
-    const alertBonus = chosenFeat === 'alert' ? 5 : 0
     const mobileBonus = chosenFeat === 'mobile' ? 10 : 0
     const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
     const speed = computeSpeed(basics.race) + mobileBonus
-    const dexMod = mod(scores.dex)
-    const initiative = dexMod + alertBonus
     const prof = profBonus(basics.level)
+    const allFeats = chosenFeat ? [chosenFeat] : []
+    const initiative = computeInitiative(scores, basics.classId, basics.level, prof, allFeats, basics.subclass)
 
     const skillProf: Partial<Record<Skill, 'proficient' | 'expert'>> = {}
     bgDef?.skills.forEach(s => { skillProf[s] = 'proficient' })
@@ -195,10 +201,14 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       bonusDamageType: w.bonusDamageType,
     }))
 
+    const armorCost  = armorId !== 'none' ? parseInt(ARMOR_BY_ID[armorId]?.cost ?? '0') : 0
+    const shieldCost = shieldId ? parseInt(ARMOR_BY_ID[shieldId]?.cost ?? '0') : 0
+    const equipCost  = armorCost + shieldCost
+
     const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
-      schemaVersion: 3,
+      schemaVersion: 8,
       createdAt: now,
       updatedAt: now,
       name: basics.name.trim(),
@@ -242,6 +252,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       feats: chosenFeat ? [chosenFeat] : [],
       fightingStyle: chosenFightingStyle,
       completedAsiLevels: [],
+      gold: Math.max(100 - equipCost, 10),
+      ownedItemIds: [],
       notes: '',
     }
   }
@@ -293,7 +305,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             basics={basics}
             scores={getScores()}
             armorId={armorId} setArmorId={setArmorId}
-            hasShield={hasShield} setHasShield={setHasShield}
+            shieldId={shieldId} setShieldId={setShieldId}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
             chosenWeapons={chosenWeapons} setChosenWeapons={setChosenWeapons}
             chosenFightingStyle={chosenFightingStyle} setChosenFightingStyle={setChosenFightingStyle}
@@ -500,15 +512,15 @@ function StepScores({
     setRollAssign({})
   }
 
-  function assignRoll(key: AbilityScore, value: number | undefined) {
+  function assignRoll(key: AbilityScore, idx: number | undefined) {
     const next = { ...rollAssign }
-    if (value === undefined) { delete next[key]; setRollAssign(next); return }
-    for (const k of ABILITY_KEYS) if (next[k] === value) delete next[k]
-    next[key] = value
+    if (idx === undefined) { delete next[key]; setRollAssign(next); return }
+    for (const k of ABILITY_KEYS) if (next[k] === idx) delete next[k]
+    next[key] = idx
     setRollAssign(next)
   }
 
-  const rollUsed = Object.values(rollAssign)
+  const rollUsedIndices = new Set(Object.values(rollAssign).filter((v): v is number => v !== undefined))
   const rollComplete = rolled.length === 6 && ABILITY_KEYS.every(k => rollAssign[k] !== undefined)
 
   const freePointsDone = !raceDef?.freeAbilityPoints || freeAbilityPicks.length >= raceDef.freeAbilityPoints
@@ -520,7 +532,7 @@ function StepScores({
     const bonus = racialBonus(k)
     if (method === 'standard') return stdAssign[k] !== undefined ? stdAssign[k]! + bonus : null
     if (method === 'pointbuy') return pbScores[k] + bonus
-    return rollAssign[k] !== undefined ? rollAssign[k]! + bonus : null
+    return rollAssign[k] !== undefined ? rolled[rollAssign[k]!] + bonus : null
   }
 
   return (
@@ -590,7 +602,7 @@ function StepScores({
             {rolled.length > 0 && (
               <div className={styles.rolledValues}>
                 {rolled.map((v, i) => {
-                  const used = rollUsed.includes(v) && Object.values(rollAssign).indexOf(v) === rollUsed.indexOf(v)
+                  const used = rollUsedIndices.has(i)
                   return (
                     <span key={i} className={`${styles.rolledVal} ${used ? styles.rolledValUsed : ''}`}>{v}</span>
                   )
@@ -603,13 +615,13 @@ function StepScores({
               <span className={styles.scoreKey}>{ABILITY_LABELS[key]}</span>
               <div className={styles.scorePips}>
                 {rolled.map((val, i) => {
-                  const assigned = rollAssign[key] === val && Object.keys(rollAssign).find(k => rollAssign[k as AbilityScore] === val) === key
-                  const taken = rollUsed.includes(val) && !assigned
+                  const assigned = rollAssign[key] === i
+                  const taken = rollUsedIndices.has(i) && !assigned
                   return (
                     <button key={i}
                       className={`${styles.scorePip} ${assigned ? styles.scorePipSelected : ''} ${taken ? styles.scorePipTaken : ''}`}
                       disabled={taken}
-                      onClick={() => assignRoll(key, assigned ? undefined : val)}
+                      onClick={() => assignRoll(key, assigned ? undefined : i)}
                     >{val}</button>
                   )
                 })}
@@ -702,34 +714,17 @@ function StepScores({
   )
 }
 
-// ── STARTER WEAPON PACKS ──
-const STARTER_PACKS: Record<string, { label: string; ids: string[] }[]> = {
-  Fighter:   [{ label: 'Longsword', ids: ['longsword'] }, { label: 'Handaxe ×2', ids: ['handaxe', 'handaxe'] }, { label: 'Greatsword', ids: ['greatsword'] }],
-  Paladin:   [{ label: 'Longsword', ids: ['longsword'] }, { label: 'Warhammer', ids: ['warhammer'] }],
-  Rogue:     [{ label: 'Rapier', ids: ['rapier'] }, { label: 'Shortsword ×2', ids: ['shortsword', 'shortsword'] }],
-  Ranger:    [{ label: 'Longbow + Shortsword', ids: ['longbow', 'shortsword'] }, { label: 'Shortsword ×2', ids: ['shortsword', 'shortsword'] }],
-  Barbarian: [{ label: 'Greataxe', ids: ['greataxe'] }, { label: 'Handaxe ×2', ids: ['handaxe', 'handaxe'] }],
-  Monk:      [{ label: 'Shortsword', ids: ['shortsword'] }, { label: 'Dagger ×2', ids: ['dagger', 'dagger'] }],
-  Cleric:    [{ label: 'Mace', ids: ['mace'] }, { label: 'Warhammer', ids: ['warhammer'] }],
-  Bard:      [{ label: 'Rapier', ids: ['rapier'] }, { label: 'Longsword', ids: ['longsword'] }],
-  Druid:     [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Scimitar', ids: ['scimitar'] }],
-  Wizard:    [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
-  Sorcerer:  [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
-  Warlock:   [{ label: 'Quarterstaff', ids: ['quarterstaff'] }, { label: 'Dagger', ids: ['dagger'] }],
-  Artificer: [{ label: 'Light Crossbow', ids: ['lightCrossbow'] }, { label: 'Dagger ×2', ids: ['dagger', 'dagger'] }],
-}
-
 // ── STEP 3: EQUIPMENT & SKILLS ──
 
 function StepEquipment({
-  basics, scores, armorId, setArmorId, hasShield, setHasShield,
+  basics, scores, armorId, setArmorId, shieldId, setShieldId,
   chosenSkills, setChosenSkills, chosenWeapons, setChosenWeapons,
   chosenFightingStyle, setChosenFightingStyle,
   onBack, onNext, onCreate,
 }: {
   basics: Basics; scores: AbilityScores
   armorId: string; setArmorId: (v: string) => void
-  hasShield: boolean; setHasShield: (v: boolean) => void
+  shieldId: string | null; setShieldId: (v: string | null) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
   chosenWeapons: WeaponDef[]; setChosenWeapons: (v: WeaponDef[]) => void
   chosenFightingStyle: string | undefined; setChosenFightingStyle: (v: string | undefined) => void
@@ -737,7 +732,7 @@ function StepEquipment({
 }) {
   const classDef = CLASS_BY_ID[basics.classId]
   const bgDef = BACKGROUND_BY_ID[basics.background]
-  const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield, shieldId: hasShield ? 'shield-generic' : null }
+  const equipment = { armorId: armorId === 'none' ? null : armorId, hasShield: !!shieldId, shieldId }
   const bonusHpPerLevel = RACE_BY_ID[basics.race]?.bonusHpPerLevel ?? 0
   const ac = computeAC({ abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass })
   const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
@@ -750,13 +745,15 @@ function StepEquipment({
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
   const allowedArmor = ARMOR_LIST.filter(a => {
+    if (a.isShield) return false  // shields handled separately in off-hand section
     if (a.type === 'none') return true
     if (a.enchantmentBonus) return false  // magic items are DM-granted, not chosen at creation
     return effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
   })
   const canShield = effectiveArmorProfs.includes('shields')
+  const availableShields = canShield ? ARMOR_LIST.filter(a => a.isShield && !a.enchantmentBonus) : []
 
-  const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? [])
+  const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? []).filter(w => !w.enchantmentBonus)
   function toggleWeapon(w: WeaponDef) {
     if (chosenWeapons.find(cw => cw.id === w.id)) {
       setChosenWeapons(chosenWeapons.filter(cw => cw.id !== w.id))
@@ -780,7 +777,13 @@ function StepEquipment({
 
   const fightingStyleLevel = FIGHTING_STYLE_CLASSES[basics.classId]
   const needsFightingStyle = fightingStyleLevel !== undefined && basics.level >= fightingStyleLevel
-  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle)
+  const availableMeleeWeapons = availableWeapons.filter(w => w.rangeType !== 'Ranged')
+  const availableRangedWeapons = availableWeapons.filter(w => w.rangeType === 'Ranged')
+  const hasMelee = chosenWeapons.some(w => w.rangeType !== 'Ranged')
+  const hasRanged = chosenWeapons.some(w => w.rangeType === 'Ranged')
+  const needsMelee = availableMeleeWeapons.length > 0
+  const needsRanged = availableRangedWeapons.length > 0
+  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle) && (!needsMelee || hasMelee) && (!needsRanged || hasRanged)
 
   return (
     <div className={styles.stepContent}>
@@ -789,7 +792,7 @@ function StepEquipment({
         <StatPreviewChip label="Max HP" value={maxHp} sub={bonusHpPerLevel ? `d${classDef?.hitDie} + CON + ${bonusHpPerLevel}/lvl` : `d${classDef?.hitDie} + CON×${basics.level}`} />
         <StatPreviewChip label="AC" value={ac} sub={armorId === 'none' ? 'unarmored' : (ARMOR_BY_ID[armorId]?.name ?? '')} />
         <StatPreviewChip label="Speed" value={`${speed}ft`} sub={raceDef?.label ?? basics.race} />
-        <StatPreviewChip label="Initiative" value={modStr(mod(scores.dex))} sub="DEX mod" />
+        <StatPreviewChip label="Initiative" value={modStr(computeInitiative(scores, basics.classId, basics.level, profBonus(basics.level), [], basics.subclass))} sub="Initiative" />
         <StatPreviewChip label="Prof." value={`+${profBonus(basics.level)}`} sub={`level ${basics.level}`} />
       </div>
 
@@ -808,11 +811,28 @@ function StepEquipment({
             </button>
           ))}
         </div>
-        {canShield && (
-          <label className={styles.shieldToggle}>
-            <input type="checkbox" checked={hasShield} onChange={e => setHasShield(e.target.checked)} />
-            <span>Shield (+2 AC)</span>
-          </label>
+        {availableShields.length > 0 && (
+          <div className={styles.shieldRow}>
+            <span className={styles.shieldLabel}>Off-hand / Shield</span>
+            <div className={styles.armorGrid}>
+              <button
+                className={`${styles.armorOption} ${shieldId === null ? styles.armorOptionSelected : ''}`}
+                onClick={() => setShieldId(null)}
+              >
+                <span className={styles.armorName}>None</span>
+              </button>
+              {availableShields.map(s => (
+                <button
+                  key={s.id}
+                  className={`${styles.armorOption} ${shieldId === s.id ? styles.armorOptionSelected : ''}`}
+                  onClick={() => setShieldId(s.id)}
+                >
+                  <span className={styles.armorName}>{s.name}</span>
+                  <span className={styles.armorAc}>+2 AC</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -871,32 +891,17 @@ function StepEquipment({
 
       {/* Weapons */}
       <div className={styles.equipSection}>
-        <div className={styles.equipLabel}>Starting Weapons — choose any (can add more later)</div>
-        {STARTER_PACKS[basics.classId] && (
-          <div className={styles.starterPackGrid}>
-            {STARTER_PACKS[basics.classId].map(pack => (
-              <button
-                key={pack.label}
-                className={styles.starterPackBtn}
-                onClick={() => {
-                  const toAdd: WeaponDef[] = []
-                  for (const id of pack.ids) {
-                    const w = availableWeapons.find(w => w.id === id)
-                    if (w) toAdd.push(w)
-                  }
-                  setChosenWeapons(toAdd)
-                }}
-              >
-                {pack.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className={styles.weaponGrid}>
-          {availableWeapons.map(w => {
+        <div className={styles.equipLabel}>
+          Starting Weapons — select at least one melee{needsRanged ? ' and one ranged' : ''}
+          {(!hasMelee && needsMelee) || (!hasRanged && needsRanged) ? <span className={styles.validationHint}> (required)</span> : ` (${chosenWeapons.length} chosen)`}
+        </div>
+        {(() => {
+          const meleeWeapons = availableWeapons.filter(w => w.rangeType !== 'Ranged')
+          const rangedWeapons = availableWeapons.filter(w => w.rangeType === 'Ranged')
+          function WeaponBtn({ w }: { w: WeaponDef }) {
             const chosen = !!chosenWeapons.find(cw => cw.id === w.id)
             return (
-              <button key={w.id}
+              <button
                 className={`${styles.weaponOption} ${chosen ? styles.weaponOptionSelected : ''}`}
                 onClick={() => toggleWeapon(w)}
               >
@@ -905,8 +910,28 @@ function StepEquipment({
                 <span className={styles.weaponRange}>{w.rangeType}</span>
               </button>
             )
-          })}
-        </div>
+          }
+          return (
+            <>
+              {meleeWeapons.length > 0 && (
+                <>
+                  <div className={styles.weaponRangeLabel}>Melee</div>
+                  <div className={styles.weaponGrid}>
+                    {meleeWeapons.map(w => <WeaponBtn key={w.id} w={w} />)}
+                  </div>
+                </>
+              )}
+              {rangedWeapons.length > 0 && (
+                <>
+                  <div className={styles.weaponRangeLabel}>Ranged</div>
+                  <div className={styles.weaponGrid}>
+                    {rangedWeapons.map(w => <WeaponBtn key={w.id} w={w} />)}
+                  </div>
+                </>
+              )}
+            </>
+          )
+        })()}
       </div>
 
       <div className={styles.actions}>
@@ -989,6 +1014,7 @@ function StepSpells({
     return list.map(s => {
       const selected = chosenSpells.includes(s.id)
       const full = !selected && chosen.length >= limit
+      const aboveSlots = s.level > 0 && s.level > maxSlotLevel
       return (
         <button
           key={s.id}
@@ -996,7 +1022,14 @@ function StepSpells({
           onClick={() => toggleSpell(s)}
           disabled={full}
         >
-          <span className={styles.spellChoiceName}>{s.name}</span>
+          <span className={styles.spellChoiceName}>
+            {s.name}
+            {aboveSlots && (
+              <span className={styles.spellAboveSlotNote} title={`Requires a level ${s.level} spell slot to cast`}>
+                {' '}▲ lvl {s.level}
+              </span>
+            )}
+          </span>
           <span className={styles.spellChoiceMeta}>{s.school} · {s.castingTime}{s.concentration ? ' · C' : ''}</span>
         </button>
       )

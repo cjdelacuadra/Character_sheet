@@ -189,6 +189,39 @@ Run `npm test` to see passing tests (green) and pending items (yellow todo).
     2. Left column is scrollable — FeaturesPanel visible by scrolling down
     3. Center and right columns remain in their original positions while left column scrolls
 
+### Equipment Slot Layout in Header
+- **Goal**: The right side of the character sheet header shows a paperdoll equipment layout (head, torso, legs, feet, hands, main-hand, off-hand, ring, neck slots) where currently equipped items appear in their positions.
+- **Minimum**: A static `EquipmentLayout` component renders the slot grid; each slot displays the equipped item name/icon or an empty placeholder. No drag-and-drop required.
+- **Success**: Header right side shows the slot grid; equipped armor appears in the torso slot; off-hand weapon/shield appears in the off-hand slot; empty slots show a greyed placeholder.
+- **Tests**:
+  - Unit: `test.todo('EquipmentLayout renders correct number of equipment slots (visual)')`
+  - Visual:
+    1. Open any character with armor and a weapon equipped
+    2. Header right side shows equipment slot grid
+    3. Equipped items appear in their matching slots; unequipped slots show empty state
+
+### Fix Ability Score Selection — Equal Values Block Each Other
+- **Goal**: In the ability score assignment step, two score options with the same numeric value must be independently selectable; choosing one does not disable or consume the other.
+- **Minimum**: Score selection logic tracks assignment by index (unique position in the score pool), not by value; equal-valued scores are treated as distinct items.
+- **Success**: If the score pool contains two "10"s, assigning one to STR leaves the other "10" available for CON; both can be assigned without conflict.
+- **Tests**:
+  - Unit: `test.todo('two equal-value scores in pool are independently assignable')`
+  - Visual:
+    1. In ability score step, arrange a pool with two identical values (e.g. two 10s)
+    2. Assign one 10 to STR → the second 10 remains selectable
+    3. Assign second 10 to CON → both assignments coexist without error
+
+### Feat ASI Display Adjacent to Ability Score
+- **Goal**: When a feat grants +1 (or +2) to a specific ability score, AbilitiesPanel shows the bonus inline with that score row — not only in the feat description.
+- **Minimum**: AbilitiesPanel reads `char.feats` for feats with a known ASI effect and appends a `+1 (Feat)` badge next to the affected score.
+- **Success**: Character with Resilient (CON) shows `+1 (Resilient)` next to the CON value in AbilitiesPanel; a character without that feat shows no such badge.
+- **Tests**:
+  - Unit: `test.todo('AbilitiesPanel shows ASI badge for feats that grant +1 to a specific score')`
+  - Visual:
+    1. Create a character and take the Resilient (CON) feat
+    2. AbilitiesPanel shows "+1 (Resilient)" next to CON
+    3. Remove the feat → badge disappears
+
 ### Hide Scrollbars (Keep Scrollable)
 - **Goal**: All scrollable containers look clean — no visible scrollbar track or thumb — while remaining fully scrollable via mouse wheel, trackpad, or touch. Applies to every column and modal list in the app.
 - **Minimum**: Add a global CSS rule (or a `.scrollable` utility class applied to all `overflow-y: auto` containers) using `scrollbar-width: none` (Firefox) and `::-webkit-scrollbar { display: none }` (Chromium/Electron). Content must still scroll.
@@ -277,17 +310,133 @@ Run `npm test` to see passing tests (green) and pending items (yellow todo).
 
 ---
 
+## Weapons / Equipment
+
+### Separation of Melee and Ranged Weapons at Creation
+- **Goal**: Character creation weapon picker is split into melee and ranged categories; the player must choose at least one of each before advancing.
+- **Minimum**: StepEquipment (or equivalent) renders two groups (Melee / Ranged); "Next" is disabled unless at least one weapon from each group is selected.
+- **Success**: Attempting to proceed without a ranged weapon (or without a melee weapon) keeps "Next" disabled; selecting one of each enables it.
+- **Tests**:
+  - Unit: `test.todo('StepEquipment "Next" disabled when no ranged weapon selected')`
+  - Unit: `test.todo('StepEquipment "Next" disabled when no melee weapon selected')`
+  - Visual:
+    1. Open character creator → proceed to Equipment step
+    2. Select only a shortsword → "Next" remains disabled
+    3. Also select a shortbow → "Next" becomes active
+
+### Remove Shields from Armor; Add to Off-Hand Selection
+- **Goal**: Shields are not armor types — remove them from the armor picker and surface them in the off-hand selector instead; `computeAC()` adds +2 when a shield occupies the off-hand slot.
+- **Minimum**: Remove shield entries from `armorData`; add Shield options to the off-hand selector; update `computeAC()` to detect `char.offHand === 'shield'` and add 2.
+- **Success**: Armor picker contains no shield entries; off-hand picker lists Shield; a character with a shield in the off-hand slot shows AC +2 compared to the same character without one.
+- **Tests**:
+  - Unit: `test.todo('computeAC: off-hand shield adds +2 to AC')`
+  - Unit: `test.todo('armorData contains no shield entries')`
+  - Visual:
+    1. Open character creator → Equipment → confirm armor dropdown has no shield
+    2. Open off-hand selector → Shield option is present
+    3. Equip shield in off-hand → AC display increases by 2
+
+---
+
+## Tasha's Cauldron of Everything
+
+### Feats
+- **Goal**: The 14 feats introduced in *Tasha's Cauldron of Everything* (Artificer Initiate, Chef, Crusher, Eldritch Adept, Fey Touched, Fighting Initiate, Gunner, Metamagic Adept, Piercer, Poisoner, Shadow Touched, Slasher, Telekinetic, Telepathic) are available in the feat picker.
+- **Minimum**: Add TCoE feat definitions to `featsData.ts`; they appear in the feat selector during character creation and level-up.
+- **Success**: All 14 TCoE feats appear in the feat picker; selecting each stores the feat name on the character.
+- **Tests**:
+  - Unit: `test.todo('featsData contains all 14 TCoE feats')`
+  - Visual:
+    1. Open feat picker during character creation
+    2. Scroll/search for "Fey Touched" → it appears
+    3. Select "Crusher" → character sheet reflects the feat
+
+### Spells
+- **Goal**: Spells from *Tasha's Cauldron of Everything* (e.g. Booming Blade, Green-Flame Blade, Intellect Fortress, Mind Sliver, Summon Beast, Tasha's Caustic Brew) are added to the appropriate class spell lists.
+- **Minimum**: Add TCoE spell definitions to `spellsData.ts` with correct class tags and spell levels; they appear in the spell picker for the matching class.
+- **Success**: Booming Blade appears for Wizard/Sorcerer/Warlock; Mind Sliver appears for Wizard/Sorcerer/Warlock; class filters exclude TCoE spells from classes that don't have them.
+- **Tests**:
+  - Unit: `test.todo('TCoE spells appear for the correct class tags')`
+  - Unit: `test.todo('Booming Blade is tagged for Wizard, Sorcerer, and Warlock')`
+  - Visual:
+    1. Open Wizard spell picker → search "Booming Blade" → it appears
+    2. Open Cleric spell picker → "Booming Blade" is absent
+
+### Subclasses
+- **Goal**: Subclasses introduced in *Tasha's Cauldron of Everything* are available in the subclass picker for each applicable class (e.g. Barbarian: Beast / Wild Magic; Bard: College of Creation / Eloquence; Fighter: Psi Warrior / Rune Knight; Ranger: Fey Wanderer / Swarmkeeper; Rogue: Phantom / Soulknife; Wizard: Bladesinging / Order of Scribes).
+- **Minimum**: Add TCoE subclass definitions to `subclassData.ts` linked to their parent class; they appear in the subclass picker.
+- **Success**: Selecting Psi Warrior as Fighter subclass is possible; its unlock level matches the Fighter subclass unlock (level 3).
+- **Tests**:
+  - Unit: `test.todo('subclassData contains TCoE subclasses for all applicable classes')`
+  - Visual:
+    1. Create a Fighter → reach subclass step → Psi Warrior and Rune Knight appear
+    2. Create a Bard → College of Eloquence appears in subclass picker
+
+---
+
+## Subclass Features
+
+### Battle Master Maneuvers as Expandable List on Weapon Selection
+- **Goal**: When a Battle Master Fighter selects a weapon, an expandable accordion in the Actions panel lists all available combat maneuvers. Other subclass-specific combat options appear adjacent to the weapon section.
+- **Minimum**: ActionDetailPanel (or weapon selection panel) gains a collapsible "Maneuvers" section that reads `char.battleMasterManeuvers`; renders name + short description for each.
+- **Success**: Battle Master with a longsword equipped sees a collapsed "Maneuvers ▶" section; expanding it shows e.g. Precision Attack, Riposte, Trip Attack with descriptions.
+- **Tests**:
+  - Unit: `test.todo('Battle Master weapon panel renders a maneuvers accordion')`
+  - Visual:
+    1. Create Battle Master Fighter, equip a weapon
+    2. Combat Actions panel shows a collapsed "Maneuvers" section
+    3. Expand it → individual maneuvers listed with descriptions
+
+### Arcane Archer: Infused Arrows (Arcane Shots)
+- **Goal**: Arcane Archer Fighters can select Arcane Shot options (Banishing, Beguiling, Bursting, Enfeebling, Grasping, Piercing, Seeking, Shadow Arrow) and track their 2/short-rest usage.
+- **Minimum**: Add Arcane Shot definitions; display available shots in the Actions panel for Arcane Archer subclass; show a usage counter (e.g. "2 / 2 charges").
+- **Success**: Arcane Archer sees Arcane Shot options in the Combat Actions panel with a 2-charge tracker; non-Arcane Archer Fighters do not see these actions.
+- **Tests**:
+  - Unit: `test.todo('Arcane Archer actions list includes Arcane Shot options')`
+  - Unit: `test.todo('non-Arcane Archer Fighter actions list excludes Arcane Shots')`
+  - Visual:
+    1. Create Arcane Archer Fighter
+    2. Combat Actions shows "Arcane Shot (2/2)" section with individual shot options
+    3. Create Champion Fighter → no Arcane Shot section
+
+### Fighter: Indomitable / Samurai: Fighting Spirit
+- **Goal**: The Fighter's *Indomitable* feature (reroll a failed saving throw, available at level 9/13/17) and the Samurai subclass's *Fighting Spirit* (bonus action advantage on attacks, 3/long rest from level 3) are tracked in the Features panel and Actions panel.
+- **Minimum**: Add Indomitable to the Fighter feature table unlocking at level 9; add Fighting Spirit to Samurai subclass features; both display in FeaturesPanel with a usage counter for Fighting Spirit.
+- **Success**: Fighter level 9 sees "Indomitable (1/long rest)" in Features; Samurai level 3 sees "Fighting Spirit (3/long rest)" in Features and as a Bonus Action in Combat Actions.
+- **Tests**:
+  - Unit: `test.todo('Fighter level 9 has Indomitable feature')`
+  - Unit: `test.todo('Samurai level 3 has Fighting Spirit feature')`
+  - Visual:
+    1. Create Fighter level 9 → Features panel shows Indomitable
+    2. Create Samurai Fighter level 3 → Features shows Fighting Spirit; Bonus Actions include Fighting Spirit
+
+---
+
 ## Priority Order
 
-1. Fix scrollable UI — first column (quick win, unblocks usability)
-2. Hide scrollbars (keep scrollable) — pure CSS, global win
-3. Fighter Fighting Style — selection + display
-4. Fighter Fighting Style — Archery & Defense implementation (attack/AC bonuses)
-5. Subclass selection on level-up
-6. Off-hand attack display
-7. Level-up spell selector correctness + spell list filtering (class + level gate)
-8. Wizard learn spells (also uses spell list filtering)
-9. Caster prepared spells
-10. Attack display of spells (polish)
-11. Reaction display from feats (polish)
+1. ✅ Fix scrollable UI — first column (quick win, unblocks usability)
+2. ✅ Hide scrollbars (keep scrollable) — pure CSS, global win
+3. ✅ Fighter Fighting Style — selection + display
+4. ✅ Fighter Fighting Style — Archery & Defense implementation (attack/AC bonuses)
+5. ✅ Subclass selection on level-up
+6. ✅ Off-hand attack display
+7. ✅ Level-up spell selector correctness + spell list filtering (class + level gate)
+8. ✅ Wizard learn spells (also uses spell list filtering)
+9. ✅ Caster prepared spells
+10. ✅ Attack display of spells (polish)
+11. ✅ Reaction display from feats (polish)
 12. Subclass feature audit (documentation prerequisite for deeper subclass work)
+13. ✅ Fix ability score selection — equal values block each other (bug, quick fix)
+14. Remove shields from armor → off-hand (data refactor, correctness)
+15. ✅ Separation of melee/ranged weapons at creation (UX, creation flow)
+16. ✅ Feat ASI display in AbilitiesPanel (polish, readability)
+17. ✅ Equipment slot layout in header (visual feature)
+18. ✅ Battle Master maneuvers expandable list (subclass UX)
+19. Fighter: Indomitable ✅ + Samurai: Fighting Spirit (class/subclass features)
+20. ✅ Arcane Archer infused arrows / Arcane Shots (subclass feature)
+21. ✅ Tasha's Feats (content expansion)
+22. ✅ Tasha's Spells (content expansion)
+23. ✅ Tasha's Subclasses (content expansion)
+24. Versatile weapon two-handed damage display
+25. Barbarian Rage active — show resistance, advantage, and damage bonus in conditions
+26. ✅ Prepared spells count in class Features panel

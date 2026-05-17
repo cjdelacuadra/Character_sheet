@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/app/store'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASSES_BY_CLASS } from '@/shared/data/subclassData'
 import { xpForNextLevel, computeSpellLevelUpConfig } from '@/domain/rules'
 
 import { CharacterHeader } from '@/features/character-header/CharacterHeader'
@@ -65,12 +66,14 @@ export function CharacterView() {
         update={update}
         onLevelUp={() => {
           const newLevel = char.level + 1
+          const subclassUnlockLevel = SUBCLASSES_BY_CLASS[char.classId]?.[0]?.unlocksAtLevel
+          const needsSubclass = newLevel === subclassUnlockLevel && !char.subclass
           const completed = char.completedAsiLevels ?? []
           const catchUps = (classDef?.asiLevels ?? []).filter(l => l <= char.level && !completed.includes(l))
           const newLevelIsAsi = classDef?.asiLevels?.includes(newLevel) ?? false
           const queue = newLevelIsAsi ? [...catchUps, newLevel] : [...catchUps]
           setTargetNewLevel(newLevel)
-          if (queue.length > 0) {
+          if (queue.length > 0 || needsSubclass) {
             setPendingAsiQueue(queue)
             setLevelUpOpen(true)
           } else {
@@ -132,11 +135,12 @@ export function CharacterView() {
           character={char}
           newLevel={targetNewLevel}
           showSpellSelection={pendingAsiQueue[0] === targetNewLevel}
-          onConfirm={(choice: AsiChoice, newSpellIds?: string[]) => {
+          onConfirm={(choice: AsiChoice | null, newSpellIds?: string[], subclassId?: string) => {
+            if (subclassId) update({ subclass: subclassId, subclassLocked: true })
             const [head, ...tail] = pendingAsiQueue
             setPendingAsiQueue(tail)
-            if (head < targetNewLevel) {
-              applyPendingAsi(char.id, head, choice)
+            if (head !== undefined && head < targetNewLevel) {
+              applyPendingAsi(char.id, head, choice!)
               if (tail.length === 0) {
                 const cfg = classDef ? computeSpellLevelUpConfig(classDef, char.level, targetNewLevel) : null
                 if (cfg && (cfg.spellsDelta > 0 || cfg.cantripsDelta > 0)) {
@@ -148,7 +152,7 @@ export function CharacterView() {
                 }
               }
             } else {
-              levelUp(char.id, choice, newSpellIds)
+              levelUp(char.id, choice ?? undefined, newSpellIds)
               setLevelUpOpen(false)
               setPendingAsiQueue([])
             }

@@ -56,6 +56,29 @@
 .prepareBtn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--text-muted); padding: 0; }
 .prepareBtnActive { color: var(--accent); }
 
+/* Spell sub-sections (Prepared / Spellbook / Learnable) */
+.spellSubLabel { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); padding: 6px 0 2px; display: block; }
+.spellSubDivider { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* Inline expanded spell detail */
+.spellExpandArea {
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; margin: 2px 0 2px 24px; display: flex; flex-direction: column; gap: 6px;
+}
+.spellExpandMeta { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 11px; }
+.spellExpandMeta dt { color: var(--text-muted); font-weight: 500; margin: 0; }
+.spellExpandMeta dd { color: var(--text); margin: 0; }
+.spellExpandDesc { font-size: 11px; color: var(--text-muted); line-height: 1.55; margin: 0; }
+.spellExpandActions { display: flex; flex-wrap: wrap; gap: 4px; }
+.spellExpandCastBtn { font-size: 10px; padding: 3px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface-2); color: var(--text); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.spellExpandCastBtn:hover { border-color: var(--accent); }
+.spellExpandCastDice { color: var(--accent); font-weight: 600; }
+.spellExpandClose { align-self: flex-end; background: none; border: none; font-size: 16px; color: var(--text-muted); cursor: pointer; padding: 0; line-height: 1; }
+.spellExpandClose:hover { color: var(--danger); }
+.spellDisabled { opacity: 0.4; pointer-events: none; }
+.spellDisabledTip { font-size: 9px; color: var(--text-muted); }
+.spellAboveLevelNote { font-size: 9px; color: var(--warning); font-weight: 600; margin-left: 4px; }
+
 /* Spell modal */
 .modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .spellModal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }

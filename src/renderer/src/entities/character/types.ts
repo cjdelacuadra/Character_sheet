@@ -32,6 +32,16 @@ export interface Equipment {
   /** @deprecated use shieldId instead */
   hasShield: boolean
   shieldId: string | null
+  helmetId: string | null
+  necklaceId: string | null
+  capeId: string | null
+  legsId: string | null
+  bootsId: string | null
+  glovesId: string | null
+  quiverId: string | null
+  ring1Id: string | null
+  ring2Id: string | null
+  amuletId: string | null
 }
 
 export interface Weapon {
@@ -88,10 +98,19 @@ export interface Character {
   deathSaves: { successes: number; failures: number }
   inspiration: number
   hitDiceUsed: number
+  gold: number
+  ownedItemIds: string[]
   feats: string[]
+  warlockInvocations?: string[]
+  pactBoon?: string
+  pactBoonLocked?: boolean
+  isRaging?: boolean
   fightingStyle?: string
   fightingStyleLocked?: boolean
   completedAsiLevels: number[]
   completedAsiChoices?: Record<number, string>
+  battleMasterManeuvers?: string[]
+  superiorityDiceUsed?: number
+  arcaneShots?: string[]
   notes: string
 }

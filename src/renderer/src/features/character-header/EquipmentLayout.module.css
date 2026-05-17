@@ -1,0 +1,240 @@
+.outer {
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.columnWrap {
+  display: flex;
+  align-items: stretch;
+}
+
+/* ── Equipment slot grid ────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto repeat(4, auto);
+  gap: 2px 4px;
+  padding: 4px 6px;
+  align-items: start;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 3px;
+  position: relative;
+  transition: background 0.1s, outline 0.1s;
+}
+
+.slot[data-over] {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  outline: 1px dashed var(--accent);
+}
+
+.slotIconBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.slotIconBtn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.slotIcon {
+  image-rendering: pixelated;
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+.slotIcon[data-empty] {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.slotLabel {
+  font-size: 7px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.slotUnequip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 8px;
+  line-height: 1;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.slot:hover .slotUnequip {
+  opacity: 1;
+}
+
+.slotUnequip:hover {
+  color: var(--danger, #e55);
+}
+
+/* ── Stats panel ────────────────────────────────────────────────────────── */
+
+.statsPanel {
+  border-left: 1px solid var(--border);
+  padding: 4px 8px;
+  min-width: 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+}
+
+.statGroupTitle {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 1px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.statLabel {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: 9px;
+}
+
+/* ── Slot stat breakdown ─────────────────────────────────────────────────── */
+
+.breakdown {
+  border-top: 1px solid var(--border);
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.breakdownHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.breakdownName {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: block;
+}
+
+.breakdownSub {
+  font-size: 9px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 1px;
+}
+
+.breakdownClose {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.breakdownClose:hover { color: var(--danger); }
+
+.breakdownStats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+}
+
+.breakdownRow {
+  display: contents;
+}
+
+.breakdownLabel {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.breakdownValue {
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.breakdownEmpty {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Shop row ────────────────────────────────────────────────────────────── */
+
+.shopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.goldDisplay {
+  font-size: 10px;
+  font-weight: 600;
+  color: #f0c040;
+}
+
+.shopBtn {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.shopBtn:hover {
+  background: var(--accent);
+  color: var(--bg);
+}

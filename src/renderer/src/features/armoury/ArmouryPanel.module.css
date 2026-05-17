@@ -1,0 +1,116 @@
+.panel {
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.headerActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.shopBtn {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.shopBtn:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.closeBtn {
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.closeBtn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.tab:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.tab[data-active] {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.empty {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 12px 4px;
+  text-align: center;
+}
+
+.itemUnowned { opacity: 0.45; }
+.itemUnowned:hover { opacity: 0.75; transition: opacity 0.15s; }
+
+.emptyShopLink {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 10px;
+  text-decoration: underline;
+  padding: 0;
+}

@@ -1,7 +1,7 @@
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 
-const CURRENT_SCHEMA_VERSION = 4
+const CURRENT_SCHEMA_VERSION = 8
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -53,6 +53,57 @@ function v3_to_v4(char: Partial<Character>): Partial<Character> {
   return { ...char, schemaVersion: 4 }
 }
 
+function v4_to_v5(char: Partial<Character>): Partial<Character> {
+  return {
+    ...char,
+    schemaVersion: 5,
+    warlockInvocations: (char as Record<string, unknown>).warlockInvocations as string[] ?? [],
+    pactBoon: (char as Record<string, unknown>).pactBoon as string | undefined,
+    pactBoonLocked: (char as Record<string, unknown>).pactBoonLocked as boolean ?? false,
+    isRaging: false,
+  }
+}
+
+function v5_to_v6(char: Partial<Character>): Partial<Character> {
+  return {
+    ...char,
+    schemaVersion: 6,
+    battleMasterManeuvers: (char as Record<string, unknown>).battleMasterManeuvers as string[] ?? [],
+    superiorityDiceUsed: (char as Record<string, unknown>).superiorityDiceUsed as number ?? 0,
+    arcaneShots: (char as Record<string, unknown>).arcaneShots as string[] ?? [],
+  }
+}
+
+function v7_to_v8(char: Partial<Character>): Partial<Character> {
+  return {
+    ...char,
+    schemaVersion: 8,
+    gold: (char as Record<string, unknown>).gold as number ?? 0,
+    ownedItemIds: (char as Record<string, unknown>).ownedItemIds as string[] ?? [],
+  }
+}
+
+function v6_to_v7(char: Partial<Character>): Partial<Character> {
+  const eq = char.equipment ?? { armorId: null, hasShield: false, shieldId: null }
+  return {
+    ...char,
+    schemaVersion: 7,
+    equipment: {
+      ...eq,
+      helmetId: (eq as Record<string, unknown>).helmetId as string | null ?? null,
+      necklaceId: (eq as Record<string, unknown>).necklaceId as string | null ?? null,
+      capeId: (eq as Record<string, unknown>).capeId as string | null ?? null,
+      legsId: (eq as Record<string, unknown>).legsId as string | null ?? null,
+      bootsId: (eq as Record<string, unknown>).bootsId as string | null ?? null,
+      glovesId: (eq as Record<string, unknown>).glovesId as string | null ?? null,
+      quiverId: (eq as Record<string, unknown>).quiverId as string | null ?? null,
+      ring1Id: (eq as Record<string, unknown>).ring1Id as string | null ?? null,
+      ring2Id: (eq as Record<string, unknown>).ring2Id as string | null ?? null,
+      amuletId: (eq as Record<string, unknown>).amuletId as string | null ?? null,
+    },
+  }
+}
+
 /** Apply all necessary migrations to bring a raw loaded character up to current schema. */
 export function migrateCharacter(raw: unknown): Character {
   let data = raw as Partial<Character> & { schemaVersion?: number }
@@ -61,6 +112,10 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 2) data = v1_to_v2(data) as typeof data
   if (version < 3) data = v2_to_v3(data) as typeof data
   if (version < 4) data = v3_to_v4(data) as typeof data
+  if (version < 5) data = v4_to_v5(data) as typeof data
+  if (version < 6) data = v5_to_v6(data) as typeof data
+  if (version < 7) data = v6_to_v7(data) as typeof data
+  if (version < 8) data = v7_to_v8(data) as typeof data
 
   return data as Character
 }

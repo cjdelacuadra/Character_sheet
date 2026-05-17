@@ -4,6 +4,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { xpForNextLevel } from '@/domain/rules'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { useTheme } from '@/app/ThemeContext'
+import { EquipmentLayout } from './EquipmentLayout'
 import styles from './CharacterHeader.module.css'
 
 interface Props {
@@ -110,6 +111,7 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
         </button>
         <button className={styles.backBtn} onClick={onBack}>← Back</button>
       </div>
+      <EquipmentLayout character={char} />
     </header>
   )
 }
