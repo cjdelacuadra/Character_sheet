@@ -1,0 +1,53 @@
+interface DieTerm { count: number; face: number }
+
+function parseDiceExpr(expr: string): { dice: DieTerm[]; flat: number } {
+  const dice: DieTerm[] = []
+  let flat = 0
+  // Normalise: remove spaces, handle subtraction as negative addition
+  const normalised = expr.replace(/\s+/g, '').replace(/-/g, '+-')
+  for (const token of normalised.split('+').filter(Boolean)) {
+    const dieMatch = token.match(/^(-?\d+)d(\d+)$/)
+    if (dieMatch) {
+      const count = parseInt(dieMatch[1], 10)
+      const face  = parseInt(dieMatch[2], 10)
+      if (count !== 0) dice.push({ count, face })
+    } else {
+      const n = parseInt(token, 10)
+      if (!isNaN(n)) flat += n
+    }
+  }
+  return { dice, flat }
+}
+
+function combineDiceTerms(terms: DieTerm[]): DieTerm[] {
+  const byFace = new Map<number, number>()
+  for (const { count, face } of terms) {
+    byFace.set(face, (byFace.get(face) ?? 0) + count)
+  }
+  return Array.from(byFace.entries())
+    .filter(([, count]) => count !== 0)
+    .map(([face, count]) => ({ count, face }))
+    .sort((a, b) => b.face - a.face)
+}
+
+export function formatToHit(bonus: number, adv: 'n' | 'a' | 'd' = 'n'): string {
+  const mod = bonus === 0 ? '' : bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`
+  if (adv === 'a') return `max(1d20, 1d20)${mod}`
+  if (adv === 'd') return `min(1d20, 1d20)${mod}`
+  return `1d20${mod}`
+}
+
+export function combineDiceExpr(expr: string): string {
+  if (!expr || expr === '—') return expr
+  const { dice, flat } = parseDiceExpr(expr)
+  const combined = combineDiceTerms(dice)
+
+  const parts: string[] = combined.map(({ count, face }) =>
+    count === 1 ? `1d${face}` : `${count}d${face}`,
+  )
+
+  if (flat > 0)       parts.push(`+${flat}`)
+  else if (flat < 0)  parts.push(`${flat}`)
+
+  return parts.join(' + ').replace(/\+ -/g, '- ')  || '0'
+}

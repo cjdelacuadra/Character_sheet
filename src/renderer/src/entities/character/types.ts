@@ -55,6 +55,7 @@ export interface Weapon {
   enchantmentBonus?: number
   bonusDamageDie?: string
   bonusDamageType?: string
+  twoHanded?: boolean
 }
 
 export interface Character {
@@ -109,7 +110,7 @@ export interface Character {
   fightingStyleLocked?: boolean
   completedAsiLevels: number[]
   completedAsiChoices?: Record<number, string>
-  battleMasterManeuvers?: string[]
+  selectedManeuver?: string | null
   superiorityDiceUsed?: number
   arcaneShots?: string[]
   notes: string

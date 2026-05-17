@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { Character, Weapon } from '@/entities/character/types'
-import { WEAPONS, type WeaponDef } from '@/shared/data/weaponData'
+import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod } from '@/shared/data/charCalculations'
+import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
 import { FEATS } from '@/shared/data/featsData'
@@ -55,9 +56,15 @@ function buildAttackRows(
   const enchBonus = w.enchantmentBonus ?? 0
   const duelingBonus = char.fightingStyle === 'dueling' && isMelee && !isTwoHanded && !opts?.offHand ? 2 : 0
   const totalDmgMod = dmgMod + enchBonus + duelingBonus
-  const dmgExpr = w.damage && w.damage !== '—'
-    ? totalDmgMod > 0 ? `${w.damage}+${totalDmgMod}` : totalDmgMod < 0 ? `${w.damage}${totalDmgMod}` : w.damage
-    : w.damage ?? '—'
+  const versatileProp = props.find(p => p.startsWith('versatile ('))
+  const versatileDie = versatileProp?.match(/versatile \((\d+d\d+)\)/)?.[1]
+  const activeDamage = (versatileDie && w.twoHanded) ? versatileDie : w.damage
+  const rawDmgParts = [
+    activeDamage && activeDamage !== '—' ? activeDamage : null,
+    w.bonusDamageDie ?? null,
+    totalDmgMod !== 0 ? String(totalDmgMod) : null,
+  ].filter(Boolean).join('+')
+  const dmgExpr = rawDmgParts ? combineDiceExpr(rawDmgParts) : '—'
 
   const rows: AttackRow[] = [{
     id: 'normal',
@@ -65,21 +72,9 @@ function buildAttackRows(
     toHit: computeAttackBonus(char, w),
     dmg: dmgExpr,
     dmgType: w.damageType ?? null,
-    bonusDmg: w.bonusDamageDie ?? null,
-    bonusDmgType: w.bonusDamageType ?? null,
+    bonusDmg: null,
+    bonusDmgType: null,
   }]
-
-  // Versatile two-handed row (only when no off-hand melee weapon)
-  const versatileProp = props.find(p => p.startsWith('versatile ('))
-  if (versatileProp && isMelee) {
-    const versatileDieMatch = versatileProp.match(/versatile \((\d+d\d+)\)/)
-    const versatileDie = versatileDieMatch?.[1]
-    const soloMelee = char.weapons.filter(cw => cw.rangeType !== 'Ranged').length === 1
-    if (versatileDie && soloMelee) {
-      const versExpr = totalDmgMod > 0 ? `${versatileDie}+${totalDmgMod}` : totalDmgMod < 0 ? `${versatileDie}${totalDmgMod}` : versatileDie
-      rows.push({ id: 'two-handed', name: 'Two-Handed', toHit: computeAttackBonus(char, w), dmg: versExpr, dmgType: w.damageType ?? null, bonusDmg: null, bonusDmgType: null })
-    }
-  }
 
   for (const sa of getWeaponSpecialAttacks(char, w)) {
     let toHit: number | null = null
@@ -98,17 +93,17 @@ function buildAttackRows(
 
   if (char.subclass === 'BattleMaster') {
     const dieSize = char.level >= 10 ? 'd10' : 'd8'
-    for (const id of (char.battleMasterManeuvers ?? [])) {
-      const m = MANEUVER_BY_ID[id]
-      if (!m) continue
-      rows.push({
-        id: `maneuver-${id}`,
+    const mId = char.selectedManeuver ?? null
+    if (mId) {
+      const m = MANEUVER_BY_ID[mId]
+      if (m) rows.push({
+        id: `maneuver-${mId}`,
         name: m.name,
         toHit: null,
         dmg: null,
         dmgType: null,
         bonusDmg: dieSize,
-        bonusDmgType: id === 'precision-attack' ? 'to hit' : (w.damageType ?? null),
+        bonusDmgType: mId === 'precision-attack' ? 'to hit' : (w.damageType ?? null),
       })
     }
   }
@@ -1145,7 +1140,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         <td>
                           {d20 !== null && totalToHit !== null
                             ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}`
-                            : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                            : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                           {rollState && adv !== 'n' && (
                             <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
                           )}
@@ -1191,8 +1186,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
               const usedDice = char.superiorityDiceUsed ?? 0
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + mod(char.abilityScores.str)
-              const selectedManeuvers = char.battleMasterManeuvers ?? []
-              const maxManeuvers = char.level >= 15 ? 9 : char.level >= 7 ? 5 : 3
+              const selectedManeuver = char.selectedManeuver ?? null
+              const m = selectedManeuver ? MANEUVER_BY_ID[selectedManeuver] : null
               return (
                 <div className={styles.specialAttackList}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1214,28 +1209,24 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                           title="Recover a Superiority Die"
                         >Recover</button>
                       )}
-                      {selectedManeuvers.length < maxManeuvers && (
-                        <button className={styles.addBtn} onClick={() => setManeuverPickerOpen(true)}>+ Maneuvers</button>
+                      {!selectedManeuver && (
+                        <button className={styles.addBtn} onClick={() => setManeuverPickerOpen(true)}>+ Maneuver</button>
                       )}
                     </div>
                   </div>
-                  {selectedManeuvers.map(id => {
-                    const m = MANEUVER_BY_ID[id]
-                    if (!m) return null
-                    return (
-                      <div key={id} className={styles.weaponSpecialRow}>
-                        <span className={styles.weaponSpecialName}>{m.name}</span>
-                        <button
-                          className={styles.weaponDel}
-                          onClick={() => update({ battleMasterManeuvers: selectedManeuvers.filter(x => x !== id) })}
-                          title="Remove maneuver"
-                        >×</button>
-                        <span className={styles.weaponSpecialNote}>{m.desc}</span>
-                      </div>
-                    )
-                  })}
-                  {selectedManeuvers.length === 0 && (
-                    <span className={styles.emptyNote}>No maneuvers selected — click + Maneuvers to choose.</span>
+                  {m && (
+                    <div className={styles.weaponSpecialRow}>
+                      <span className={styles.weaponSpecialName}>{m.name}</span>
+                      <button
+                        className={styles.weaponDel}
+                        onClick={() => update({ selectedManeuver: null })}
+                        title="Remove maneuver"
+                      >×</button>
+                      <span className={styles.weaponSpecialNote}>{m.desc}</span>
+                    </div>
+                  )}
+                  {!selectedManeuver && (
+                    <span className={styles.emptyNote}>No maneuver selected — click + Maneuver to choose.</span>
                   )}
                 </div>
               )
@@ -1327,16 +1318,16 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           <div className={styles.modalOverlay} onClick={() => setManeuverPickerOpen(false)}>
             <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
               <div className={styles.armoryHeader}>
-                <span className={styles.armoryTitle}>Choose Maneuvers</span>
+                <span className={styles.armoryTitle}>Choose Maneuver</span>
                 <button className={styles.modalClose} onClick={() => setManeuverPickerOpen(false)}>×</button>
               </div>
               <div className={styles.armoryList}>
-                {MANEUVERS.filter(m => !(char.battleMasterManeuvers ?? []).includes(m.id)).map(m => (
+                {MANEUVERS.filter(m => m.id !== char.selectedManeuver).map(m => (
                   <button
                     key={m.id}
                     className={styles.armoryEntry}
                     onClick={() => {
-                      update({ battleMasterManeuvers: [...(char.battleMasterManeuvers ?? []), m.id] })
+                      update({ selectedManeuver: m.id })
                       setManeuverPickerOpen(false)
                     }}
                   >
@@ -1572,7 +1563,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td>
-                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
                       <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>
@@ -1663,7 +1654,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td>
-                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? fmtMod(totalToHit) : '—'}
+                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
                       <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>

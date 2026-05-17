@@ -1,6 +1,5 @@
-export type ArmorType = 'none' | 'light' | 'medium' | 'heavy'
-export type ArmorProficiency = 'light' | 'medium' | 'heavy' | 'shields'
-export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'very rare' | 'legendary'
+import type { ArmorType, ArmorProficiency, ItemRarity } from './types'
+export type { ArmorType, ArmorProficiency, ItemRarity }
 
 export interface ArmorDef {
   id: string
@@ -69,3 +68,4 @@ export function armorAllowed(armorType: ArmorType, proficiencies: ArmorProficien
   if (armorType === 'none') return true
   return proficiencies.includes(armorType as ArmorProficiency)
 }
+

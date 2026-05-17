@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/armorData'
+import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/equipment/armor'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeAC, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'

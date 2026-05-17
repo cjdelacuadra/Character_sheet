@@ -1,7 +1,7 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
-import { WEAPONS } from '@/shared/data/weaponData'
+import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────

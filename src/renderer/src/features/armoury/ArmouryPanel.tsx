@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useDraggable } from '@dnd-kit/core'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
 import type { Character, Equipment } from '@/entities/character/types'
-import { getShopCatalogue, SHOP_ITEM_BY_ID } from '@/shared/data/shopData'
-import type { ShopItem, ShopItemKind } from '@/shared/data/shopData'
+import { getShopCatalogue, SHOP_ITEM_BY_ID } from '@/shared/data/equipment/catalogue'
+import type { ShopItem, ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { useAppStore } from '@/app/store'
 import { ItemCard } from './ItemCard'
 import styles from './ArmouryPanel.module.css'
@@ -12,6 +12,7 @@ interface Props {
   activeSlotFilter: keyof Equipment | null
   onClose: () => void
   onOpenShop: () => void
+  shakingId?: string | null
 }
 
 type Tab = 'all' | 'armor' | 'weapon' | 'accessory'
@@ -29,19 +30,28 @@ function slotToKind(slot: keyof Equipment): ShopItemKind {
   return slot.replace('Id', '') as ShopItemKind
 }
 
-function DraggableCard({ item, onEquip }: { item: ShopItem; onEquip: (id: string) => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `armoury-${item.id}`,
-    data: { itemId: item.id, kind: item.kind },
-  })
+function DroppableGrid({ children }: { children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'armoury-grid', data: { isArmoury: true } })
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes}>
-      <ItemCard item={item} mode="armoury" onAction={() => onEquip(item.id)} isDragging={isDragging} />
+    <div ref={setNodeRef} className={styles.grid} data-over={isOver || undefined}>
+      {children}
     </div>
   )
 }
 
-export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpenShop }: Props) {
+function DraggableCard({ item, onEquip, isShaking }: { item: ShopItem; onEquip: (id: string) => void; isShaking?: boolean }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `armoury-${item.id}`,
+    data: { itemId: item.id, kind: item.kind, type: 'armoury' },
+  })
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes}>
+      <ItemCard item={item} mode="armoury" onAction={() => onEquip(item.id)} isDragging={isDragging} isShaking={isShaking} />
+    </div>
+  )
+}
+
+export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpenShop, shakingId }: Props) {
   const equipItemToSlot = useAppStore(s => s.equipItemToSlot)
   const buyItem         = useAppStore(s => s.buyItem)
 
@@ -149,7 +159,7 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
         ))}
       </div>
 
-      <div className={styles.grid}>
+      <DroppableGrid>
         {allEmpty ? (
           <div className={styles.empty}>
             No items available.{' '}
@@ -160,7 +170,11 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
           <>
             {displayedOwned.map(item => (
               <div key={item.id} style={{ opacity: equippedIds.has(item.id) ? 1 : 0.6 }}>
-                <DraggableCard item={item} onEquip={activeSlotFilter ? handleEquip : handleEquipAll} />
+                <DraggableCard
+                  item={item}
+                  onEquip={activeSlotFilter ? handleEquip : handleEquipAll}
+                  isShaking={shakingId === `armoury-${item.id}`}
+                />
               </div>
             ))}
             {displayedUnowned.map(item => (
@@ -175,7 +189,7 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
             ))}
           </>
         )}
-      </div>
+      </DroppableGrid>
     </div>
   )
 }

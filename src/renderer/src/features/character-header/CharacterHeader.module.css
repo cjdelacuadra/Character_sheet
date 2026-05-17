@@ -38,6 +38,9 @@
 .pipFull { background: var(--accent); border-color: var(--accent); }
 .pipEmpty { background: var(--surface-3); }
 
+.equipBtn { padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
+.equipBtn:hover { border-color: var(--accent); }
+.equipBtnActive { border-color: var(--accent); color: var(--accent); }
 .restBtn { padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
 .restBtn:hover { border-color: var(--accent); }
 .themeBtn { padding: 4px 8px; font-size: 13px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; line-height: 1; }

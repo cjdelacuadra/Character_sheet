@@ -206,6 +206,22 @@
   font-style: italic;
 }
 
+/* ── Drag states ────────────────────────────────────────────────────────── */
+
+.slot[data-dragging] {
+  opacity: 0.5;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-4px); }
+  40%       { transform: translateX(4px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+
+.shake { animation: shake 0.35s ease; }
+
 /* ── Shop row ────────────────────────────────────────────────────────────── */
 
 .shopRow {
@@ -238,3 +254,7 @@
   background: var(--accent);
   color: var(--bg);
 }
+
+.inventoryBar { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 6px; border-top: 1px solid var(--border); }
+.inventoryChip { padding: 2px 8px; font-size: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text-muted); cursor: pointer; }
+.inventoryChip:hover { border-color: var(--accent); color: var(--accent); }

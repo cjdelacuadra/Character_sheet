@@ -17,6 +17,7 @@ interface Props {
 
 export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack }: Props) {
   const [xpEdit, setXpEdit] = useState<string | null>(null)
+  const [equipOpen, setEquipOpen] = useState(false)
   const { theme, toggle } = useTheme()
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
@@ -91,27 +92,17 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
         <span className={styles.headerLabel}>Experience Points</span>
       </div>
       <div className={`${styles.headerCell} ${styles.headerActions}`}>
-        <div className={styles.inspirationPipsHdr}>
-          <span className={styles.inspirationHdrLabel}>Insp</span>
-          {[0, 1, 2].map(i => {
-            const cur = char.inspiration
-            return (
-              <button
-                key={i}
-                className={`${styles.inspirationPip} ${i < cur ? styles.pipFull : styles.pipEmpty}`}
-                onClick={() => update({ inspiration: i < cur ? Math.max(0, cur - 1) : Math.min(3, i + 1) })}
-                title={i < cur ? 'Spend inspiration' : 'Gain inspiration'}
-              />
-            )
-          })}
-        </div>
+        <button
+          className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
+          onClick={() => setEquipOpen(p => !p)}
+        >Equipment{Object.values(char.equipment).some(Boolean) ? ' ●' : ''}</button>
         <button className={styles.restBtn} onClick={onRestToggle}>Rest</button>
         <button className={styles.themeBtn} onClick={toggle} title="Toggle theme">
           {theme === 'dark' ? '☀' : '◑'}
         </button>
         <button className={styles.backBtn} onClick={onBack}>← Back</button>
       </div>
-      <EquipmentLayout character={char} />
+      {equipOpen && <EquipmentLayout character={char} />}
     </header>
   )
 }

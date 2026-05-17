@@ -7,11 +7,11 @@ import { SKILLS, SKILL_BY_KEY } from '@/shared/data/skills'
 import { RACE_LABELS, RACE_BY_ID } from '@/shared/data/raceData'
 import { CLASS_LABELS, CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { weaponsForClass, type WeaponDef } from '@/shared/data/weaponData'
+import { weaponsForClass, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingStylesData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
-import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/armorData'
+import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/equipment/armor'
 import {
   computeAC, computeMaxHP, computeSpeed, computeInitiative, profBonus, mod,
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL

@@ -1,4 +1,4 @@
-import type { ShopItem } from '@/shared/data/shopData'
+import type { ShopItem } from '@/shared/data/equipment/catalogue'
 import styles from './ItemCard.module.css'
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   alreadyOwned?: boolean
   canAfford?: boolean
   isDragging?: boolean
+  isShaking?: boolean
 }
 
 const RARITY_COLOR: Record<string, string> = {
@@ -18,7 +19,7 @@ const RARITY_COLOR: Record<string, string> = {
   legendary:  '#ff8000',
 }
 
-export function ItemCard({ item, mode, onAction, alreadyOwned, canAfford, isDragging }: Props) {
+export function ItemCard({ item, mode, onAction, alreadyOwned, canAfford, isDragging, isShaking }: Props) {
   const rarityColor = item.rarity ? RARITY_COLOR[item.rarity] : 'var(--text-muted)'
 
   const actionLabel =
@@ -35,7 +36,7 @@ export function ItemCard({ item, mode, onAction, alreadyOwned, canAfford, isDrag
 
   return (
     <div
-      className={styles.card}
+      className={`${styles.card}${isShaking ? ` ${styles.shake}` : ''}`}
       data-dragging={isDragging || undefined}
       data-rarity={item.rarity}
     >

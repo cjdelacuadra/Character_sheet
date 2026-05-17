@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { Character, Weapon } from '@/entities/character/types'
-import { WEAPONS, type WeaponDef } from '@/shared/data/weaponData'
+import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { computeAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, SPELL_ATTACK_IDS, type ActionDef } from '@/domain/rules'
 import { mod } from '@/shared/data/charCalculations'
+import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import styles from './CombatPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -161,6 +162,9 @@ export function CombatPanel({ character: char, update }: Props) {
               const computed = computeAttackBonus(char, w)
               const proficient = isProficientWithWeapon(char, w)
               const rangeLabel = w.rangeType === 'Melee' ? 'Melee' : w.rangeType === 'Ranged' ? 'Ranged' : w.rangeType === 'Melee or Ranged' ? 'M/R' : '—'
+              const wProps = (w.properties ?? []).map(p => p.toLowerCase())
+              const wVersatileDie = wProps.find(p => p.startsWith('versatile ('))?.match(/versatile \((\d+d\d+)\)/)?.[1]
+              const wActiveDmg = (wVersatileDie && w.twoHanded) ? wVersatileDie : w.damage
               return (
                 <tr key={w.id} className={styles.weaponRow}>
                   <td className={styles.weaponName}>
@@ -168,10 +172,10 @@ export function CombatPanel({ character: char, update }: Props) {
                     {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
                   </td>
                   <td className={styles.weaponAtk} style={proficient ? undefined : { opacity: 0.5 }}>
-                    {fmtMod(computed)}
+                    {formatToHit(computed, 'n')}
                     {!proficient && <span title="Not proficient"> ⚠</span>}
                   </td>
-                  <td className={styles.weaponDmg}>{w.damage}</td>
+                  <td className={styles.weaponDmg}>{wActiveDmg}</td>
                   <td className={styles.weaponDmg}>{w.damageType ?? '—'}</td>
                   <td className={styles.weaponDmg}>{rangeLabel}</td>
                   <td><button className={styles.weaponDel} onClick={() => removeWeapon(w.id)}>×</button></td>
@@ -218,11 +222,17 @@ export function CombatPanel({ character: char, update }: Props) {
                   const atk = computeAttackBonus(char, w)
                   const strMod = mod(char.abilityScores.str)
                   const dexMod = mod(char.abilityScores.dex)
-                  const isFinesse = (w.properties ?? []).some(p => p.toLowerCase() === 'finesse')
+                  const wProps2 = (w.properties ?? []).map(p => p.toLowerCase())
+                  const isFinesse = wProps2.some(p => p === 'finesse')
                   const dmgMod = isFinesse ? Math.max(strMod, dexMod) : w.rangeType === 'Ranged' ? dexMod : strMod
-                  const dmgExpr = w.damage && w.damage !== '—'
-                    ? dmgMod >= 0 ? `${w.damage}+${dmgMod}` : `${w.damage}${dmgMod}`
-                    : w.damage ?? '—'
+                  const wVers2 = wProps2.find(p => p.startsWith('versatile ('))?.match(/versatile \((\d+d\d+)\)/)?.[1]
+                  const activeDmg2 = (wVers2 && w.twoHanded) ? wVers2 : w.damage
+                  const rawParts = [
+                    activeDmg2 && activeDmg2 !== '—' ? activeDmg2 : null,
+                    w.bonusDamageDie ?? null,
+                    dmgMod !== 0 ? String(dmgMod) : null,
+                  ].filter(Boolean).join('+')
+                  const dmgExpr = rawParts ? combineDiceExpr(rawParts) : '—'
                   return (
                     <div key={w.id} className={styles.attackDetailCard}>
                       <div className={styles.attackDetailCardName}>
@@ -230,9 +240,8 @@ export function CombatPanel({ character: char, update }: Props) {
                         {(w.enchantmentBonus ?? 0) > 0 && <span className={styles.enchantBadge}>+{w.enchantmentBonus}</span>}
                       </div>
                       <div className={styles.attackDetailCardStats}>
-                        <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {fmtMod(atk)}</span>
+                        <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Hit</span> {formatToHit(atk, 'n')}</span>
                         <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Dmg</span> {dmgExpr} {w.damageType ?? ''}</span>
-                        {w.bonusDamageDie && <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>+</span>{w.bonusDamageDie} {w.bonusDamageType ?? ''}</span>}
                         <span className={styles.attackDetailStat}><span className={styles.attackDetailStatLbl}>Range</span> {w.rangeType ?? 'Melee'}</span>
                       </div>
                     </div>

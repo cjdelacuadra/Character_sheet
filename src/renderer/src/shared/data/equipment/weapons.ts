@@ -1,6 +1,5 @@
-export type WeaponProficiencyCategory = 'Simple' | 'Martial' | 'Unarmed' | 'Natural' | 'Improvised'
-export type WeaponRangeType = 'Melee' | 'Ranged' | 'Melee or Ranged'
-export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'very rare' | 'legendary'
+import type { WeaponProficiencyCategory, WeaponRangeType, ItemRarity } from './types'
+export type { WeaponProficiencyCategory, WeaponRangeType, ItemRarity }
 
 export interface WeaponDef {
   id: string
@@ -83,7 +82,7 @@ export const WEAPONS: WeaponDef[] = [
 
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map(w => [w.id, w])) as Record<string, WeaponDef>
 
-export const SIMPLE_WEAPONS = WEAPONS.filter(w => w.proficiencyCategory === 'Simple')
+export const SIMPLE_WEAPONS  = WEAPONS.filter(w => w.proficiencyCategory === 'Simple')
 export const MARTIAL_WEAPONS = WEAPONS.filter(w => w.proficiencyCategory === 'Martial')
 
 /** Return weapons a class can use based on its weapon proficiency strings. */
@@ -92,9 +91,8 @@ export function weaponsForClass(weaponProficiencies: string[]): WeaponDef[] {
   const hasSimple  = weaponProficiencies.some(p => p.toLowerCase().includes('simple weapon'))
   if (hasMartial) return WEAPONS.filter(w => w.proficiencyCategory === 'Simple' || w.proficiencyCategory === 'Martial')
   if (hasSimple)  return WEAPONS.filter(w => w.proficiencyCategory === 'Simple')
-  // Specific weapon lists (Bard, Rogue, etc.)
-  return WEAPONS.filter(w => {
-    return weaponProficiencies.some(p => p.toLowerCase() === w.name.toLowerCase())
-      || (w.proficiencyCategory === 'Unarmed')
-  })
+  return WEAPONS.filter(w =>
+    weaponProficiencies.some(p => p.toLowerCase() === w.name.toLowerCase())
+    || (w.proficiencyCategory === 'Unarmed')
+  )
 }
