@@ -27,7 +27,14 @@ export function computeMaxHP(classId: string, level: number, conScore: number, b
 }
 
 /** Computes AC from equipment, scores, class, race, and optional subclass/fightingStyle. */
-export function computeAC(char: Pick<Character, 'abilityScores' | 'equipment' | 'classId' | 'race'> & { subclass?: string; fightingStyle?: string }): number {
+export function computeAC(char: {
+  abilityScores: AbilityScores
+  equipment: Pick<Equipment, 'armorId' | 'shieldId' | 'hasShield'>
+  classId: string
+  race: string
+  subclass?: string
+  fightingStyle?: string
+}): number {
   const { abilityScores, equipment, classId, race, subclass } = char
   const dexMod = mod(abilityScores.dex)
   const conMod = mod(abilityScores.con)

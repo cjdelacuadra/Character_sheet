@@ -46,7 +46,7 @@ export function combineDiceExpr(expr: string): string {
     count === 1 ? `1d${face}` : `${count}d${face}`,
   )
 
-  if (flat > 0)       parts.push(`+${flat}`)
+  if (flat > 0)       parts.push(String(flat))
   else if (flat < 0)  parts.push(`${flat}`)
 
   return parts.join(' + ').replace(/\+ -/g, '- ')  || '0'

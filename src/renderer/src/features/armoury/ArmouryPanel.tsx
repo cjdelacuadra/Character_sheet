@@ -1,7 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, useEffect, type ReactNode } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import type { Character, Equipment } from '@/entities/character/types'
-import { getShopCatalogue, SHOP_ITEM_BY_ID } from '@/shared/data/equipment/catalogue'
+import { getShopCatalogue, SHOP_ITEM_BY_ID, slotToKind } from '@/shared/data/equipment/catalogue'
 import type { ShopItem, ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { useAppStore } from '@/app/store'
 import { ItemCard } from './ItemCard'
@@ -23,12 +23,14 @@ const ACCESS_KINDS  = new Set<ShopItemKind>([
   'helmet', 'necklace', 'cape', 'legs', 'boots', 'gloves', 'quiver', 'ring', 'amulet',
 ])
 
-function slotToKind(slot: keyof Equipment): ShopItemKind {
-  if (slot === 'armorId')  return 'armor'
-  if (slot === 'shieldId') return 'shield'
-  if (slot === 'ring1Id' || slot === 'ring2Id') return 'ring'
-  return slot.replace('Id', '') as ShopItemKind
+function computeTab(filter: keyof Equipment | null): Tab {
+  if (!filter) return 'all'
+  const kind = slotToKind(filter)
+  if (ARMOR_KINDS.has(kind))  return 'armor'
+  if (WEAPON_KINDS.has(kind)) return 'weapon'
+  return 'accessory'
 }
+
 
 function DroppableGrid({ children }: { children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'armoury-grid', data: { isArmoury: true } })
@@ -55,13 +57,11 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
   const equipItemToSlot = useAppStore(s => s.equipItemToSlot)
   const buyItem         = useAppStore(s => s.buyItem)
 
-  const [tab, setTab] = useState<Tab>(() => {
-    if (!activeSlotFilter) return 'all'
-    const kind = slotToKind(activeSlotFilter)
-    if (ARMOR_KINDS.has(kind))  return 'armor'
-    if (WEAPON_KINDS.has(kind)) return 'weapon'
-    return 'accessory'
-  })
+  const [tab, setTab] = useState<Tab>(() => computeTab(activeSlotFilter))
+
+  useEffect(() => {
+    setTab(computeTab(activeSlotFilter))
+  }, [activeSlotFilter])
 
   const filterKind = activeSlotFilter ? slotToKind(activeSlotFilter) : null
 

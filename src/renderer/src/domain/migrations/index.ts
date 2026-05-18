@@ -20,7 +20,12 @@ function v1_to_v2(raw: Partial<Character>): Partial<Character> {
     updatedAt: new Date().toISOString(),
     equipment: rawEq
       ? { ...rawEq, shieldId }
-      : { armorId: null, hasShield: false, shieldId: null },
+      : {
+          armorId: null, hasShield: false, shieldId: null,
+          helmetId: null, necklaceId: null, capeId: null, legsId: null,
+          bootsId: null, glovesId: null, quiverId: null,
+          ring1Id: null, ring2Id: null, amuletId: null,
+        },
     preparedSpellIds: (raw as Record<string, unknown>).preparedSpellIds as string[] ?? [],
     notes: (raw as Record<string, unknown>).notes as string ?? '',
     savingThrowProficiencies: raw.savingThrowProficiencies ?? [],
@@ -65,10 +70,11 @@ function v4_to_v5(char: Partial<Character>): Partial<Character> {
 }
 
 function v5_to_v6(char: Partial<Character>): Partial<Character> {
+  const legacyManeuvers = (char as Record<string, unknown>).battleMasterManeuvers as string[] | undefined
   return {
     ...char,
     schemaVersion: 6,
-    battleMasterManeuvers: (char as Record<string, unknown>).battleMasterManeuvers as string[] ?? [],
+    selectedManeuver: legacyManeuvers?.[0] ?? char.selectedManeuver ?? null,
     superiorityDiceUsed: (char as Record<string, unknown>).superiorityDiceUsed as number ?? 0,
     arcaneShots: (char as Record<string, unknown>).arcaneShots as string[] ?? [],
   }

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
+import { initLogger, writeEntry } from './logger'
 
 let DATA_DIR: string
 
@@ -37,6 +38,10 @@ function registerIpc(): void {
     if (existsSync(p)) unlinkSync(p)
     return { ok: true }
   })
+
+  ipcMain.handle('log:error', (_e, source: string, message: string) => {
+    writeEntry(source, message)
+  })
 }
 
 function createWindow(): void {
@@ -69,6 +74,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  initLogger(app.getPath('userData'))
   DATA_DIR = join(app.getPath('userData'), 'characters')
   registerIpc()
   createWindow()

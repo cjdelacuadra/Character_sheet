@@ -12,6 +12,7 @@ import { ConditionsPanel } from '@/features/conditions/ConditionsPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
+import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
 import { LevelUpModal } from '@/features/level-up/LevelUpModal'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { SpellSelectionStep } from '@/features/level-up/SpellSelectionStep'
@@ -24,6 +25,7 @@ export function CharacterView() {
   const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, shortRest, longRest, levelUp, applyPendingAsi, setTempHp } = useAppStore()
 
   const [restOpen, setRestOpen] = useState(false)
+  const [equipOpen, setEquipOpen] = useState(false)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
@@ -87,6 +89,8 @@ export function CharacterView() {
         }}
         onRestToggle={() => setRestOpen(v => !v)}
         onBack={exitCharacter}
+        onEquipToggle={() => { setEquipOpen(p => !p); setSelectedAction(null) }}
+        equipOpen={equipOpen}
       />
 
       {restOpen && (
@@ -106,7 +110,7 @@ export function CharacterView() {
           <FeaturesPanel
             character={char}
             selectedFeature={selectedFeature}
-            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null) }}
+            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setEquipOpen(false) }}
           />
         </aside>
 
@@ -114,19 +118,22 @@ export function CharacterView() {
           <ActionListPanel
             character={char}
             selectedAction={selectedAction}
-            onSelectAction={(name) => { setSelectedAction(name); if (name) setSelectedFeature(null) }}
+            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setEquipOpen(false) } }}
             update={update}
           />
         </div>
 
         <div className={styles.rightCol}>
-          <ActionDetailPanel
-            character={char}
-            update={update}
-            selectedAction={selectedAction}
-            onSelectAction={(name) => { setSelectedAction(name); if (name) setSelectedFeature(null) }}
-            selectedFeature={selectedFeature}
-          />
+          {equipOpen && <EquipmentLayout character={char} />}
+          {!equipOpen && selectedAction !== null && (
+            <ActionDetailPanel
+              character={char}
+              update={update}
+              selectedAction={selectedAction}
+              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setEquipOpen(false) } }}
+              selectedFeature={selectedFeature}
+            />
+          )}
         </div>
       </div>
 

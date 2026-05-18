@@ -4,7 +4,6 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { xpForNextLevel } from '@/domain/rules'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { useTheme } from '@/app/ThemeContext'
-import { EquipmentLayout } from './EquipmentLayout'
 import styles from './CharacterHeader.module.css'
 
 interface Props {
@@ -13,11 +12,12 @@ interface Props {
   onLevelUp: () => void
   onRestToggle: () => void
   onBack: () => void
+  onEquipToggle: () => void
+  equipOpen: boolean
 }
 
-export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack }: Props) {
+export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen }: Props) {
   const [xpEdit, setXpEdit] = useState<string | null>(null)
-  const [equipOpen, setEquipOpen] = useState(false)
   const { theme, toggle } = useTheme()
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
@@ -94,15 +94,14 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
       <div className={`${styles.headerCell} ${styles.headerActions}`}>
         <button
           className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
-          onClick={() => setEquipOpen(p => !p)}
-        >Equipment{Object.values(char.equipment).some(Boolean) ? ' ●' : ''}</button>
+          onClick={onEquipToggle}
+        >Equipment</button>
         <button className={styles.restBtn} onClick={onRestToggle}>Rest</button>
         <button className={styles.themeBtn} onClick={toggle} title="Toggle theme">
           {theme === 'dark' ? '☀' : '◑'}
         </button>
         <button className={styles.backBtn} onClick={onBack}>← Back</button>
       </div>
-      {equipOpen && <EquipmentLayout character={char} />}
     </header>
   )
 }

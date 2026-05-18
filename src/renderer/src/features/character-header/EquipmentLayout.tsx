@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { DndContext, DragOverlay, useDndContext, useDraggable, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
-import type { Character, Equipment, Weapon } from '@/entities/character/types'
+import type { AbilityScore, Character, Equipment, Weapon } from '@/entities/character/types'
+import type { Skill } from '@/shared/data/skills'
 import { ARMOR_BY_ID } from '@/shared/data/equipment/armor'
 import { ACCESSORY_BY_ID } from '@/shared/data/equipment/accessories'
-import { SHOP_ITEM_BY_ID, slotPlaceholderUrl } from '@/shared/data/equipment/catalogue'
+import { SHOP_ITEM_BY_ID, slotPlaceholderUrl, slotToKind } from '@/shared/data/equipment/catalogue'
 import type { ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { computeEquipmentStats, type EquipmentStats } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
@@ -17,24 +18,16 @@ interface Props {
   character: Character
 }
 
-// ─── Slot-to-kind mapping ────────────────────────────────────────────────────
-
-function slotToKind(slot: keyof Equipment): ShopItemKind {
-  if (slot === 'armorId')  return 'armor'
-  if (slot === 'shieldId') return 'shield'
-  if (slot === 'ring1Id' || slot === 'ring2Id') return 'ring'
-  return slot.replace('Id', '') as ShopItemKind
-}
 
 function resolveSlotName(slot: keyof Equipment, char: Character): string | null {
-  const val = char.equipment[slot]
+  const val = char.equipment[slot] as string | null
   if (!val) return null
-  // armor / shield
   if (slot === 'armorId' || slot === 'shieldId') {
-    return ARMOR_BY_ID[val]?.name ?? val
+    const name = ARMOR_BY_ID[val]?.name
+    if (!name && import.meta.env.DEV) console.warn(`resolveSlotName: no armor found for id "${val}"`)
+    return name ?? null
   }
-  // accessory from shopData catalogue
-  return ACCESSORY_BY_ID[val]?.name ?? val
+  return ACCESSORY_BY_ID[val]?.name ?? null
 }
 
 // ─── DroppableSlot ───────────────────────────────────────────────────────────
@@ -59,7 +52,7 @@ function SlotButton({
     data: { slot: slotKey, kind: slotToKind(slotKey) },
   })
 
-  const itemId   = char.equipment[slotKey]
+  const itemId   = char.equipment[slotKey] as string | null
   const itemName = resolveSlotName(slotKey, char)
   const kind     = slotToKind(slotKey)
   const isEmpty  = !itemId
@@ -125,7 +118,7 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
   char: Character
   onClose: () => void
 }) {
-  const itemId = char.equipment[slot]
+  const itemId = char.equipment[slot] as string | null
   if (!itemId) return null
 
   const itemName = resolveSlotName(slot, char) ?? itemId
@@ -134,19 +127,19 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
   const acc   = ACCESSORY_BY_ID[itemId]
 
   const rows: { label: string; value: number }[] = []
+  const advRows: string[] = []
   const s = acc?.stats
   if (s) {
-    for (const [k, v] of Object.entries(s.attackBonus ?? {})) {
-      if (v) rows.push({ label: `Atk ${k.charAt(0).toUpperCase() + k.slice(1)}`, value: v as number })
+    if (s.acBonus) rows.push({ label: 'AC Bonus', value: s.acBonus })
+    for (const [ab, val] of Object.entries(s.savingThrowBonus ?? {}) as [AbilityScore, number][]) {
+      if (val) rows.push({ label: `${ab.toUpperCase()} Save`, value: val })
     }
-    for (const [k, v] of Object.entries(s.defenceBonus ?? {})) {
-      if (v) rows.push({ label: `Def ${k.charAt(0).toUpperCase() + k.slice(1)}`, value: v as number })
+    for (const [sk, val] of Object.entries(s.skillBonus ?? {}) as [Skill, number][]) {
+      if (val) rows.push({ label: sk.charAt(0).toUpperCase() + sk.slice(1), value: val })
     }
-    const o = s.other ?? {}
-    if (o.meleeStr)  rows.push({ label: 'Melee Str.',    value: o.meleeStr })
-    if (o.rangedStr) rows.push({ label: 'Ranged Str.',   value: o.rangedStr })
-    if (o.magicStr)  rows.push({ label: 'Magic Dmg. %',  value: o.magicStr })
-    if (o.prayer)    rows.push({ label: 'Prayer',         value: o.prayer })
+    for (const ab of s.advantage?.savingThrows ?? []) advRows.push(`${ab.toUpperCase()} Saves`)
+    for (const sk of s.advantage?.skills ?? []) advRows.push(sk.charAt(0).toUpperCase() + sk.slice(1))
+    if (s.advantage?.deathSaves) advRows.push('Death Saves')
   }
 
   let subtitle = ''
@@ -164,7 +157,7 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
         </div>
         <button className={styles.breakdownClose} onClick={onClose}>×</button>
       </div>
-      {rows.length > 0 ? (
+      {(rows.length > 0 || advRows.length > 0) ? (
         <div className={styles.breakdownStats}>
           {rows.map(r => (
             <div key={r.label} className={styles.breakdownRow}>
@@ -172,6 +165,12 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
               <span className={styles.breakdownValue} style={{ color: r.value > 0 ? 'var(--accent)' : 'var(--danger)' }}>
                 {r.value > 0 ? `+${r.value}` : r.value}
               </span>
+            </div>
+          ))}
+          {advRows.map(label => (
+            <div key={label} className={styles.breakdownRow}>
+              <span className={styles.breakdownLabel}>{label}</span>
+              <span className={styles.breakdownValue} style={{ color: 'var(--accent)' }}>Adv</span>
             </div>
           ))}
         </div>
@@ -297,47 +296,65 @@ function Empty() { return <div /> }
 
 // ─── Stat rows ───────────────────────────────────────────────────────────────
 
-function StatRow({ label, value, pct }: { label: string; value: number; pct?: boolean }) {
-  const sign = value >= 0 ? '+' : ''
-  const color = value === 0 ? 'var(--text-muted)' : value > 0 ? 'var(--accent)' : 'var(--danger, #e55)'
+function StatRow({ label, value }: { label: string; value: number }) {
+  const sign  = value >= 0 ? '+' : ''
+  const color = value > 0 ? 'var(--accent)' : value < 0 ? 'var(--danger, #e55)' : 'var(--text-muted)'
   return (
     <div className={styles.statRow}>
       <span className={styles.statLabel}>{label}</span>
       <span className={styles.statValue} style={{ color, fontWeight: value !== 0 ? 600 : 400 }}>
-        {sign}{value}{pct ? '%' : ''}
+        {sign}{value}
       </span>
     </div>
   )
 }
 
-function StatGroup({ title, stats }: { title: string; stats: EquipmentStats }) {
-  if (title === 'Attack') return (
-    <div>
-      <div className={styles.statGroupTitle}>{title}</div>
-      <StatRow label="Stab"  value={stats.attackBonus.stab} />
-      <StatRow label="Slash" value={stats.attackBonus.slash} />
-      <StatRow label="Crush" value={stats.attackBonus.crush} />
-      <StatRow label="Magic" value={stats.attackBonus.magic} />
-      <StatRow label="Range" value={stats.attackBonus.ranged} />
+function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
+  const saveEntries = Object.entries(stats.savingThrowBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
+  const skillEntries = Object.entries(stats.skillBonus).filter(([, v]) => v !== 0) as [Skill, number][]
+  const advSaves  = stats.advantage.savingThrows
+  const advSkills = stats.advantage.skills
+  const hasAny = stats.acBonus || saveEntries.length || skillEntries.length ||
+    advSaves.length || advSkills.length || stats.advantage.deathSaves
+
+  if (!hasAny) return (
+    <div className={styles.statsPanel}>
+      <span className={styles.statEmpty}>No accessory bonuses</span>
     </div>
   )
-  if (title === 'Defence') return (
-    <div>
-      <div className={styles.statGroupTitle}>{title}</div>
-      <StatRow label="Stab"  value={stats.defenceBonus.stab} />
-      <StatRow label="Slash" value={stats.defenceBonus.slash} />
-      <StatRow label="Crush" value={stats.defenceBonus.crush} />
-      <StatRow label="Magic" value={stats.defenceBonus.magic} />
-      <StatRow label="Range" value={stats.defenceBonus.ranged} />
-    </div>
-  )
+
   return (
-    <div>
-      <div className={styles.statGroupTitle}>Other</div>
-      <StatRow label="Melee str."  value={stats.other.meleeStr} />
-      <StatRow label="Ranged str." value={stats.other.rangedStr} />
-      <StatRow label="Magic dmg."  value={stats.other.magicStr} pct />
-      <StatRow label="Prayer"      value={stats.other.prayer} />
+    <div className={styles.statsPanel}>
+      {stats.acBonus !== 0 && <StatRow label="AC Bonus" value={stats.acBonus} />}
+      {saveEntries.length > 0 && <div className={styles.statGroupTitle}>Saving Throws</div>}
+      {saveEntries.map(([ab, val]) => <StatRow key={ab} label={ab.toUpperCase()} value={val} />)}
+      {skillEntries.length > 0 && <div className={styles.statGroupTitle}>Skills</div>}
+      {skillEntries.map(([sk, val]) => (
+        <StatRow key={sk} label={sk.charAt(0).toUpperCase() + sk.slice(1)} value={val} />
+      ))}
+      {(advSaves.length > 0 || advSkills.length > 0 || stats.advantage.deathSaves) && (
+        <div>
+          <div className={styles.statGroupTitle}>Advantage</div>
+          {advSaves.map(ab => (
+            <div key={ab} className={styles.statRow}>
+              <span className={styles.statLabel}>{ab.toUpperCase()} Saves</span>
+              <span className={styles.statValue} style={{ color: 'var(--accent)', fontWeight: 600 }}>Adv</span>
+            </div>
+          ))}
+          {advSkills.map(sk => (
+            <div key={sk} className={styles.statRow}>
+              <span className={styles.statLabel}>{sk.charAt(0).toUpperCase() + sk.slice(1)}</span>
+              <span className={styles.statValue} style={{ color: 'var(--accent)', fontWeight: 600 }}>Adv</span>
+            </div>
+          ))}
+          {stats.advantage.deathSaves && (
+            <div className={styles.statRow}>
+              <span className={styles.statLabel}>Death Saves</span>
+              <span className={styles.statValue} style={{ color: 'var(--accent)', fontWeight: 600 }}>Adv</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -356,6 +373,8 @@ export function EquipmentLayout({ character: char }: Props) {
   const [slotBreakdown,    setSlotBreakdown]    = useState<keyof Equipment | null>(null)
   const [weaponBreakdown,  setWeaponBreakdown]  = useState<number | null>(null)
   const [shakingId,        setShakingId]        = useState<string | null>(null)
+  const shakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (shakeTimer.current) clearTimeout(shakeTimer.current) }, [])
 
   function handleUnequip(slot: keyof Equipment) {
     _unequipSlot(char.id, slot)
@@ -363,16 +382,16 @@ export function EquipmentLayout({ character: char }: Props) {
   }
 
   function openSlot(slot: keyof Equipment) {
-    const itemId = char.equipment[slot]
+    const itemId = char.equipment[slot] as string | null
     if (itemId) {
       setWeaponBreakdown(null)
-      setSlotBreakdown(prev => prev === slot ? null : slot)
       setArmouryOpen(false)
+      setSlotBreakdown(prev => prev === slot ? null : slot)
     } else {
-      setActiveSlot(slot)
-      setArmouryOpen(true)
       setSlotBreakdown(null)
       setWeaponBreakdown(null)
+      setActiveSlot(slot)
+      setArmouryOpen(true)
     }
   }
 
@@ -383,8 +402,9 @@ export function EquipmentLayout({ character: char }: Props) {
   }
 
   function shake(id: string) {
+    if (shakeTimer.current) clearTimeout(shakeTimer.current)
     setShakingId(id)
-    setTimeout(() => setShakingId(null), 400)
+    shakeTimer.current = setTimeout(() => setShakingId(null), 400)
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -415,7 +435,7 @@ export function EquipmentLayout({ character: char }: Props) {
 
     if (type === 'equipped' && fromSlot) {
       if (fromSlot === toSlot) return
-      const toItemId = char.equipment[toSlot]
+      const toItemId = char.equipment[toSlot] as string | null
       equipItemToSlot(char.id, toSlot, itemId)
       if (toItemId) {
         equipItemToSlot(char.id, fromSlot, toItemId)
@@ -501,11 +521,7 @@ export function EquipmentLayout({ character: char }: Props) {
           </div>
 
           {/* Stats panel */}
-          <div className={styles.statsPanel}>
-            <StatGroup title="Attack"  stats={equipStats} />
-            <StatGroup title="Defence" stats={equipStats} />
-            <StatGroup title="Other"   stats={equipStats} />
-          </div>
+          <DndEquipStatsPanel stats={equipStats} />
         </div>
 
         {/* Inventory count bar */}

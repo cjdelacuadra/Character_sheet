@@ -48,7 +48,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const currentShieldId = eq.shieldId ?? null
 
   function setArmor(armorId: string | null, shieldId: string | null) {
-    const newEq = { armorId, hasShield: shieldId !== null, shieldId }
+    const newEq = { ...char.equipment, armorId, hasShield: shieldId !== null, shieldId }
     const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race, subclass: char.subclass })
     update({ equipment: newEq, armorClass: newAC })
   }

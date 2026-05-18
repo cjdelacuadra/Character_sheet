@@ -1,6 +1,6 @@
 .panel {
   border-top: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-surface);
   padding: 6px 8px;
   display: flex;
   flex-direction: column;

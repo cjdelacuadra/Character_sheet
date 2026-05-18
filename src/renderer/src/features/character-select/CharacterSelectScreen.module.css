@@ -48,6 +48,14 @@
   flex-direction: column;
   gap: 10px;
   max-width: 720px;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: 24px;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
 }
 
 .listItem {

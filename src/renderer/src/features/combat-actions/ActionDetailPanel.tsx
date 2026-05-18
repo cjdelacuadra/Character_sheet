@@ -40,6 +40,23 @@ interface AttackRow {
   bonusDmgType: string | null
 }
 
+function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { expr: string; type: string }[] {
+  const byType = new Map<string, string[]>()
+  for (const row of rows) {
+    if (!isActive(row.id)) continue
+    if (row.dmg && row.dmg !== '—' && row.dmgType) {
+      byType.set(row.dmgType, [...(byType.get(row.dmgType) ?? []), row.dmg])
+    }
+    if (row.bonusDmg && row.bonusDmgType && row.bonusDmgType !== 'to hit') {
+      byType.set(row.bonusDmgType, [...(byType.get(row.bonusDmgType) ?? []), row.bonusDmg])
+    }
+  }
+  return Array.from(byType.entries()).map(([type, parts]) => ({
+    type,
+    expr: combineDiceExpr(parts.join('+')),
+  }))
+}
+
 function buildAttackRows(
   char: Character,
   w: Weapon,
@@ -59,21 +76,21 @@ function buildAttackRows(
   const versatileProp = props.find(p => p.startsWith('versatile ('))
   const versatileDie = versatileProp?.match(/versatile \((\d+d\d+)\)/)?.[1]
   const activeDamage = (versatileDie && w.twoHanded) ? versatileDie : w.damage
-  const rawDmgParts = [
+  const diceParts = [
     activeDamage && activeDamage !== '—' ? activeDamage : null,
     w.bonusDamageDie ?? null,
-    totalDmgMod !== 0 ? String(totalDmgMod) : null,
   ].filter(Boolean).join('+')
-  const dmgExpr = rawDmgParts ? combineDiceExpr(rawDmgParts) : '—'
+  const dmgDice   = diceParts ? combineDiceExpr(diceParts) : '—'
+  const flatBonus = totalDmgMod !== 0 ? totalDmgMod : null
 
   const rows: AttackRow[] = [{
     id: 'normal',
     name: 'Normal',
-    toHit: computeAttackBonus(char, w),
-    dmg: dmgExpr,
-    dmgType: w.damageType ?? null,
-    bonusDmg: null,
-    bonusDmgType: null,
+    toHit:        computeAttackBonus(char, w),
+    dmg:          dmgDice,
+    dmgType:      w.damageType ?? null,
+    bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
+    bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
   }]
 
   for (const sa of getWeaponSpecialAttacks(char, w)) {
@@ -81,7 +98,7 @@ function buildAttackRows(
     let bonusDmg: string | null = null
     let bonusDmgType: string | null = null
     if (sa.name === 'GWM Power Attack' || sa.name === 'Sharpshooter') {
-      toHit = -5; bonusDmg = '+10'; bonusDmgType = w.damageType ?? null
+      toHit = -5; bonusDmg = '10'; bonusDmgType = w.damageType ?? null
     } else if (sa.dice) {
       bonusDmg = sa.dice
       bonusDmgType = sa.name === 'Sneak Attack' ? 'piercing'
@@ -1083,13 +1100,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
               }
               const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
               const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
-              const normalRow = rows.find(r => r.id === 'normal')
-              const totalDmg = normalRow?.dmg ?? '—'
-              const totalDmgType = normalRow?.dmgType ?? '—'
-              const bonusParts = rows
-                .filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit')
-                .map(r => r.bonusDmg as string)
-              const totalBonusDmg = bonusParts.length > 0 ? bonusParts.join(' + ') : '—'
+              const subtotals = dmgSubtotals(rows, isActive)
               const rollState = rollMap[w.id]
               const adv = rollState?.adv ?? 'n'
               const d20 = rollState
@@ -1145,10 +1156,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                             <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
                           )}
                         </td>
-                        <td>{totalDmg}</td>
-                        <td>{totalDmgType}</td>
-                        <td>{totalBonusDmg}</td>
-                        <td>—</td>
+                        <td colSpan={4}>{subtotals.map(s => `${s.expr} ${s.type}`).join(' + ') || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1529,8 +1537,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
             const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
-            const normalRow = rows.find(r => r.id === 'normal')
-            const bonusParts = rows.filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit').map(r => r.bonusDmg as string)
+            const meleeSubtotals = dmgSubtotals(rows, isActive)
             const rollState = rollMap[w.id]
             const adv = rollState?.adv ?? 'n'
             const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
@@ -1566,8 +1573,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
-                      <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>
-                      <td>{bonusParts.length > 0 ? bonusParts.join(' + ') : '—'}</td><td>—</td>
+                      <td colSpan={4}>{meleeSubtotals.map(s => `${s.expr} ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1620,8 +1626,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
             const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
-            const normalRow = rows.find(r => r.id === 'normal')
-            const bonusParts = rows.filter(r => isActive(r.id) && r.bonusDmg && r.bonusDmgType !== 'to hit').map(r => r.bonusDmg as string)
+            const rangedSubtotals = dmgSubtotals(rows, isActive)
             const rollState = rollMap[w.id]
             const adv = rollState?.adv ?? 'n'
             const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
@@ -1657,8 +1662,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
-                      <td>{normalRow?.dmg ?? '—'}</td><td>{normalRow?.dmgType ?? '—'}</td>
-                      <td>{bonusParts.length > 0 ? bonusParts.join(' + ') : '—'}</td><td>—</td>
+                      <td colSpan={4}>{rangedSubtotals.map(s => `${s.expr} ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>

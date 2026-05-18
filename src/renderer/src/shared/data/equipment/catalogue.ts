@@ -4,6 +4,13 @@ import { ACCESSORIES, type AccessoryDef } from './accessories'
 import type { ShopItemKind, ItemRarity } from './types'
 export type { ShopItemKind, ItemRarity }
 
+export function slotToKind(slot: string): ShopItemKind {
+  if (slot === 'armorId')  return 'armor'
+  if (slot === 'shieldId') return 'shield'
+  if (slot === 'ring1Id' || slot === 'ring2Id') return 'ring'
+  return slot.replace('Id', '') as ShopItemKind
+}
+
 export interface ShopItem {
   id: string
   name: string
@@ -46,14 +53,16 @@ function weaponKeyStat(item: (typeof WEAPONS)[0]): string {
 function accKeyStat(item: AccessoryDef): string | undefined {
   const s = item.stats
   if (!s) return undefined
-  if (s.other?.meleeStr)   return `+${s.other.meleeStr} Melee`
-  if (s.other?.rangedStr)  return `+${s.other.rangedStr} Range`
-  if (s.other?.magicStr)   return `+${s.other.magicStr}% Magic`
-  if (s.attackBonus?.stab   && s.attackBonus.stab   > 0) return `+${s.attackBonus.stab} Stab`
-  if (s.attackBonus?.slash  && s.attackBonus.slash  > 0) return `+${s.attackBonus.slash} Slash`
-  if (s.attackBonus?.ranged && s.attackBonus.ranged > 0) return `+${s.attackBonus.ranged} Range`
-  if (s.attackBonus?.magic  && s.attackBonus.magic  > 0) return `+${s.attackBonus.magic} Magic`
-  if (s.defenceBonus?.stab  && s.defenceBonus.stab  > 0) return `+${s.defenceBonus.stab} Def`
+  if (s.acBonus) return `+${s.acBonus} AC`
+  const saves = Object.entries(s.savingThrowBonus ?? {}).find(([, v]) => v)
+  if (saves) return `+${saves[1]} ${saves[0].toUpperCase()} Save`
+  const skills = Object.entries(s.skillBonus ?? {}).find(([, v]) => v)
+  if (skills) return `+${skills[1]} ${skills[0].charAt(0).toUpperCase() + skills[0].slice(1)}`
+  const advSave = s.advantage?.savingThrows?.[0]
+  if (advSave) return `Adv ${advSave.toUpperCase()} Save`
+  const advSkill = s.advantage?.skills?.[0]
+  if (advSkill) return `Adv ${advSkill.charAt(0).toUpperCase() + advSkill.slice(1)}`
+  if (s.advantage?.deathSaves) return 'Adv Death Saves'
   return undefined
 }
 
@@ -76,7 +85,7 @@ export function getAllShopItems(): ShopItem[] {
     id: w.id,
     name: w.name,
     kind: 'weapon' as ShopItemKind,
-    cost: parseCost((w as Record<string, unknown>).cost as string | undefined),
+    cost: parseCost((w as unknown as Record<string, unknown>).cost as string | undefined),
     rarity: w.rarity,
     keyStat: weaponKeyStat(w),
   }))
@@ -94,13 +103,9 @@ export function getAllShopItems(): ShopItem[] {
   return [...armorItems, ...weaponItems, ...accItems]
 }
 
-let _catalogue: ShopItem[] | null = null
-export function getShopCatalogue(): ShopItem[] {
-  if (!_catalogue) _catalogue = getAllShopItems()
-  return _catalogue
-}
+const _all = getAllShopItems()
+export const SHOP_CATALOGUE: ShopItem[] = _all
+export const SHOP_ITEM_BY_ID: Record<string, ShopItem> = Object.fromEntries(_all.map(i => [i.id, i]))
 
-export const SHOP_ITEM_BY_ID: Record<string, ShopItem> = {}
-for (const item of getAllShopItems()) {
-  SHOP_ITEM_BY_ID[item.id] = item
-}
+/** @deprecated use SHOP_CATALOGUE */
+export function getShopCatalogue(): ShopItem[] { return SHOP_CATALOGUE }

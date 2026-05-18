@@ -12,4 +12,7 @@ interface Window {
     listCharacters: () => Promise<string[]>
     deleteCharacter: (id: string) => Promise<{ ok: boolean }>
   }
+  appLogger?: {
+    logError: (source: string, message: string) => Promise<void>
+  }
 }

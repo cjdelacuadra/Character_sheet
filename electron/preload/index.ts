@@ -10,3 +10,8 @@ contextBridge.exposeInMainWorld('characterStore', {
   deleteCharacter: (id: string) =>
     ipcRenderer.invoke('character:delete', id)
 })
+
+contextBridge.exposeInMainWorld('appLogger', {
+  logError: (source: string, message: string) =>
+    ipcRenderer.invoke('log:error', source, message)
+})
