@@ -401,3 +401,43 @@ export function xpForNextLevel(level: number): number | null {
   if (level >= 20) return null
   return XP_THRESHOLDS[level + 1] ?? null
 }
+
+// ── Weapon-derived attack actions ───────────────────────────────────────────
+
+export function getWeaponAttackActions(char: Character): ActionDef[] {
+  const actions: ActionDef[] = []
+  const main = char.weapons[0]
+  const offHand = char.weapons[1]
+
+  if (!main) {
+    actions.push({
+      name: 'Unarmed Strike',
+      type: 'Action',
+      short: '1 bludgeoning',
+      full: 'Instead of using a weapon to make a melee weapon attack, you can use an unarmed strike: a punch, kick, head-butt, or similar forceful blow. On a hit, deal bludgeoning damage equal to 1 + your Strength modifier.',
+    })
+  } else {
+    const dmgLabel = [main.damage, main.damageType].filter(Boolean).join(' ')
+    actions.push({
+      name: main.name,
+      type: 'Action',
+      short: dmgLabel,
+      full: `Attack with ${main.name}.`,
+    })
+  }
+
+  if (offHand) {
+    const isLight = offHand.properties?.some(p => p.toLowerCase() === 'light') ?? false
+    if (isLight) {
+      const dmgLabel = [offHand.damage, offHand.damageType].filter(Boolean).join(' ')
+      actions.push({
+        name: `${offHand.name} (off-hand)`,
+        type: 'Bonus Action',
+        short: dmgLabel,
+        full: `When you take the Attack action and attack with a light weapon, you can use a bonus action to attack with a different light weapon in your off-hand. You don't add your ability modifier to the off-hand damage unless the modifier is negative.`,
+      })
+    }
+  }
+
+  return actions
+}

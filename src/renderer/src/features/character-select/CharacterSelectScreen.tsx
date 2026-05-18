@@ -201,8 +201,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       bonusDamageType: w.bonusDamageType,
     }))
 
-    const armorCost  = armorId !== 'none' ? parseInt(ARMOR_BY_ID[armorId]?.cost ?? '0') : 0
-    const shieldCost = shieldId ? parseInt(ARMOR_BY_ID[shieldId]?.cost ?? '0') : 0
+    const armorCost  = armorId !== 'none' ? (ARMOR_BY_ID[armorId]?.cost ?? 0) : 0
+    const shieldCost = shieldId ? (ARMOR_BY_ID[shieldId]?.cost ?? 0) : 0
     const equipCost  = armorCost + shieldCost
 
     const now = new Date().toISOString()
@@ -508,7 +508,7 @@ function StepScores({
 
   // Roll
   function doRoll() {
-    setRolled(rollScoreSet())
+    setRolled(rollScoreSet().sort((a, b) => b - a))
     setRollAssign({})
   }
 
@@ -745,13 +745,13 @@ function StepEquipment({
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
   const allowedArmor = ARMOR_LIST.filter(a => {
-    if (a.isShield) return false  // shields handled separately in off-hand section
+    if (a.kind === 'shield') return false  // shields handled separately in off-hand section
     if (a.type === 'none') return true
     if (a.enchantmentBonus) return false  // magic items are DM-granted, not chosen at creation
     return effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
   })
   const canShield = effectiveArmorProfs.includes('shields')
-  const availableShields = canShield ? ARMOR_LIST.filter(a => a.isShield && !a.enchantmentBonus) : []
+  const availableShields = canShield ? ARMOR_LIST.filter(a => a.kind === 'shield' && !a.enchantmentBonus) : []
 
   const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? []).filter(w => !w.enchantmentBonus)
   function toggleWeapon(w: WeaponDef) {

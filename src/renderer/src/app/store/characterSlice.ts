@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
-import type { Character, AbilityScores, Equipment } from '@/entities/character/types'
+import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
+import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import { profBonus, computeMaxHP, computeSpeed, computeInitiative, mod } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
@@ -37,8 +38,11 @@ export interface CharacterSlice {
   setTempHp: (id: string, amount: number) => void
   updateEquipmentSlot: (id: string, slot: keyof Equipment, value: string | null) => void
   buyItem: (charId: string, itemId: string, cost: number) => void
+  sellItem: (charId: string, itemId: string, cost: number) => void
   equipItemToSlot: (charId: string, slot: keyof Equipment, itemId: string | null) => void
   unequipSlot: (charId: string, slot: keyof Equipment) => void
+  unequipWeapon: (charId: string, slotIndex: 0 | 1) => void
+  equipWeaponFromId: (charId: string, defId: string, slotIndex: 0 | 1) => void
 }
 
 export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => ({
@@ -338,11 +342,89 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
     })
   },
 
+  sellItem: (charId, itemId, cost) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char || !char.ownedItemIds.includes(itemId)) return state
+      const newEquipment = { ...char.equipment } as Record<string, string | null>
+      for (const key of Object.keys(newEquipment)) {
+        if (newEquipment[key] === itemId) newEquipment[key] = null
+      }
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        gold: char.gold + cost,
+        ownedItemIds: char.ownedItemIds.filter(id => id !== itemId),
+        equipment: newEquipment as typeof char.equipment,
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
   equipItemToSlot: (charId, slot, itemId) => {
     get().updateEquipmentSlot(charId, slot, itemId)
   },
 
   unequipSlot: (charId, slot) => {
-    get().updateEquipmentSlot(charId, slot, null)
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const itemId = char.equipment[slot] as string | null
+      if (!itemId) return state
+      const needsOwned = !char.ownedItemIds.includes(itemId)
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        equipment: { ...char.equipment, [slot]: null },
+        ownedItemIds: needsOwned ? [...char.ownedItemIds, itemId] : char.ownedItemIds,
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  unequipWeapon: (charId, slotIndex) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const weapon = char.weapons[slotIndex]
+      if (!weapon) return state
+      const needsOwned = !char.ownedItemIds.includes(weapon.id)
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        weapons: char.weapons.filter((_, i) => i !== slotIndex),
+        ownedItemIds: needsOwned ? [...char.ownedItemIds, weapon.id] : char.ownedItemIds,
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  equipWeaponFromId: (charId, defId, slotIndex) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const def = WEAPON_BY_ID[defId]
+      if (!def) return state
+      const newWeapon: Weapon = {
+        id: defId,
+        name: def.name,
+        atkBonus: 0,
+        damage: def.damageDie,
+        damageType: def.damageType,
+        rangeType: def.rangeType,
+        properties: [...def.properties],
+        enchantmentBonus: def.enchantmentBonus || undefined,
+      }
+      const nextWeapons = [...char.weapons]
+      nextWeapons[slotIndex] = newWeapon
+      if (slotIndex === 0 && def.properties.some(p => p.toLowerCase().includes('two-handed')))
+        nextWeapons.length = 1
+      const updated: Character = { ...char, updatedAt: new Date().toISOString(), weapons: nextWeapons }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
   },
 })

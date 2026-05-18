@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { DndContext, DragOverlay, useDndContext, useDraggable, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import type { AbilityScore, Character, Equipment, Weapon } from '@/entities/character/types'
@@ -16,6 +16,9 @@ import styles from './EquipmentLayout.module.css'
 
 interface Props {
   character: Character
+  onSlotClick?: (kind: ShopItemKind) => void
+  onOpenShop?: () => void
+  inventoryContent?: ReactNode
 }
 
 
@@ -144,7 +147,7 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
 
   let subtitle = ''
   if (armor) {
-    if (armor.isShield) subtitle = `Shield · +${2 + (armor.enchantmentBonus ?? 0)} AC`
+    if (armor.kind === 'shield') subtitle = `Shield · +${2 + (armor.enchantmentBonus ?? 0)} AC`
     else if (armor.type !== 'none') subtitle = `${armor.type.charAt(0).toUpperCase() + armor.type.slice(1)} armor · Base AC ${armor.baseAC}`
   }
 
@@ -243,7 +246,7 @@ function ReadSlot({ label, value, kind, onClick, isShaking, draggable: draggable
   kind: ShopItemKind | string
   onClick?: () => void
   isShaking?: boolean
-  draggable?: { id: string; itemId: string; kind: ShopItemKind; fromSlot: keyof Equipment }
+  draggable?: { id: string; itemId: string; kind: ShopItemKind; fromSlot: keyof Equipment; fromWeaponSlot?: 0 | 1 }
 }) {
   const {
     attributes: dragAttrs,
@@ -253,7 +256,7 @@ function ReadSlot({ label, value, kind, onClick, isShaking, draggable: draggable
   } = useDraggable({
     id:       draggableProp?.id ?? `read-slot-disabled-${label}`,
     data:     draggableProp
-      ? { itemId: draggableProp.itemId, kind: draggableProp.kind, fromSlot: draggableProp.fromSlot, type: 'equipped' }
+      ? { itemId: draggableProp.itemId, kind: draggableProp.kind, fromSlot: draggableProp.fromSlot, fromWeaponSlot: draggableProp.fromWeaponSlot, type: 'equipped' }
       : {},
     disabled: !draggableProp,
   })
@@ -361,13 +364,15 @@ function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function EquipmentLayout({ character: char }: Props) {
+export function EquipmentLayout({ character: char, onSlotClick, onOpenShop, inventoryContent }: Props) {
   const equipItemToSlot  = useAppStore(s => s.equipItemToSlot)
   const _unequipSlot     = useAppStore(s => s.unequipSlot)
+  const _unequipWeapon   = useAppStore(s => s.unequipWeapon)
   const updateCharacter  = useAppStore(s => s.updateCharacter)
 
   const [armouryOpen,      setArmouryOpen]      = useState(false)
   const [activeSlot,       setActiveSlot]       = useState<keyof Equipment | null>(null)
+  const [activeWeaponSlot, setActiveWeaponSlot] = useState<0 | 1 | null>(null)
   const [shopOpen,         setShopOpen]         = useState(false)
   const [draggedId,        setDraggedId]        = useState<string | null>(null)
   const [slotBreakdown,    setSlotBreakdown]    = useState<keyof Equipment | null>(null)
@@ -382,6 +387,7 @@ export function EquipmentLayout({ character: char }: Props) {
   }
 
   function openSlot(slot: keyof Equipment) {
+    onSlotClick?.(slotToKind(slot))
     const itemId = char.equipment[slot] as string | null
     if (itemId) {
       setWeaponBreakdown(null)
@@ -401,6 +407,14 @@ export function EquipmentLayout({ character: char }: Props) {
     setWeaponBreakdown(prev => prev === idx ? null : idx)
   }
 
+  function openWeaponSlot(idx: 0 | 1) {
+    setSlotBreakdown(null)
+    setWeaponBreakdown(null)
+    setActiveSlot(null)
+    setActiveWeaponSlot(idx)
+    setArmouryOpen(true)
+  }
+
   function shake(id: string) {
     if (shakeTimer.current) clearTimeout(shakeTimer.current)
     setShakingId(id)
@@ -417,9 +431,14 @@ export function EquipmentLayout({ character: char }: Props) {
 
     if (!over || !itemId || !kind) return
 
-    // Dropped on armoury grid → unequip
-    if (over.id === 'armoury-grid') {
-      if (fromSlot) _unequipSlot(char.id, fromSlot)
+    // Dropped on armoury grid or inventory grid → unequip
+    if (over.id === 'armoury-grid' || over.id === 'inventory-grid') {
+      const weaponSlot = active.data.current?.fromWeaponSlot as 0 | 1 | undefined
+      if (weaponSlot !== undefined) {
+        _unequipWeapon(char.id, weaponSlot)
+      } else if (fromSlot) {
+        _unequipSlot(char.id, fromSlot)
+      }
       return
     }
 
@@ -431,6 +450,15 @@ export function EquipmentLayout({ character: char }: Props) {
     if (kind !== slotKind) {
       shake(active.id as string)
       return
+    }
+
+    // Block shield equip when main hand weapon is two-handed
+    if (toSlot === 'shieldId') {
+      const mainIsTwoHanded = char.weapons[0]?.properties?.some(p => p.toLowerCase().includes('two-handed')) ?? false
+      if (mainIsTwoHanded) {
+        shake(active.id as string)
+        return
+      }
     }
 
     if (type === 'equipped' && fromSlot) {
@@ -469,6 +497,10 @@ export function EquipmentLayout({ character: char }: Props) {
   const inventoryEntries = Object.entries(unequippedByKind) as [ShopItemKind, number][]
 
   function openKindInArmoury(kind: ShopItemKind) {
+    if (kind === 'weapon') {
+      openWeaponSlot(0)
+      return
+    }
     const slotMap: Partial<Record<ShopItemKind, keyof Equipment>> = {
       armor: 'armorId', shield: 'shieldId', helmet: 'helmetId',
       necklace: 'necklaceId', cape: 'capeId', legs: 'legsId',
@@ -489,39 +521,54 @@ export function EquipmentLayout({ character: char }: Props) {
       onDragEnd={handleDragEnd}
     >
       <div className={styles.outer}>
-        <div className={styles.columnWrap}>
-          {/* Equipment slot grid */}
-          <div className={styles.grid}>
-            <Empty />
-            <SlotButton slotKey="helmetId"   label="Helmet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-helmetId'} />
-            <Empty />
+        <div className={styles.equipRow}>
+          <div className={styles.columnWrap}>
+            {/* Equipment slot grid */}
+            <div className={styles.grid}>
+              <Empty />
+              <SlotButton slotKey="helmetId"   label="Helmet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-helmetId'} />
+              <Empty />
 
-            <SlotButton slotKey="necklaceId" label="Necklace" char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-necklaceId'} />
-            <ReadSlot   label="Chest"    value={armorName}   kind="armor"
-              onClick={() => openSlot('armorId')}
-              isShaking={shakingId === 'equipped-armorId'}
-              draggable={char.equipment.armorId ? { id: 'equipped-armorId', itemId: char.equipment.armorId, kind: 'armor', fromSlot: 'armorId' } : undefined} />
-            <SlotButton slotKey="capeId"     label="Cape"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-capeId'} />
+              <SlotButton slotKey="necklaceId" label="Necklace" char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-necklaceId'} />
+              <ReadSlot   label="Chest"    value={armorName}   kind="armor"
+                onClick={() => openSlot('armorId')}
+                isShaking={shakingId === 'equipped-armorId'}
+                draggable={char.equipment.armorId ? { id: 'equipped-armorId', itemId: char.equipment.armorId, kind: 'armor', fromSlot: 'armorId' } : undefined} />
+              <SlotButton slotKey="capeId"     label="Cape"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-capeId'} />
 
-            <ReadSlot   label="Weapon"   value={mainHand}    kind="weapon"
-              onClick={char.weapons[0] ? () => openWeaponBreakdown(0) : undefined} />
-            <SlotButton slotKey="legsId"     label="Legs"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-legsId'} />
-            <ReadSlot   label="Off-Hand" value={offHandName} kind="shield"
-              onClick={() => char.weapons[1] ? openWeaponBreakdown(1) : openSlot('shieldId')}
-              isShaking={shakingId === 'equipped-shieldId'}
-              draggable={char.equipment.shieldId ? { id: 'equipped-shieldId', itemId: char.equipment.shieldId, kind: 'shield', fromSlot: 'shieldId' } : undefined} />
+              <ReadSlot   label="Weapon"   value={mainHand}    kind="weapon"
+                onClick={char.weapons[0] ? () => openWeaponBreakdown(0) : () => openWeaponSlot(0)}
+                draggable={char.weapons[0] ? { id: 'read-weapon0', itemId: char.weapons[0].id, kind: 'weapon', fromSlot: 'armorId' as keyof Equipment, fromWeaponSlot: 0 } : undefined} />
+              <SlotButton slotKey="legsId"     label="Legs"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-legsId'} />
+              <ReadSlot   label="Off-Hand" value={offHandName} kind="shield"
+                onClick={() => char.weapons[1] ? openWeaponBreakdown(1) : openSlot('shieldId')}
+                isShaking={shakingId === 'equipped-shieldId'}
+                draggable={
+                  char.weapons[1]
+                    ? { id: 'read-weapon1', itemId: char.weapons[1].id, kind: 'weapon', fromSlot: 'shieldId' as keyof Equipment, fromWeaponSlot: 1 }
+                    : char.equipment.shieldId
+                      ? { id: 'equipped-shieldId', itemId: char.equipment.shieldId, kind: 'shield', fromSlot: 'shieldId' }
+                      : undefined
+                } />
 
-            <SlotButton slotKey="glovesId"   label="Gloves"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-glovesId'} />
-            <SlotButton slotKey="bootsId"    label="Boots"    char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-bootsId'} />
-            <SlotButton slotKey="quiverId"   label="Quiver"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-quiverId'} />
+              <SlotButton slotKey="glovesId"   label="Gloves"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-glovesId'} />
+              <SlotButton slotKey="bootsId"    label="Boots"    char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-bootsId'} />
+              <SlotButton slotKey="quiverId"   label="Quiver"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-quiverId'} />
 
-            <SlotButton slotKey="ring1Id"    label="Ring 1"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring1Id'} />
-            <SlotButton slotKey="ring2Id"    label="Ring 2"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring2Id'} />
-            <SlotButton slotKey="amuletId"   label="Amulet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-amuletId'} />
+              <SlotButton slotKey="ring1Id"    label="Ring 1"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring1Id'} />
+              <SlotButton slotKey="ring2Id"    label="Ring 2"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring2Id'} />
+              <SlotButton slotKey="amuletId"   label="Amulet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-amuletId'} />
+            </div>
+
+            {/* Stats panel */}
+            <DndEquipStatsPanel stats={equipStats} />
           </div>
 
-          {/* Stats panel */}
-          <DndEquipStatsPanel stats={equipStats} />
+          {inventoryContent && (
+            <div className={styles.inventoryCol}>
+              {inventoryContent}
+            </div>
+          )}
         </div>
 
         {/* Inventory count bar */}
@@ -557,8 +604,9 @@ export function EquipmentLayout({ character: char }: Props) {
           <ArmouryPanel
             character={char}
             activeSlotFilter={activeSlot}
-            onClose={() => setArmouryOpen(false)}
-            onOpenShop={() => { setArmouryOpen(false); setShopOpen(true) }}
+            weaponSlotIndex={activeWeaponSlot ?? undefined}
+            onClose={() => { setArmouryOpen(false); setActiveWeaponSlot(null) }}
+            onOpenShop={() => { setArmouryOpen(false); setActiveWeaponSlot(null); onOpenShop ? onOpenShop() : setShopOpen(true) }}
             shakingId={shakingId}
           />
         )}
@@ -567,7 +615,7 @@ export function EquipmentLayout({ character: char }: Props) {
         {!armouryOpen && (
           <div className={styles.shopRow}>
             <span className={styles.goldDisplay}>💰 {char.gold} gp</span>
-            <button className={styles.shopBtn} onClick={() => setShopOpen(true)}>
+            <button className={styles.shopBtn} onClick={() => onOpenShop ? onOpenShop() : setShopOpen(true)}>
               Open Shop
             </button>
           </div>

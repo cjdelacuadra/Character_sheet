@@ -10,7 +10,9 @@
 }
 .featureHead:hover { background: var(--surface-3); }
 .featureName { flex: 1; font-size: 12px; font-weight: 500; color: var(--text); }
-.featureLevel { font-size: 10px; color: var(--text-muted); background: var(--surface-3); border-radius: 3px; padding: 1px 5px; }
+.featureLevel { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); }
+.badgeClass { font-size: 9px; font-weight: 700; letter-spacing: .4px; background: var(--surface-3); border-radius: 3px; padding: 1px 4px; color: var(--text-muted); }
+.badgeRace  { font-size: 9px; font-weight: 700; letter-spacing: .4px; background: rgba(139,124,248,0.15); border-radius: 3px; padding: 1px 4px; color: var(--accent); }
 .featureChevron { font-size: 10px; color: var(--text-muted); }
 .featureDesc { padding: 6px 8px; font-size: 11px; color: var(--text-muted); line-height: 1.4; background: var(--surface); border-top: 1px solid var(--border); margin: 0; }
 .featureCardSel { border-color: var(--accent) !important; background: rgba(139,124,248,0.06); }

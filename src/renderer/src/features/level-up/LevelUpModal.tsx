@@ -18,6 +18,8 @@ interface Props {
   showSpellSelection: boolean
   onConfirm: (choice: AsiChoice | null, newSpellIds?: string[], subclassId?: string) => void
   onCancel: () => void
+  /** When true, renders without overlay backdrop (for embedding in a column) */
+  panelMode?: boolean
 }
 
 const ABILITY_KEYS: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -28,7 +30,7 @@ const ABILITY_LABELS: Record<AbilityScore, string> = {
 type Mode = 'double' | 'split' | 'feat'
 type Step = 'subclass' | 'asi' | 'spells'
 
-export function LevelUpModal({ character, newLevel, showSpellSelection, onConfirm, onCancel }: Props) {
+export function LevelUpModal({ character, newLevel, showSpellSelection, onConfirm, onCancel, panelMode = false }: Props) {
   const subclassUnlockLevel = SUBCLASSES_BY_CLASS[character.classId]?.[0]?.unlocksAtLevel
   const needsSubclass = newLevel === subclassUnlockLevel && !character.subclass
 
@@ -98,59 +100,58 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
         newLevel={newLevel}
         onConfirm={handleSpellsDone}
         onCancel={onCancel}
+        panelMode={panelMode}
       />
     )
   }
 
   if (step === 'subclass') {
     const subclassOptions = SUBCLASSES_BY_CLASS[character.classId] ?? []
-    return (
-      <div className={styles.overlay} onClick={onCancel}>
-        <div className={styles.modal} onClick={e => e.stopPropagation()}>
-          <div className={styles.header}>
-            <div className={styles.titleBlock}>
-              <span className={styles.title}>Level Up — Level {newLevel}</span>
-              <span className={styles.subtitle}>Choose your {character.classId} subclass</span>
-            </div>
-            <button className={styles.closeBtn} onClick={onCancel}>×</button>
+    const inner = (
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.header}>
+          <div className={styles.titleBlock}>
+            <span className={styles.title}>Level Up — Level {newLevel}</span>
+            <span className={styles.subtitle}>Choose your {character.classId} subclass</span>
           </div>
-          <div className={styles.body}>
-            <div className={styles.featPicker}>
-              <div className={styles.featList}>
-                {subclassOptions.map(sc => (
-                  <button
-                    key={sc.id}
-                    className={`${styles.featRow} ${selectedSubclass === sc.id ? styles.featRowSel : ''}`}
-                    onClick={() => setSelectedSubclass(sc.id)}
-                  >
-                    <span className={styles.featName}>{sc.label}</span>
-                    {sc.description && <span className={styles.featDesc}>{sc.description}</span>}
-                  </button>
-                ))}
-              </div>
+          <button className={styles.closeBtn} onClick={onCancel}>×</button>
+        </div>
+        <div className={styles.body}>
+          <div className={styles.featPicker}>
+            <div className={styles.featList}>
+              {subclassOptions.map(sc => (
+                <button
+                  key={sc.id}
+                  className={`${styles.featRow} ${selectedSubclass === sc.id ? styles.featRowSel : ''}`}
+                  onClick={() => setSelectedSubclass(sc.id)}
+                >
+                  <span className={styles.featName}>{sc.label}</span>
+                  {sc.description && <span className={styles.featDesc}>{sc.description}</span>}
+                </button>
+              ))}
             </div>
           </div>
-          <div className={styles.footer}>
-            <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
-            <button
-              className={styles.confirmBtn}
-              onClick={handleSubclassConfirm}
-              disabled={!selectedSubclass}
-            >
-              {isAsiLevel ? 'Next: Ability Scores →' : needsSpellSelection ? 'Next: Pick Spells →' : 'Confirm & Level Up'}
-            </button>
-          </div>
+        </div>
+        <div className={styles.footer}>
+          <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button
+            className={styles.confirmBtn}
+            onClick={handleSubclassConfirm}
+            disabled={!selectedSubclass}
+          >
+            {isAsiLevel ? 'Next: Ability Scores →' : needsSpellSelection ? 'Next: Pick Spells →' : 'Confirm & Level Up'}
+          </button>
         </div>
       </div>
     )
+    return panelMode ? inner : <div className={styles.overlay} onClick={onCancel}>{inner}</div>
   }
 
   const filteredFeats: FeatDef[] = FEATS.filter(f =>
     f.name.toLowerCase().includes(featSearch.toLowerCase())
   )
 
-  return (
-    <div className={styles.overlay} onClick={onCancel}>
+  const asiInner = (
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <div className={styles.titleBlock}>
@@ -276,6 +277,6 @@ export function LevelUpModal({ character, newLevel, showSpellSelection, onConfir
           </button>
         </div>
       </div>
-    </div>
   )
+  return panelMode ? asiInner : <div className={styles.overlay} onClick={onCancel}>{asiInner}</div>
 }

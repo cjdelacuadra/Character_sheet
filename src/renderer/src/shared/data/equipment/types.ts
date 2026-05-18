@@ -26,3 +26,46 @@ export interface AccessoryStats {
     deathSaves?: boolean
   }
 }
+
+export interface BaseEquipmentItem {
+  id: string
+  name: string
+  kind: ShopItemKind
+  cost: number
+  rarity?: ItemRarity
+  sprite?: string
+}
+
+export interface ArmorEquipmentItem extends BaseEquipmentItem {
+  kind: 'armor' | 'shield'
+  type: ArmorType
+  baseAC: number
+  dexCap?: number
+  stealthDisadvantage?: boolean
+  strRequirement?: number
+  enchantmentBonus?: number
+}
+
+export interface WeaponEquipmentItem extends BaseEquipmentItem {
+  kind: 'weapon'
+  damageDie: string
+  damageType: string
+  proficiencyCategory: WeaponProficiencyCategory
+  rangeType: WeaponRangeType
+  properties: string[]
+  enchantmentBonus: number
+  bonusDamageDie?: string
+  bonusDamageType?: string
+  isMonkWeapon: boolean
+}
+
+export interface AccessoryEquipmentItem extends BaseEquipmentItem {
+  kind: AccessorySlot
+  stats?: AccessoryStats
+}
+
+export type EquipmentDef = ArmorEquipmentItem | WeaponEquipmentItem | AccessoryEquipmentItem
+
+export type ArmorDef = ArmorEquipmentItem
+export type WeaponDef = WeaponEquipmentItem
+export type AccessoryDef = AccessoryEquipmentItem

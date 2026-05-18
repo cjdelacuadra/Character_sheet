@@ -10,9 +10,10 @@ interface Props {
   newLevel: number
   onConfirm: (newSpellIds: string[]) => void
   onCancel: () => void
+  panelMode?: boolean
 }
 
-export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel }: Props) {
+export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, panelMode = false }: Props) {
   const classDef = CLASS_BY_ID[character.classId]
   const [search, setSearch] = useState('')
   // Only newly selected spells — existing spellIds are merged by the store on confirm
@@ -48,8 +49,7 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel }:
   const filteredCantrips = classSpells.filter(s => s.level === 0 && s.name.toLowerCase().includes(query))
   const filteredSpells   = classSpells.filter(s => s.level > 0 && s.level <= maxSlotLevel && s.name.toLowerCase().includes(query))
 
-  return (
-    <div className={styles.overlay} onClick={onCancel}>
+  const inner = (
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <div className={styles.titleBlock}>
@@ -126,6 +126,6 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel }:
           </button>
         </div>
       </div>
-    </div>
   )
+  return panelMode ? inner : <div className={styles.overlay} onClick={onCancel}>{inner}</div>
 }

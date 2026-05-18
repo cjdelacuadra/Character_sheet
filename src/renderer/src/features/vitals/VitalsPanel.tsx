@@ -41,10 +41,10 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
   const allowedArmors = ARMOR_LIST.filter(a =>
-    !a.isShield && (a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy'))
+    a.kind !== 'shield' && (a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy'))
   )
   const canShield = effectiveArmorProfs.includes('shields')
-  const shieldOptions = canShield ? ARMOR_LIST.filter(a => a.isShield) : []
+  const shieldOptions = canShield ? ARMOR_LIST.filter(a => a.kind === 'shield') : []
   const currentShieldId = eq.shieldId ?? null
 
   function setArmor(armorId: string | null, shieldId: string | null) {

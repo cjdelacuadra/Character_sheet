@@ -52,7 +52,23 @@ export function CombatPanel({ character: char, update }: Props) {
       bonusDamageDie: w.bonusDamageDie,
       bonusDamageType: w.bonusDamageType,
     }
-    update({ weapons: [...char.weapons, weapon] })
+    const isTwoHanded = w.properties?.some(p => p.toLowerCase().includes('two-handed')) ?? false
+    const mainIsTwoHanded = char.weapons[0]?.properties?.some(p => p.toLowerCase().includes('two-handed')) ?? false
+
+    let nextWeapons: Weapon[]
+    if (isTwoHanded) {
+      // Two-handed takes both hands — clears off-hand
+      nextWeapons = [weapon]
+    } else if (mainIsTwoHanded) {
+      // Can't add off-hand while main hand is two-handed — replace main hand
+      nextWeapons = [weapon]
+    } else if (char.weapons.length >= 2) {
+      // Off-hand already occupied — swap it out
+      nextWeapons = [char.weapons[0], weapon]
+    } else {
+      nextWeapons = [...char.weapons, weapon]
+    }
+    update({ weapons: nextWeapons })
     setArmoryOpen(false)
   }
 

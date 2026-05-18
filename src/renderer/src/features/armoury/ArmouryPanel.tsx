@@ -10,6 +10,7 @@ import styles from './ArmouryPanel.module.css'
 interface Props {
   character: Character
   activeSlotFilter: keyof Equipment | null
+  weaponSlotIndex?: 0 | 1
   onClose: () => void
   onOpenShop: () => void
   shakingId?: string | null
@@ -53,17 +54,18 @@ function DraggableCard({ item, onEquip, isShaking }: { item: ShopItem; onEquip: 
   )
 }
 
-export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpenShop, shakingId }: Props) {
-  const equipItemToSlot = useAppStore(s => s.equipItemToSlot)
-  const buyItem         = useAppStore(s => s.buyItem)
+export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotIndex, onClose, onOpenShop, shakingId }: Props) {
+  const equipItemToSlot    = useAppStore(s => s.equipItemToSlot)
+  const equipWeaponFromId  = useAppStore(s => s.equipWeaponFromId)
+  const buyItem            = useAppStore(s => s.buyItem)
 
-  const [tab, setTab] = useState<Tab>(() => computeTab(activeSlotFilter))
+  const [tab, setTab] = useState<Tab>(() => weaponSlotIndex !== undefined ? 'weapon' : computeTab(activeSlotFilter))
 
   useEffect(() => {
-    setTab(computeTab(activeSlotFilter))
-  }, [activeSlotFilter])
+    setTab(weaponSlotIndex !== undefined ? 'weapon' : computeTab(activeSlotFilter))
+  }, [activeSlotFilter, weaponSlotIndex])
 
-  const filterKind = activeSlotFilter ? slotToKind(activeSlotFilter) : null
+  const filterKind = weaponSlotIndex !== undefined ? 'weapon' : activeSlotFilter ? slotToKind(activeSlotFilter) : null
 
   const ownedSet = useMemo(() => new Set(char.ownedItemIds), [char.ownedItemIds])
 
@@ -96,7 +98,6 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
     const owned   = ownedItems.filter(i => matchesTab(i) && matchesSlot(i))
     const unowned = catalogue.filter(i =>
       !ownedSet.has(i.id) &&
-      i.kind !== 'weapon' &&
       matchesTab(i) &&
       matchesSlot(i),
     )
@@ -104,6 +105,11 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
   }, [ownedItems, catalogue, ownedSet, tab, filterKind])
 
   function handleEquip(itemId: string) {
+    if (weaponSlotIndex !== undefined) {
+      equipWeaponFromId(char.id, itemId, weaponSlotIndex)
+      onClose()
+      return
+    }
     if (!activeSlotFilter) return
     equipItemToSlot(char.id, activeSlotFilter, itemId)
     onClose()
@@ -112,6 +118,10 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
   function handleEquipAll(itemId: string) {
     const item = SHOP_ITEM_BY_ID[itemId] ?? catalogue.find(i => i.id === itemId)
     if (!item) return
+    if (item.kind === 'weapon') {
+      equipWeaponFromId(char.id, itemId, 0)
+      return
+    }
     const slotMap: Partial<Record<ShopItemKind, keyof Equipment>> = {
       armor:   'armorId',   shield:   'shieldId',
       helmet:  'helmetId',  necklace: 'necklaceId',
@@ -129,7 +139,10 @@ export function ArmouryPanel({ character: char, activeSlotFilter, onClose, onOpe
     const item = catalogue.find(i => i.id === itemId)
     if (!item || char.gold < item.cost) return
     buyItem(char.id, itemId, item.cost)
-    if (activeSlotFilter) {
+    if (weaponSlotIndex !== undefined) {
+      equipWeaponFromId(char.id, itemId, weaponSlotIndex)
+      onClose()
+    } else if (activeSlotFilter) {
       equipItemToSlot(char.id, activeSlotFilter, itemId)
       onClose()
     } else {

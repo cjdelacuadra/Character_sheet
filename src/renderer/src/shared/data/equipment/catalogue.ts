@@ -1,6 +1,7 @@
 import { ARMOR_LIST } from './armor'
 import { WEAPONS } from './weapons'
-import { ACCESSORIES, type AccessoryDef } from './accessories'
+import { ACCESSORIES } from './accessories'
+import type { AccessoryEquipmentItem } from './accessories'
 import type { ShopItemKind, ItemRarity } from './types'
 export type { ShopItemKind, ItemRarity }
 
@@ -50,7 +51,7 @@ function weaponKeyStat(item: (typeof WEAPONS)[0]): string {
   return `${item.damageDie} ${item.damageType.slice(0, 3)}`
 }
 
-function accKeyStat(item: AccessoryDef): string | undefined {
+function accKeyStat(item: AccessoryEquipmentItem): string | undefined {
   const s = item.stats
   if (!s) return undefined
   if (s.acBonus) return `+${s.acBonus} AC`
@@ -66,37 +67,34 @@ function accKeyStat(item: AccessoryDef): string | undefined {
   return undefined
 }
 
-function parseCost(cost: string | undefined): number {
-  if (!cost || cost === '—') return 0
-  return parseInt(cost.replace(/[^0-9]/g, ''), 10) || 0
-}
-
 export function getAllShopItems(): ShopItem[] {
   const armorItems: ShopItem[] = ARMOR_LIST.map(a => ({
     id: a.id,
     name: a.name,
-    kind: (a.isShield ? 'shield' : 'armor') as ShopItemKind,
-    cost: parseCost(a.cost),
+    kind: a.kind,
+    cost: a.cost,
     rarity: a.rarity,
+    sprite: a.sprite ?? slotPlaceholderUrl(a.kind),
     keyStat: armorKeyStat(a),
   }))
 
   const weaponItems: ShopItem[] = WEAPONS.map(w => ({
     id: w.id,
     name: w.name,
-    kind: 'weapon' as ShopItemKind,
-    cost: parseCost((w as unknown as Record<string, unknown>).cost as string | undefined),
+    kind: w.kind,
+    cost: w.cost,
     rarity: w.rarity,
+    sprite: w.sprite ?? slotPlaceholderUrl(w.kind),
     keyStat: weaponKeyStat(w),
   }))
 
   const accItems: ShopItem[] = ACCESSORIES.map(a => ({
     id: a.id,
     name: a.name,
-    kind: a.slot as ShopItemKind,
+    kind: a.kind,
     cost: a.cost,
     rarity: a.rarity,
-    sprite: a.sprite,
+    sprite: a.sprite ?? slotPlaceholderUrl(a.kind),
     keyStat: accKeyStat(a),
   }))
 

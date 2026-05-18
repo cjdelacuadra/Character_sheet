@@ -2,8 +2,12 @@ import type { Character } from '@/entities/character/types'
 import { getClassFeatures, type FeatureEntry } from '@/shared/data/classFeaturesData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
 import { computePreparedSpellCount } from '@/domain/rules'
 import styles from './FeaturesPanel.module.css'
+
+type SourcedFeature = FeatureEntry & { source: 'class' | 'race' }
 
 const FIGHTING_STYLE_DATA: Record<string, { label: string; desc: string }> = {
   archery:             { label: 'Archery',             desc: 'You gain a +2 bonus to attack rolls you make with ranged weapons.' },
@@ -28,17 +32,19 @@ interface Props {
 }
 
 export function FeaturesPanel({ character: char, selectedFeature, onSelectFeature }: Props) {
+  // ── Class features ──────────────────────────────────────────────────────
   const baseFeatures = getClassFeatures(char.classId, char.level)
   const fsData = char.fightingStyle ? FIGHTING_STYLE_DATA[char.fightingStyle] : null
   const fsEntry: FeatureEntry | null = fsData
     ? { level: 1, name: `Fighting Style: ${fsData.label}`, desc: fsData.desc }
     : null
-  const features: FeatureEntry[] = fsEntry ? [fsEntry, ...baseFeatures] : [...baseFeatures]
+  const classFeatures: SourcedFeature[] = (fsEntry ? [fsEntry, ...baseFeatures] : [...baseFeatures])
+    .map(f => ({ ...f, source: 'class' as const }))
 
   if (char.isRaging) {
     const rageDmgBonus = char.level >= 16 ? 4 : char.level >= 9 ? 3 : 2
-    features.unshift({
-      level: 1,
+    classFeatures.unshift({
+      level: 1, source: 'class',
       name: 'Rage Active',
       desc: `+${rageDmgBonus} damage on STR melee attacks. Resistance: bludgeoning, piercing, slashing. Advantage on STR checks & STR saves.`,
     })
@@ -49,8 +55,8 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
     const used = char.resources?.['Fighting Spirit']?.used ?? 0
     const left = Math.max(0, total - used)
     const tempHp = char.level >= 15 ? 15 : char.level >= 10 ? 10 : 5
-    features.push({
-      level: 3,
+    classFeatures.push({
+      level: 3, source: 'class',
       name: `Fighting Spirit (${left}/${total})`,
       desc: `Bonus action: advantage on all weapon attack rolls until end of turn, plus ${tempHp} temporary HP. Recharges on long rest.`,
     })
@@ -61,17 +67,37 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
   if (classDef?.prepareSpells && spellcastingAbility) {
     const abilityScore = char.abilityScores[spellcastingAbility]
     const prepCap = computePreparedSpellCount(char.classId, char.level, abilityScore)
-    features.push({
-      level: 1,
+    classFeatures.push({
+      level: 1, source: 'class',
       name: `Prepared Spells (${char.preparedSpellIds.length}/${prepCap})`,
       desc: `You can prepare up to ${prepCap} spells from your class list after a long rest. Currently ${char.preparedSpellIds.length} prepared.`,
     })
   }
 
+  // ── Race traits ─────────────────────────────────────────────────────────
+  const raceDef = RACE_BY_ID[char.race]
+  const raceFeatures: SourcedFeature[] = (raceDef?.traits ?? []).map(t => ({
+    level: 0, source: 'race' as const, name: t, desc: '',
+  }))
+
+  // Feat chosen at creation (Variant Human or any race with freeFeat)
+  if (char.chosenFeat && raceDef?.freeFeat) {
+    const featDef = FEAT_BY_ID[char.chosenFeat]
+    if (featDef) {
+      raceFeatures.push({ level: 0, source: 'race', name: featDef.name, desc: featDef.description })
+    }
+  }
+
+  // ── Merge: race traits first (level 0), then class by level ────────────
+  const features: SourcedFeature[] = [
+    ...raceFeatures,
+    ...classFeatures.sort((a, b) => a.level - b.level),
+  ]
+
   return (
     <section className={styles.section}>
       <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>{char.classId} Features</span>
+        <span className={styles.sectionLabel}>Features</span>
       </div>
       {features.length === 0 ? (
         <span className={styles.emptyNote}>No features at this level.</span>
@@ -91,7 +117,12 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
                       <span className={styles.featureSubRaging}>Raging</span>
                     )}
                   </span>
-                  <span className={styles.featureLevel}>Lvl {f.level}</span>
+                  <span className={styles.featureLevel}>
+                    <span className={f.source === 'race' ? styles.badgeRace : styles.badgeClass}>
+                      {f.source === 'race' ? 'RACE' : 'CLASS'}
+                    </span>
+                    {f.level > 0 && <span>Lvl {f.level}</span>}
+                  </span>
                 </button>
               </div>
             )
