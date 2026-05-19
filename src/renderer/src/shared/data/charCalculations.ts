@@ -1,7 +1,7 @@
 import type { AbilityScores, Character, Equipment } from '@/entities/character/types'
 import type { AbilityScore } from './equipment/types'
 import type { Skill } from './skills'
-import { ARMOR_BY_ID } from './equipment/armor'
+import { ARMOR_BY_ID } from './equipment/accessories'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'

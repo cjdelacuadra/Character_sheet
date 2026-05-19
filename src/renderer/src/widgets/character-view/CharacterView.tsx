@@ -13,9 +13,7 @@ import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
-import { InventoryGrid } from '@/features/inventory/InventoryGrid'
 import { ShopPanel } from '@/features/shop/ShopPanel'
-import type { ShopItemKind } from '@/shared/data/equipment/types'
 import { LevelUpModal } from '@/features/level-up/LevelUpModal'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { SpellSelectionStep } from '@/features/level-up/SpellSelectionStep'
@@ -30,7 +28,6 @@ export function CharacterView() {
   const [restOpen, setRestOpen] = useState(false)
   const [equipOpen, setEquipOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
-  const [inventoryFilter, setInventoryFilter] = useState<ShopItemKind | null>(null)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
@@ -176,15 +173,7 @@ export function CharacterView() {
             <>
               <EquipmentLayout
                 character={char}
-                onSlotClick={(kind) => setInventoryFilter(k => k === kind ? null : kind)}
                 onOpenShop={() => setShopOpen(true)}
-                inventoryContent={
-                  <InventoryGrid
-                    character={char}
-                    filterKind={inventoryFilter}
-                    onFilterChange={setInventoryFilter}
-                  />
-                }
               />
               {shopOpen && (
                 <ShopPanel

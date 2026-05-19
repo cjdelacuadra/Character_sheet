@@ -12,7 +12,8 @@ export type WeaponRangeType = 'Melee' | 'Ranged' | 'Melee or Ranged'
 
 export type AccessorySlot =
   | 'helmet' | 'necklace' | 'cape' | 'legs' | 'boots'
-  | 'gloves' | 'quiver' | 'ring' | 'amulet'
+  | 'gloves' | 'quiver' | 'ring' | 'amulet' | 'armor'
+  | 'shield' | 'weapon'
 
 export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot
 
@@ -53,10 +54,10 @@ export interface WeaponEquipmentItem extends BaseEquipmentItem {
   proficiencyCategory: WeaponProficiencyCategory
   rangeType: WeaponRangeType
   properties: string[]
-  enchantmentBonus: number
+  enchantmentBonus?: number
   bonusDamageDie?: string
   bonusDamageType?: string
-  isMonkWeapon: boolean
+  isMonkWeapon?: boolean
 }
 
 export interface AccessoryEquipmentItem extends BaseEquipmentItem {

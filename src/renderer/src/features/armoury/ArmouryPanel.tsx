@@ -11,8 +11,7 @@ interface Props {
   character: Character
   activeSlotFilter: keyof Equipment | null
   weaponSlotIndex?: 0 | 1
-  onClose: () => void
-  onOpenShop: () => void
+  onClearSlot: () => void
   shakingId?: string | null
 }
 
@@ -31,7 +30,6 @@ function computeTab(filter: keyof Equipment | null): Tab {
   if (WEAPON_KINDS.has(kind)) return 'weapon'
   return 'accessory'
 }
-
 
 function DroppableGrid({ children }: { children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'armoury-grid', data: { isArmoury: true } })
@@ -54,7 +52,28 @@ function DraggableCard({ item, onEquip, isShaking }: { item: ShopItem; onEquip: 
   )
 }
 
-export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotIndex, onClose, onOpenShop, shakingId }: Props) {
+function DraggableBrowseCell({ item, onEquip, isEquipped }: { item: ShopItem; onEquip: (id: string) => void; isEquipped?: boolean }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `armoury-${item.id}`,
+    data: { itemId: item.id, kind: item.kind, type: 'armoury' },
+  })
+  return (
+    <div
+      ref={setNodeRef} {...listeners} {...attributes}
+      className={styles.browseCell}
+      title={item.name}
+      style={{ opacity: isEquipped ? 0.5 : isDragging ? 0.4 : 1 }}
+      onClick={() => onEquip(item.id)}
+    >
+      {item.sprite
+        ? <img src={item.sprite} alt={item.name} className={styles.browseSprite} />
+        : <span className={styles.browseFallback}>{item.name[0]}</span>
+      }
+    </div>
+  )
+}
+
+export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotIndex, onClearSlot, shakingId }: Props) {
   const equipItemToSlot    = useAppStore(s => s.equipItemToSlot)
   const equipWeaponFromId  = useAppStore(s => s.equipWeaponFromId)
   const buyItem            = useAppStore(s => s.buyItem)
@@ -66,6 +85,7 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
   }, [activeSlotFilter, weaponSlotIndex])
 
   const filterKind = weaponSlotIndex !== undefined ? 'weapon' : activeSlotFilter ? slotToKind(activeSlotFilter) : null
+  const isSlotMode = activeSlotFilter !== null || weaponSlotIndex !== undefined
 
   const ownedSet = useMemo(() => new Set(char.ownedItemIds), [char.ownedItemIds])
 
@@ -74,8 +94,11 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
     for (const val of Object.values(char.equipment)) {
       if (typeof val === 'string') ids.add(val)
     }
+    for (const weapon of char.weapons) {
+      ids.add(weapon.id)
+    }
     return ids
-  }, [char.equipment])
+  }, [char.equipment, char.weapons])
 
   const ownedItems = useMemo(
     () => char.ownedItemIds.map(id => SHOP_ITEM_BY_ID[id]).filter((i): i is ShopItem => !!i),
@@ -107,12 +130,12 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
   function handleEquip(itemId: string) {
     if (weaponSlotIndex !== undefined) {
       equipWeaponFromId(char.id, itemId, weaponSlotIndex)
-      onClose()
+      onClearSlot()
       return
     }
     if (!activeSlotFilter) return
     equipItemToSlot(char.id, activeSlotFilter, itemId)
-    onClose()
+    onClearSlot()
   }
 
   function handleEquipAll(itemId: string) {
@@ -141,10 +164,10 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
     buyItem(char.id, itemId, item.cost)
     if (weaponSlotIndex !== undefined) {
       equipWeaponFromId(char.id, itemId, weaponSlotIndex)
-      onClose()
+      onClearSlot()
     } else if (activeSlotFilter) {
       equipItemToSlot(char.id, activeSlotFilter, itemId)
-      onClose()
+      onClearSlot()
     } else {
       handleEquipAll(itemId)
     }
@@ -152,16 +175,19 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
 
   const allEmpty = displayedOwned.length === 0 && displayedUnowned.length === 0
 
+  const slotLabel = activeSlotFilter
+    ? ` — ${activeSlotFilter.replace('Id', '').replace(/([A-Z])/g, ' $1')}`
+    : weaponSlotIndex !== undefined
+      ? ` — Weapon ${weaponSlotIndex + 1}`
+      : ''
+
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <span className={styles.title}>
-          Armoury {activeSlotFilter ? `— ${activeSlotFilter.replace('Id', '').replace(/([A-Z])/g, ' $1')}` : ''}
-        </span>
-        <div className={styles.headerActions}>
-          <button className={styles.shopBtn} onClick={onOpenShop}>Open Shop</button>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
-        </div>
+        <span className={styles.title}>Armoury{slotLabel}</span>
+        {isSlotMode && (
+          <button className={styles.closeBtn} onClick={onClearSlot} title="Back to inventory">✕</button>
+        )}
       </div>
 
       <div className={styles.tabs}>
@@ -174,18 +200,14 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
 
       <DroppableGrid>
         {allEmpty ? (
-          <div className={styles.empty}>
-            No items available.{' '}
-            <button className={styles.emptyShopLink} onClick={onOpenShop}>Open the Shop</button>
-            {' '}to buy equipment.
-          </div>
-        ) : (
+          <div className={styles.empty}>No items available.</div>
+        ) : isSlotMode ? (
           <>
             {displayedOwned.map(item => (
-              <div key={item.id} style={{ opacity: equippedIds.has(item.id) ? 1 : 0.6 }}>
+              <div key={item.id} style={{ opacity: equippedIds.has(item.id) ? 0.6 : 1 }}>
                 <DraggableCard
                   item={item}
-                  onEquip={activeSlotFilter ? handleEquip : handleEquipAll}
+                  onEquip={handleEquip}
                   isShaking={shakingId === `armoury-${item.id}`}
                 />
               </div>
@@ -200,6 +222,35 @@ export function ArmouryPanel({ character: char, activeSlotFilter, weaponSlotInde
                 />
               </div>
             ))}
+          </>
+        ) : (
+          <>
+            {displayedOwned.length > 0 && (
+              <div className={styles.browseGrid}>
+                {displayedOwned.map(item => (
+                  <DraggableBrowseCell
+                    key={item.id}
+                    item={item}
+                    onEquip={handleEquipAll}
+                    isEquipped={equippedIds.has(item.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {displayedUnowned.length > 0 && (
+              <div className={styles.shopSection}>
+                {displayedUnowned.map(item => (
+                  <div key={item.id} className={styles.itemUnowned}>
+                    <ItemCard
+                      item={item}
+                      mode="shop"
+                      onAction={() => handleBuyAndEquip(item.id)}
+                      canAfford={char.gold >= item.cost}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </DroppableGrid>

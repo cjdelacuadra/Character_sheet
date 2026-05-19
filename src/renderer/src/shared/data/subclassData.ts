@@ -1,4 +1,4 @@
-import type { ArmorProficiency } from './equipment/armor'
+import type { ArmorProficiency } from './equipment/accessories'
 
 export interface SubclassDef {
   id: string

@@ -1,6 +1,6 @@
 import type { AbilityScore } from '@/entities/character/types'
 import type { Skill } from './skills'
-import type { ArmorProficiency } from './equipment/armor'
+import type { ArmorProficiency } from './equipment/accessories'
 import { ALL_SKILL_KEYS } from './skills'
 
 export type ResourceRecovery = 'short' | 'long' | 'none'

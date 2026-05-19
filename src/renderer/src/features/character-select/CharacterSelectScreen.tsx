@@ -11,7 +11,7 @@ import { weaponsForClass, type WeaponDef } from '@/shared/data/equipment/weapons
 import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingStylesData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
-import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/equipment/armor'
+import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/equipment/accessories'
 import {
   computeAC, computeMaxHP, computeSpeed, computeInitiative, profBonus, mod,
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL

@@ -87,6 +87,50 @@
 
 ---
 
+### MAGIC ARMOR (+1/+2/+3)
+
+Magic armor grants an enchantment bonus added on top of the armor's base AC. These items are DM-granted rewards, not purchasable (cost: 0 gp listed as placeholder).
+
+#### Shields
+
+| Item | AC Bonus | Rarity |
+|------|----------|--------|
+| **Shield +1** | +3 total | Uncommon |
+| **Shield +2** | +4 total | Rare |
+| **Shield +3** | +5 total | Very Rare |
+
+#### Light Armor (Magic)
+
+| Armor | Base AC | Enchantment | Total | Rarity |
+|-------|---------|-------------|-------|--------|
+| **Leather +1** | 11 + DEX | +1 | 12 + DEX | Uncommon |
+| **Studded Leather +1** | 12 + DEX | +1 | 13 + DEX | Uncommon |
+| **Studded Leather +2** | 12 + DEX | +2 | 14 + DEX | Rare |
+| **Studded Leather +3** | 12 + DEX | +3 | 15 + DEX | Very Rare |
+
+#### Medium Armor (Magic)
+
+| Armor | Base AC | Enchantment | Total | DEX Cap | Rarity |
+|-------|---------|-------------|-------|---------|--------|
+| **Breastplate +1** | 14 + DEX | +1 | 15 + DEX | +2 | Uncommon |
+| **Breastplate +2** | 14 + DEX | +2 | 16 + DEX | +2 | Rare |
+| **Breastplate +3** | 14 + DEX | +3 | 17 + DEX | +2 | Very Rare |
+| **Half Plate +1** | 15 + DEX | +1 | 16 + DEX | +2 | Uncommon |
+| **Half Plate +2** | 15 + DEX | +2 | 17 + DEX | +2 | Rare |
+
+#### Heavy Armor (Magic)
+
+| Armor | Base AC | Enchantment | Total | Stealth | Str Req | Rarity |
+|-------|---------|-------------|-------|---------|---------|--------|
+| **Ring Mail +1** | 14 | +1 | 15 | Disadv | — | Uncommon |
+| **Chain Mail +1** | 16 | +1 | 17 | Disadv | 13 | Uncommon |
+| **Splint +1** | 17 | +1 | 18 | Disadv | 15 | Uncommon |
+| **Plate +1** | 18 | +1 | 19 | Disadv | 15 | Uncommon |
+| **Plate +2** | 18 | +2 | 20 | Disadv | 15 | Rare |
+| **Plate +3** | 18 | +3 | 21 | Disadv | 15 | Very Rare |
+
+---
+
 ### SPECIAL ARMOR MATERIALS
 
 #### Mithral

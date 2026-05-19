@@ -1,4 +1,4 @@
-import { ARMOR_LIST } from './armor'
+import { ARMOR_LIST } from './accessories'
 import { WEAPONS } from './weapons'
 import { ACCESSORIES } from './accessories'
 import type { AccessoryEquipmentItem } from './accessories'
