@@ -19,6 +19,7 @@ export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot
 
 export interface AccessoryStats {
   acBonus?: number
+  abilityBonus?: Partial<Record<AbilityScore, number>>
   savingThrowBonus?: Partial<Record<AbilityScore, number>>
   skillBonus?: Partial<Record<Skill, number>>
   advantage?: {
@@ -26,6 +27,7 @@ export interface AccessoryStats {
     skills?: Skill[]
     deathSaves?: boolean
   }
+  bonusDamage?: { flat?: number; dice?: string; dmgType: string }
 }
 
 export interface BaseEquipmentItem {

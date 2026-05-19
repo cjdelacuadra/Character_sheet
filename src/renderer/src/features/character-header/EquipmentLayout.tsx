@@ -6,6 +6,7 @@ import type { Skill } from '@/shared/data/skills'
 import { ARMOR_BY_ID } from '@/shared/data/equipment/accessories'
 import { ACCESSORY_BY_ID } from '@/shared/data/equipment/accessories'
 import { SHOP_ITEM_BY_ID, slotPlaceholderUrl, slotToKind } from '@/shared/data/equipment/catalogue'
+import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import type { ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { computeEquipmentStats, type EquipmentStats } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
@@ -197,7 +198,7 @@ function WeaponBreakdownPanel({ weapon, onClose, onToggleTwoHanded, canTwoHand }
 }) {
   const props = (weapon.properties ?? []).map(p => p.toLowerCase())
   const versatileDie = props.find(p => p.startsWith('versatile ('))?.match(/versatile \((\d+d\d+)\)/)?.[1]
-  const activeDamage = (versatileDie && weapon.twoHanded) ? versatileDie : weapon.damage
+  const activeDamage = (versatileDie && weapon.twoHanded && canTwoHand) ? versatileDie : weapon.damage
   const rows: { label: string; value: string }[] = []
   rows.push({ label: 'Damage', value: activeDamage + (weapon.damageType ? ` ${weapon.damageType}` : '') })
   rows.push({ label: 'Attack bonus', value: weapon.atkBonus >= 0 ? `+${weapon.atkBonus}` : String(weapon.atkBonus) })
@@ -214,15 +215,17 @@ function WeaponBreakdownPanel({ weapon, onClose, onToggleTwoHanded, canTwoHand }
           <span className={styles.breakdownSub}>+{weapon.atkBonus} to hit</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {versatileDie && canTwoHand && onToggleTwoHanded && (
+          {versatileDie && onToggleTwoHanded && (
             <div style={{ display: 'flex', gap: '2px' }}>
               <button
                 onClick={() => { if (weapon.twoHanded) onToggleTwoHanded() }}
-                style={{ padding: '2px 6px', fontSize: '11px', opacity: weapon.twoHanded ? 0.5 : 1, fontWeight: weapon.twoHanded ? 'normal' : 'bold' }}
+                style={{ padding: '2px 6px', fontSize: '11px', opacity: weapon.twoHanded && canTwoHand ? 0.5 : 1, fontWeight: weapon.twoHanded && canTwoHand ? 'normal' : 'bold' }}
               >1H</button>
               <button
-                onClick={() => { if (!weapon.twoHanded) onToggleTwoHanded() }}
-                style={{ padding: '2px 6px', fontSize: '11px', opacity: weapon.twoHanded ? 1 : 0.5, fontWeight: weapon.twoHanded ? 'bold' : 'normal' }}
+                onClick={() => { if (!weapon.twoHanded && canTwoHand) onToggleTwoHanded() }}
+                disabled={!canTwoHand}
+                title={!canTwoHand ? 'Unequip off-hand to use two-handed' : undefined}
+                style={{ padding: '2px 6px', fontSize: '11px', opacity: weapon.twoHanded && canTwoHand ? 1 : 0.5, fontWeight: weapon.twoHanded && canTwoHand ? 'bold' : 'normal', cursor: !canTwoHand ? 'not-allowed' : undefined }}
               >2H</button>
             </div>
           )}
@@ -464,7 +467,21 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
     const weaponSlotIdx = over.data.current?.weaponSlot as 0 | 1 | undefined
     if (weaponSlotIdx !== undefined) {
       if (kind !== 'weapon') { shake(active.id as string); return }
+      // Block off-hand slot when main weapon is two-handed
+      if (weaponSlotIdx === 1) {
+        const mainIsTwoHanded = char.weapons[0]?.properties?.some(p => p.toLowerCase() === 'two-handed') ?? false
+        if (mainIsTwoHanded) { shake(active.id as string); return }
+      }
       equipWeaponFromId(char.id, itemId, weaponSlotIdx)
+      // Auto-unequip off-hand when equipping a two-handed weapon to main hand
+      if (weaponSlotIdx === 0) {
+        const def = WEAPON_BY_ID[itemId]
+        const isTwoHanded = def?.properties?.some(p => p.toLowerCase() === 'two-handed') ?? false
+        if (isTwoHanded) {
+          if (char.weapons[1]) _unequipWeapon(char.id, 1)
+          if (char.equipment.shieldId) _unequipSlot(char.id, 'shieldId')
+        }
+      }
       const fromWeaponSlot = active.data.current?.fromWeaponSlot as 0 | 1 | undefined
       if (fromWeaponSlot !== undefined && fromWeaponSlot !== weaponSlotIdx) {
         _unequipWeapon(char.id, fromWeaponSlot)

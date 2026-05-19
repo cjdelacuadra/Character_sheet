@@ -12,6 +12,8 @@ import { ConditionsPanel } from '@/features/conditions/ConditionsPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
+import { FeatureDetailPanel } from '@/features/detail-panel/FeatureDetailPanel'
+import { SkillSaveDetailPanel } from '@/features/detail-panel/SkillSaveDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
 import { ShopPanel } from '@/features/shop/ShopPanel'
 import { LevelUpModal } from '@/features/level-up/LevelUpModal'
@@ -32,6 +34,7 @@ export function CharacterView() {
   const [diceOpen, setDiceOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
   const [selectedFeature, setSelectedFeature] = useState<FeatureEntry | null>(null)
+  const [selectedDetail, setSelectedDetail] = useState<{ type: 'save' | 'skill'; key: string } | null>(null)
   const [pendingAsiQueue, setPendingAsiQueue] = useState<number[]>([])
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
@@ -108,11 +111,16 @@ export function CharacterView() {
         <aside className={styles.leftCol}>
           <VitalsPanel character={char} update={update} onTempHp={(amt) => setTempHp(char.id, amt)} onDelete={() => { deleteCharacter(char.id); exitCharacter() }} />
           <ConditionsPanel character={char} update={update} />
-          <AbilitiesPanel character={char} update={update} />
+          <AbilitiesPanel
+            character={char}
+            update={update}
+            selectedDetail={selectedDetail}
+            onSelectDetail={(d) => { setSelectedDetail(d); if (d) { setSelectedAction(null); setSelectedFeature(null); setEquipOpen(false); setShopOpen(false) } }}
+          />
           <FeaturesPanel
             character={char}
             selectedFeature={selectedFeature}
-            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setEquipOpen(false); setShopOpen(false) }}
+            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) }}
           />
         </aside>
 
@@ -120,7 +128,7 @@ export function CharacterView() {
           <ActionListPanel
             character={char}
             selectedAction={selectedAction}
-            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setEquipOpen(false); setShopOpen(false) } }}
+            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) } }}
             update={update}
           />
         </div>
@@ -190,8 +198,22 @@ export function CharacterView() {
               character={char}
               update={update}
               selectedAction={selectedAction}
-              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setEquipOpen(false); setShopOpen(false) } }}
+              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) } }}
               selectedFeature={selectedFeature}
+            />
+          )}
+          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
+            <FeatureDetailPanel
+              character={char}
+              feature={selectedFeature}
+              onClose={() => setSelectedFeature(null)}
+            />
+          )}
+          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && selectedDetail && (
+            <SkillSaveDetailPanel
+              character={char}
+              detail={selectedDetail}
+              onClose={() => setSelectedDetail(null)}
             />
           )}
         </div>

@@ -4,6 +4,7 @@ import type { Character, Equipment } from '@/entities/character/types'
 import type { ShopItemKind } from '@/shared/data/equipment/types'
 import { SHOP_ITEM_BY_ID } from '@/shared/data/equipment/catalogue'
 import type { ShopItem } from '@/shared/data/equipment/catalogue'
+import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import { useAppStore } from '@/app/store'
 import styles from './InventoryGrid.module.css'
 
@@ -110,6 +111,8 @@ function ItemDetailPopup({
 export function InventoryGrid({ character: char, filterKind, onFilterChange, shakingId: _shakingId }: Props) {
   const equipItemToSlot   = useAppStore(s => s.equipItemToSlot)
   const equipWeaponFromId = useAppStore(s => s.equipWeaponFromId)
+  const unequipWeapon     = useAppStore(s => s.unequipWeapon)
+  const unequipSlot       = useAppStore(s => s.unequipSlot)
 
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
 
@@ -142,7 +145,17 @@ export function InventoryGrid({ character: char, filterKind, onFilterChange, sha
   function handleEquip(item: ShopItem) {
     if (item.kind === 'weapon') {
       equipWeaponFromId(char.id, item.id, 0)
+      const def = WEAPON_BY_ID[item.id]
+      if (def?.properties?.some(p => p.toLowerCase() === 'two-handed')) {
+        if (char.weapons[1]) unequipWeapon(char.id, 1)
+        if (char.equipment.shieldId) unequipSlot(char.id, 'shieldId')
+      }
       return
+    }
+    // Block shield equip when main weapon is two-handed
+    if (item.kind === 'shield') {
+      const mainIsTwoHanded = char.weapons[0]?.properties?.some(p => p.toLowerCase() === 'two-handed') ?? false
+      if (mainIsTwoHanded) return
     }
     const slotMap: Partial<Record<ShopItemKind, keyof Equipment>> = {
       armor:    'armorId',    shield:   'shieldId',

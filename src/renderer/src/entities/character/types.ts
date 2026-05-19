@@ -111,7 +111,10 @@ export interface Character {
   completedAsiLevels: number[]
   completedAsiChoices?: Record<number, string>
   selectedManeuver?: string | null
+  chosenManeuvers?: string[]
+  activeManeuver?: string | null
   superiorityDiceUsed?: number
   arcaneShots?: string[]
+  activeArcaneShot?: string | null
   notes: string
 }

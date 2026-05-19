@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
-import { profBonus, computeMaxHP, computeSpeed, computeInitiative, mod } from '@/shared/data/charCalculations'
+import { profBonus, computeMaxHP, computeSpeed, computeInitiative, mod, computeACFull } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
@@ -207,7 +207,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
 
       const newMaxHp = computeMaxHP(char.classId, newLevel, newScores.con, bonusHpPerLevel)
       const hpGain = newMaxHp - char.hitPoints.max
-      const newSlots = defaultSpellSlots(char.classId, newLevel)
+      const newSlots = defaultSpellSlots(char.classId, newLevel, char.subclass ?? undefined)
       const mergedSlots = { ...newSlots }
       for (const [lvl, slot] of Object.entries(char.spellSlots)) {
         if (mergedSlots[Number(lvl)]) {
@@ -242,6 +242,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         feats: newFeats,
         bonusHpPerLevel,
         initiative: computeInitiative(newScores, char.classId, newLevel, newProf, newFeats, char.subclass),
+        armorClass: computeACFull({ ...char, abilityScores: newScores }),
         speed: mobileBonus > 0 ? computeSpeed(char.race) + mobileBonus : char.speed,
         hitPoints: {
           ...char.hitPoints,
@@ -290,6 +291,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         updatedAt: new Date().toISOString(),
         abilityScores: newScores,
         feats: newFeats,
+        armorClass: computeACFull({ ...char, abilityScores: newScores }),
         completedAsiLevels: [...(char.completedAsiLevels ?? []), asiLevel],
         completedAsiChoices: { ...(char.completedAsiChoices ?? {}), [asiLevel]: formatAsiChoice(choice) },
       }
@@ -316,10 +318,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
     set((state) => {
       const char = state.characters[id]
       if (!char) return state
+      const withEquip: Character = { ...char, equipment: { ...char.equipment, [slot]: value } }
       const updated: Character = {
-        ...char,
+        ...withEquip,
         updatedAt: new Date().toISOString(),
-        equipment: { ...char.equipment, [slot]: value },
+        armorClass: computeACFull(withEquip),
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }

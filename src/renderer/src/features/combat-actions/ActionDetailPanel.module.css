@@ -92,6 +92,7 @@
 .attackBreakdownRowToggleable:hover { background: var(--bg-alt, rgba(255,255,255,0.04)); }
 .attackBreakdownRowActive td { color: var(--text-primary); }
 .attackBreakdownRowDimmed td { opacity: 0.38; }
+.attackBreakdownRowDisabled td { opacity: 0.25; cursor: not-allowed; font-style: italic; }
 .attackBreakdownTotalRow { border-top: 1px solid var(--border); }
 .attackBreakdownTotalRow td { font-weight: 700; color: var(--accent); padding-top: 5px; padding-bottom: 5px; }
 
@@ -112,10 +113,25 @@
 
 /* ── Per-weapon special attacks ── */
 .weaponSpecialList { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; background: var(--surface-2); border-top: 1px solid var(--border); border-radius: 0 0 6px 6px; }
-.weaponSpecialRow { display: flex; align-items: baseline; gap: 6px; }
+.weaponSpecialRow { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px; border-radius: 4px; }
+.weaponSpecialRowActive { background: rgba(139,124,248,0.10); }
 .weaponSpecialName { font-size: 11px; font-weight: 600; color: var(--accent); min-width: 110px; }
 .weaponSpecialDice { font-size: 11px; color: var(--text); font-weight: 700; }
 .weaponSpecialNote { font-size: 10px; color: var(--text-muted); flex: 1; }
+
+/* Selectable battle option button (maneuver / arcane shot) */
+.selectableBtn { background: none; border: 1px solid transparent; border-radius: 4px; font-size: 11px; font-weight: 600; color: var(--text-muted); cursor: pointer; padding: 1px 5px; min-width: 110px; text-align: left; transition: all 0.12s; }
+.selectableBtn:hover { color: var(--accent); border-color: var(--accent); }
+.selectableBtnActive { color: var(--accent); border-color: var(--accent); background: rgba(139,124,248,0.12); }
+.maneuverDieBadge { font-size: 9px; font-weight: 700; color: var(--gold, #f0b429); background: rgba(240,180,41,0.10); border-radius: 3px; padding: 1px 4px; white-space: nowrap; flex-shrink: 0; }
+
+/* Progression level indicators */
+.progressionRow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 2px; }
+.progressionStep { font-size: 10px; color: var(--text-muted); }
+.progressionStepActive { font-size: 10px; color: var(--accent); font-weight: 600; }
+.progressionCount { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+
+.emptyNote { font-size: 10px; color: var(--text-muted); font-style: italic; }
 
 /* ── Armory modal ── */
 .modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }

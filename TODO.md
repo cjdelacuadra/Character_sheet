@@ -51,3 +51,6 @@ The action list must reflect what weapons are equipped.
 - One melee weapon → weapon name appears as an Action
 - Two light weapons → off-hand weapon appears as a Bonus Action
 - Removing weapons → off-hand Bonus Action disappears
+
+## Pending
+- Calculate stats with equipment (AC, saves, skill bonuses derived from equipped items)

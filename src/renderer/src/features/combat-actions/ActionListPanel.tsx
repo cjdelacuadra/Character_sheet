@@ -1,5 +1,5 @@
 import type { Character } from '@/entities/character/types'
-import { getAvailableActions, getWeaponAttackActions, type ActionDef } from '@/domain/rules'
+import { getAvailableActions, type ActionDef } from '@/domain/rules'
 import { CLASS_BY_ID, type ResourceDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { mod } from '@/shared/data/charCalculations'
@@ -14,21 +14,13 @@ interface Props {
 
 export function ActionListPanel({ character: char, selectedAction, onSelectAction, update }: Props) {
   const availableActions = getAvailableActions(char)
-  const weaponActions = getWeaponAttackActions(char)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
 
-  function mergeWithWeapons(type: ActionDef['type']): ActionDef[] {
-    const fromWeapons = weaponActions.filter(a => a.type === type)
-    const fromClass = availableActions.filter(a => a.type === type)
-    const weaponNames = new Set(fromWeapons.map(a => a.name))
-    return [...fromWeapons, ...fromClass.filter(a => !weaponNames.has(a.name))]
-  }
-
   const actionGroups = [
-    { type: 'Action' as const,       label: 'Actions',       items: mergeWithWeapons('Action') },
-    { type: 'Bonus Action' as const, label: 'Bonus Actions', items: mergeWithWeapons('Bonus Action') },
+    { type: 'Action' as const,       label: 'Actions',       items: availableActions.filter(a => a.type === 'Action') },
+    { type: 'Bonus Action' as const, label: 'Bonus Actions', items: availableActions.filter(a => a.type === 'Bonus Action') },
     { type: 'Reaction' as const,     label: 'Reactions',     items: availableActions.filter(a => a.type === 'Reaction') },
   ].filter(g => g.items.length > 0)
 

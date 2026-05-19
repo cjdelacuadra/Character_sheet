@@ -73,6 +73,8 @@ export const ACCESSORIES: AccessoryEquipmentItem[] = [
     stats: { acBonus: 2 } },
 
   // ── Capes ────────────────────────────────────────────────────────────────
+  { id: 'movility-cape',  name: 'Movility Cape',    kind: 'cape', cost: 10,   rarity: 'legendary', sprite: `${S}Infernal_cape.png`,
+    stats: { abilityBonus: { dex: 2 } } },
   { id: 'obsidian-cape',  name: 'Obsidian Cape',    kind: 'cape', cost: 2000, rarity: 'uncommon',  sprite: `${S}Obsidian_cape.png`,
     stats: { acBonus: 1 } },
   { id: 'fire-cape',      name: 'Fire Cape',        kind: 'cape', cost: 0,    rarity: 'rare',      sprite: `${S}Fire_cape.png`,
@@ -129,6 +131,12 @@ export const ACCESSORIES: AccessoryEquipmentItem[] = [
 
   // ── Rings ────────────────────────────────────────────────────────────────
   { id: 'ring-of-recoil',   name: 'Ring of Recoil',     kind: 'ring', cost: 50,   rarity: 'common',    sprite: `${S}Ring_of_recoil.png` },
+  { id: 'ring-of-fire-damage',     name: 'Ring of Fire (Damage)',     kind: 'ring', cost: 50,  rarity: 'uncommon',  sprite: `${S}Ring_of_life.png`,
+    stats: { bonusDamage: { flat: 2, dmgType: 'fire' } } },
+  { id: 'shocking-ring',     name: 'Shocking Ring',     kind: 'ring', cost: 50,  rarity: 'uncommon',  sprite: `${S}Ring_of_life.png`,
+    stats: { bonusDamage: { dice: '1d6', dmgType: 'lightning' } } },
+  { id: 'ring-of-fire',     name: 'Ring of Fire',       kind: 'ring', cost: 500,  rarity: 'uncommon',  sprite: `${S}Ring_of_life.png`,
+    stats: { savingThrowBonus: { con: 1 } } },
   { id: 'ring-of-life',     name: 'Ring of Life',       kind: 'ring', cost: 500,  rarity: 'uncommon',  sprite: `${S}Ring_of_life.png`,
     stats: { advantage: { deathSaves: true } } },
   { id: 'berserker-ring',   name: 'Berserker Ring',     kind: 'ring', cost: 3000, rarity: 'rare',      sprite: `${S}Berserker_ring.png`,

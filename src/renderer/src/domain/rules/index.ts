@@ -1,15 +1,16 @@
 import type { Character, Weapon } from '@/entities/character/types'
-import { mod } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
 
 export function spellcastingAbilityMod(character: Character): number {
-  const ability = CLASS_BY_ID[character.classId]?.spellcastingAbility
-  if (!ability) return 0
-  return mod(character.abilityScores[ability])
+  const subAbility = character.subclass ? SUBCLASS_BY_ID[character.subclass]?.spellcastingAbility : undefined
+  const ability = subAbility ?? CLASS_BY_ID[character.classId]?.spellcastingAbility ?? 'int'
+  return mod(effectiveAbilityScore(character, ability))
 }
 
 export function computeSpellSaveDC(character: Character): number {
@@ -43,8 +44,8 @@ export function isProficientWithWeapon(character: Character, weapon: Weapon): bo
 }
 
 export function computeAttackBonus(character: Character, weapon: Weapon): number {
-  const strMod = mod(character.abilityScores.str)
-  const dexMod = mod(character.abilityScores.dex)
+  const strMod = mod(effectiveAbilityScore(character, 'str'))
+  const dexMod = mod(effectiveAbilityScore(character, 'dex'))
   const props = weapon.properties ?? []
   const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
   const isRanged  = weapon.rangeType === 'Ranged'

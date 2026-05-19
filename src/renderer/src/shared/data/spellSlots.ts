@@ -73,13 +73,29 @@ const WARLOCK_SLOTS: Record<number, number[]> = {
   20: [0,0,0,0,4,0,0,0,0],
 }
 
-const FULL_CASTERS = new Set(['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer'])
-const HALF_CASTERS = new Set(['Paladin', 'Ranger'])
+// Third-casters (Eldritch Knight, Arcane Trickster) — by class level, start level 3
+const THIRD_CASTER: Record<number, number[]> = {
+  1:  [0,0,0,0,0,0,0,0,0],  2:  [0,0,0,0,0,0,0,0,0],
+  3:  [2,0,0,0,0,0,0,0,0],  4:  [3,0,0,0,0,0,0,0,0],
+  5:  [4,2,0,0,0,0,0,0,0],  6:  [4,2,0,0,0,0,0,0,0],
+  7:  [4,3,0,0,0,0,0,0,0],  8:  [4,3,0,0,0,0,0,0,0],
+  9:  [4,3,2,0,0,0,0,0,0],  10: [4,3,2,0,0,0,0,0,0],
+  11: [4,3,3,0,0,0,0,0,0],  12: [4,3,3,0,0,0,0,0,0],
+  13: [4,3,3,1,0,0,0,0,0],  14: [4,3,3,1,0,0,0,0,0],
+  15: [4,3,3,1,0,0,0,0,0],  16: [4,3,3,1,0,0,0,0,0],
+  17: [4,3,3,1,0,0,0,0,0],  18: [4,3,3,1,0,0,0,0,0],
+  19: [4,3,3,2,0,0,0,0,0],  20: [4,3,3,2,0,0,0,0,0],
+}
 
-export function defaultSpellSlots(classId: string, level: number): SpellSlots {
+const FULL_CASTERS   = new Set(['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer'])
+const HALF_CASTERS   = new Set(['Paladin', 'Ranger'])
+const THIRD_CASTERS  = new Set(['EldritchKnight', 'ArcaneTrickster'])
+
+export function defaultSpellSlots(classId: string, level: number, subclassId?: string): SpellSlots {
   let table: Record<number, number[]> | null = null
 
-  if (FULL_CASTERS.has(classId)) table = FULL_CASTER
+  if (subclassId && THIRD_CASTERS.has(subclassId)) table = THIRD_CASTER
+  else if (FULL_CASTERS.has(classId)) table = FULL_CASTER
   else if (HALF_CASTERS.has(classId)) table = HALF_CASTER
   else if (classId === 'Warlock') table = WARLOCK_SLOTS
   else return {}

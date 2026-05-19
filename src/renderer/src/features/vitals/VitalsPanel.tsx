@@ -3,7 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/equipment/accessories'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeAC, mod } from '@/shared/data/charCalculations'
+import { computeACFull, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import styles from './VitalsPanel.module.css'
 
@@ -49,7 +49,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
 
   function setArmor(armorId: string | null, shieldId: string | null) {
     const newEq = { ...char.equipment, armorId, hasShield: shieldId !== null, shieldId }
-    const newAC = computeAC({ abilityScores: char.abilityScores, equipment: newEq, classId: char.classId, race: char.race, subclass: char.subclass })
+    const newAC = computeACFull({ ...char, equipment: newEq })
     update({ equipment: newEq, armorClass: newAC })
   }
 

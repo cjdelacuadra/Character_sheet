@@ -34,11 +34,12 @@ export function computeAC(char: {
   race: string
   subclass?: string
   fightingStyle?: string
-}): number {
+}, abilityBonus?: Partial<Record<AbilityScore, number>>): number {
   const { abilityScores, equipment, classId, race, subclass } = char
-  const dexMod = mod(abilityScores.dex)
-  const conMod = mod(abilityScores.con)
-  const wisMod = mod(abilityScores.wis)
+  const ab = abilityBonus ?? {}
+  const dexMod = mod(abilityScores.dex + (ab.dex ?? 0))
+  const conMod = mod(abilityScores.con + (ab.con ?? 0))
+  const wisMod = mod(abilityScores.wis + (ab.wis ?? 0))
   // Shield adds +2 + enchantment (additive on top of armor, never replaces it)
   const shieldDef = equipment.shieldId ? ARMOR_BY_ID[equipment.shieldId] : null
   const shield = shieldDef
@@ -148,16 +149,20 @@ export const POINT_BUY_TOTAL = 27
 
 export interface EquipmentStats {
   acBonus: number
+  abilityBonus: Partial<Record<AbilityScore, number>>
   savingThrowBonus: Partial<Record<AbilityScore, number>>
   skillBonus: Partial<Record<Skill, number>>
   advantage: { savingThrows: AbilityScore[]; skills: Skill[]; deathSaves: boolean }
+  bonusDamage: { flat: number; dice: string[]; dmgType: string; names: string[] }[]
 }
 
 export const ZERO_EQUIP_STATS: EquipmentStats = {
   acBonus: 0,
+  abilityBonus: {},
   savingThrowBonus: {},
   skillBonus: {},
   advantage: { savingThrows: [], skills: [], deathSaves: false },
+  bonusDamage: [],
 }
 
 const ACC_SLOTS: Array<keyof Equipment> = [
@@ -169,9 +174,11 @@ const ACC_SLOTS: Array<keyof Equipment> = [
 export function computeEquipmentStats(char: Pick<Character, 'equipment'>): EquipmentStats {
   const result: EquipmentStats = {
     acBonus: 0,
+    abilityBonus: {},
     savingThrowBonus: {},
     skillBonus: {},
     advantage: { savingThrows: [], skills: [], deathSaves: false },
+    bonusDamage: [],
   }
 
   for (const slotKey of ACC_SLOTS) {
@@ -182,6 +189,12 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
     const s = acc.stats
 
     if (s.acBonus) result.acBonus += s.acBonus
+
+    if (s.abilityBonus) {
+      for (const [ab, val] of Object.entries(s.abilityBonus) as [AbilityScore, number][]) {
+        result.abilityBonus[ab] = (result.abilityBonus[ab] ?? 0) + val
+      }
+    }
 
     if (s.savingThrowBonus) {
       for (const [ab, val] of Object.entries(s.savingThrowBonus) as [AbilityScore, number][]) {
@@ -200,7 +213,34 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
       if (!result.advantage.skills.includes(sk)) result.advantage.skills.push(sk)
     }
     if (s.advantage?.deathSaves) result.advantage.deathSaves = true
+
+    if (s.bonusDamage) {
+      const { flat = 0, dice, dmgType } = s.bonusDamage
+      const existing = result.bonusDamage.find(b => b.dmgType === dmgType)
+      if (existing) {
+        existing.flat += flat
+        if (dice) existing.dice.push(dice)
+        existing.names.push(acc.name)
+      } else {
+        result.bonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, names: [acc.name] })
+      }
+    }
   }
 
   return result
+}
+
+/** Returns the effective value of an ability score after applying equipped accessory bonuses. */
+export function effectiveAbilityScore(
+  char: Pick<Character, 'abilityScores' | 'equipment'>,
+  ability: AbilityScore,
+): number {
+  const bonus = computeEquipmentStats(char).abilityBonus[ability] ?? 0
+  return char.abilityScores[ability] + bonus
+}
+
+/** computeAC + accessory acBonus + ability score bonuses from equipment. */
+export function computeACFull(char: Character): number {
+  const equip = computeEquipmentStats(char)
+  return computeAC(char, equip.abilityBonus) + equip.acBonus
 }
