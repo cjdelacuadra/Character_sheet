@@ -33,6 +33,7 @@ export const ARMOR_LIST: ArmorEquipmentItem[] = [
   { id: 'ringMail',      name: 'Ring Mail',           kind: 'armor',  type: 'heavy',  baseAC: 14, cost: 30,   dexCap: 0, stealthDisadvantage: true },
   { id: 'chainMail',     name: 'Chain Mail',          kind: 'armor',  type: 'heavy',  baseAC: 16, cost: 75,   dexCap: 0, stealthDisadvantage: true, strRequirement: 13 },
   { id: 'splint',        name: 'Splint',              kind: 'armor',  type: 'heavy',  baseAC: 17, cost: 200,  dexCap: 0, stealthDisadvantage: true, strRequirement: 15 },
+  { id: 'plate',         name: 'Plate',               kind: 'armor',  type: 'heavy',  baseAC: 18, cost: 1500, dexCap: 0, stealthDisadvantage: true, strRequirement: 15, sprite: `${S}Armor_test.png` },
   // ── Magic — Uncommon (+1) ─────────────────────────────────────────────────
   { id: 'shield+1',      name: 'Shield +1',           kind: 'shield', type: 'none',   baseAC: 0,  cost: 1000, enchantmentBonus: 1, rarity: 'uncommon' },
   { id: 'leather+1',     name: 'Leather +1',          kind: 'armor',  type: 'light',  baseAC: 11, cost: 0, enchantmentBonus: 1, rarity: 'uncommon' },
@@ -71,7 +72,6 @@ export const ACCESSORIES: AccessoryEquipmentItem[] = [
   { id: 'bandos-helmet',      name: 'Bandos Helmet',       kind: 'helmet', cost: 5000, rarity: 'rare',
     stats: { acBonus: 2 } },
 
-  { id: 'plate',         name: 'Plate',               kind: 'armor',  type: 'heavy',  baseAC: 18, cost: 1500, dexCap: 0, stealthDisadvantage: true, strRequirement: 15 ,    sprite: `${S}Armor_test.png`},
   // ── Capes ────────────────────────────────────────────────────────────────
   { id: 'obsidian-cape',  name: 'Obsidian Cape',    kind: 'cape', cost: 2000, rarity: 'uncommon',  sprite: `${S}Obsidian_cape.png`,
     stats: { acBonus: 1 } },

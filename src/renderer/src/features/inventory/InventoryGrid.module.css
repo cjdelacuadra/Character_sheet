@@ -1,0 +1,134 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.filterBtn {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filterBtn:hover { background: var(--surface-3); color: var(--text); }
+
+.filterBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  overflow-y: auto;
+  /* 5 rows visible; max 10 rows before scrollbar */
+  min-height: calc(5 * (36px + 3px));
+  max-height: calc(10 * (36px + 3px));
+}
+
+.grid[data-over] { outline: 1px dashed var(--accent); }
+
+.cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cellFilled {
+  border-color: var(--border-strong, var(--border));
+  background: var(--surface-3);
+  cursor: grab;
+}
+
+.cellFilled:hover { border-color: var(--accent); }
+
+.cellSelected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.sprite {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.fallback {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Item detail popup */
+.detailPopup {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong, var(--accent));
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.detailHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detailName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.detailClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.detailStat   { font-size: 11px; color: var(--text); }
+.detailRarity { font-size: 10px; text-transform: capitalize; }
+.detailKind   { font-size: 10px; color: var(--text-muted); text-transform: capitalize; }
+.detailCost   { font-size: 11px; color: var(--text-muted); }
+
+.detailEquip {
+  margin-top: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  align-self: flex-start;
+}
+.detailEquip:hover { background: var(--accent); color: #fff; }
+

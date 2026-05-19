@@ -50,6 +50,11 @@
   outline: 1px dashed var(--accent);
 }
 
+.slot[data-compatible] {
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .slotIconBtn {
   background: none;
   border: none;

@@ -3,7 +3,7 @@ import styles from './ItemCard.module.css'
 
 interface Props {
   item: ShopItem
-  mode: 'armoury' | 'shop'
+  mode: 'inventory' | 'shop'
   onAction: () => void
   alreadyOwned?: boolean
   canAfford?: boolean
@@ -23,7 +23,7 @@ export function ItemCard({ item, mode, onAction, alreadyOwned, canAfford, isDrag
   const rarityColor = item.rarity ? RARITY_COLOR[item.rarity] : 'var(--text-muted)'
 
   const actionLabel =
-    mode === 'armoury'
+    mode === 'inventory'
       ? 'Equip'
       : alreadyOwned
         ? 'Owned'

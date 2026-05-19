@@ -174,6 +174,8 @@ export function CharacterView() {
               <EquipmentLayout
                 character={char}
                 onOpenShop={() => setShopOpen(true)}
+                onCloseShop={() => setShopOpen(false)}
+                isShopOpen={shopOpen}
               />
               {shopOpen && (
                 <ShopPanel
