@@ -232,6 +232,8 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         ...(newSpellIds ? [...char.spellIds, ...newSpellIds] : char.spellIds),
         ...racialSpellsAtLevel,
       ])]
+      const mergedSpellSet = new Set(mergedSpellIds)
+      const validPreparedIds = char.preparedSpellIds.filter(id => mergedSpellSet.has(id))
 
       const updated: Character = {
         ...char,
@@ -252,6 +254,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         spellSlots: mergedSlots,
         resources: newResources,
         spellIds: mergedSpellIds,
+        preparedSpellIds: validPreparedIds,
         completedAsiLevels: asiChoice
           ? [...(char.completedAsiLevels ?? []), newLevel]
           : (char.completedAsiLevels ?? []),

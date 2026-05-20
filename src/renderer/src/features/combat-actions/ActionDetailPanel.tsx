@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackBonus, computeSpellAttackBonus, computeSpellSaveDC, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks } from '@/domain/rules'
 import { mod, computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/charCalculations'
 import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
-import { SPELL_BY_ID, type SpellEntry } from '@/shared/data/spellData'
+import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
 import { FEATS } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_BY_ID } from '@/shared/data/fightingStylesData'
@@ -175,7 +175,60 @@ function buildAttackRows(
     })
   }
 
+  // Booming Blade: melee cantrip that adds thunder damage on hit at level 5+
+  if (isMelee && char.spellIds.includes('booming-blade') && char.level >= 5) {
+    const boomingDice = char.level >= 17 ? '3d8' : char.level >= 11 ? '2d8' : '1d8'
+    rows.push({ id: 'booming-blade', name: 'Booming Blade', toHit: null, dmg: null, dmgType: null, bonusDmg: boomingDice, bonusDmgType: 'thunder' })
+  }
+
+  // Concentration attack-buff spells (e.g. Hex, Hunter's Mark, Divine Favor)
+  const concSpell = char.concentrationSpellId ? SPELL_BY_ID[char.concentrationSpellId] : null
+  if (concSpell?.attackBuff) {
+    const { toHit, bonusDmg, bonusDmgType } = concSpell.attackBuff
+    rows.push({
+      id: `spell-buff-${concSpell.id}`,
+      name: concSpell.name,
+      toHit: toHit ?? null,
+      dmg: null, dmgType: null,
+      bonusDmg: bonusDmg ?? null,
+      bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
+    })
+  }
+
+  // Non-concentration attack-buff spells (e.g. Magic Weapon)
+  for (const spellId of char.activeBuffSpells ?? []) {
+    const spell = SPELL_BY_ID[spellId]
+    if (!spell?.attackBuff || spell.concentration) continue
+    const { toHit, bonusDmg, bonusDmgType } = spell.attackBuff
+    rows.push({
+      id: `spell-buff-${spellId}`,
+      name: spell.name,
+      toHit: toHit ?? null,
+      dmg: null, dmgType: null,
+      bonusDmg: bonusDmg ?? null,
+      bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
+    })
+  }
+
   return rows
+}
+
+function rowResource(row: AttackRow): string {
+  const id = row.id
+  if (id === 'normal' || id === 'versatile' || id === 'Reckless Attack') return '—'
+  if (id === 'Sneak Attack') return '1/turn'
+  if (id === 'Divine Smite') return 'Spell Slot'
+  if (id === 'GWM Power Attack' || id === 'Sharpshooter') return '—'
+  if (id === "Hunter's Mark") return 'Concentration'
+  if (id.startsWith('maneuver-')) return 'Sup. Die'
+  if (id.startsWith('arcane-')) return 'Arcane Shot'
+  if (id.startsWith('equip-bonus-')) return 'Equipment'
+  if (id === 'booming-blade') return 'Cantrip'
+  if (id.startsWith('spell-buff-')) {
+    const spell = SPELL_BY_ID[id.replace('spell-buff-', '')]
+    return spell?.concentration ? 'Concentration' : 'Active Buff'
+  }
+  return '—'
 }
 
 interface Props {
@@ -215,8 +268,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
   const availableActions = getAvailableActions(char)
   const selectedActionDef = selectedAction ? availableActions.find(a => a.name === selectedAction) : null
   const specialAttacks = getSpecialAttacks(char)
-  const attackSpells = char.spellIds.filter(id => SPELL_ATTACK_IDS.has(id))
-
   function badgeClass(type: string) {
     if (type === 'Action') return styles.badgeAction
     if (type === 'Bonus Action') return styles.badgeBonusAction
@@ -1104,7 +1155,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             character={char}
             update={update}
             castingTimeFilter={castingTimeFilter}
-            onLearnSpell={char.classId === 'Wizard' ? (id) => update({ spellIds: [...new Set([...char.spellIds, id])] }) : undefined}
+            onLearnSpell={(char.classId === 'Wizard' || !!SUBCLASS_BY_ID[char.subclass ?? '']?.spellListClassId) ? (id) => update({ spellIds: [...new Set([...char.spellIds, id])] }) : undefined}
           />
         </div>
       </>
@@ -1114,7 +1165,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
   // ATTACK — show description + weapons table + attack breakdown
   if (selectedAction === 'Attack') {
     return (
-      <>
+      <div className={styles.attackWrapper}>
         <div className={styles.detailPane}>
           <div className={styles.detailHeader}>
             <span className={styles.detailName}>{selectedActionDef.name}</span>
@@ -1150,12 +1201,13 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 return rid.startsWith('maneuver-') ||
                   rid.startsWith('arcane-') ||
                   rid.startsWith('equip-bonus-') ||
+                  rid.startsWith('spell-buff-') ||
                   (wActive[rid] ?? false)
               }
               function toggleActive(rid: string) {
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return
-                if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-')) return
+                if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-')) return
                 if (rid === 'normal') {
                   // Switch back to normal (deactivate versatile)
                   if (versatileActive) setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: false } }))
@@ -1201,6 +1253,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         <th>DMG Type</th>
                         <th>Bonus DMG</th>
                         <th>Bonus Type</th>
+                        <th>Resource</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1220,6 +1273,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                           <td>{row.dmgType ?? '—'}</td>
                           <td>{row.bonusDmg ?? '—'}</td>
                           <td>{row.bonusDmgType ?? '—'}</td>
+                          <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
                         </tr>
                       ))}
                       <tr className={styles.attackBreakdownTotalRow}>
@@ -1232,7 +1286,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                             <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
                           )}
                         </td>
-                        <td colSpan={4}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                        <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1250,61 +1304,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 ))}
               </div>
             )}
-            {attackSpells.length > 0 && (
-              <div className={styles.specialAttackList}>
-                <span className={styles.sectionLabel}>Spell Attacks</span>
-                {attackSpells.map(id => {
-                  const spell = SPELL_BY_ID[id]
-                  return (
-                    <button key={id} className={styles.specialAttackRow} onClick={() => setSpellDetailId(id)}>
-                      <span className={styles.specialAttackName}>{spell?.name ?? id}</span>
-                      {spell && <span className={styles.specialAttackNote}>{spell.school} · {fmtMod(computeSpellAttackBonus(char))} to hit</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-            {(() => {
-              const bonusSpells = char.spellIds
-                .map(id => SPELL_BY_ID[id])
-                .filter((s): s is SpellEntry => !!s && s.castingTime.toLowerCase().includes('bonus action'))
-              const reactionSpells = char.spellIds
-                .map(id => SPELL_BY_ID[id])
-                .filter((s): s is SpellEntry => !!s && s.castingTime.toLowerCase().includes('reaction'))
-              const spellDC = computeSpellSaveDC(char)
-              return (
-                <>
-                  {bonusSpells.length > 0 && (
-                    <div className={styles.specialAttackList}>
-                      <span className={styles.sectionLabel}>Bonus Action Spells</span>
-                      {bonusSpells.map(spell => (
-                        <button key={spell.id} className={styles.specialAttackRow} onClick={() => setSpellDetailId(spell.id)}>
-                          <span className={styles.specialAttackName}>{spell.name}</span>
-                          <span className={styles.specialAttackNote}>
-                            {spell.level === 0 ? 'Cantrip' : `L${spell.level}`} · {spell.school}
-                            {spell.saveAbility ? ` · DC ${spellDC}` : ''}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {reactionSpells.length > 0 && (
-                    <div className={styles.specialAttackList}>
-                      <span className={styles.sectionLabel}>Reaction Spells</span>
-                      {reactionSpells.map(spell => (
-                        <button key={spell.id} className={styles.specialAttackRow} onClick={() => setSpellDetailId(spell.id)}>
-                          <span className={styles.specialAttackName}>{spell.name}</span>
-                          <span className={styles.specialAttackNote}>
-                            {spell.level === 0 ? 'Cantrip' : `L${spell.level}`} · {spell.school}
-                            {spell.saveAbility ? ` · DC ${spellDC}` : ''}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )
-            })()}
             {char.subclass === 'BattleMaster' && (() => {
               const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
               const dieSize = char.level >= 10 ? '1d10' : '1d8'
@@ -1531,6 +1530,17 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           </div>
         )}
 
+        <div className={styles.spellsWrapper}>
+          <SpellsPanel
+            character={char}
+            update={update}
+            onLearnSpell={(char.classId === 'Wizard' || !!SUBCLASS_BY_ID[char.subclass ?? '']?.spellListClassId)
+              ? (id) => update({ spellIds: [...new Set([...char.spellIds, id])] })
+              : undefined
+            }
+          />
+        </div>
+
         {armoryOpen && (
           <div className={styles.modalOverlay} onClick={() => setArmoryOpen(false)}>
             <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
@@ -1603,7 +1613,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             </div>
           </div>
         )}
-      </>
+      </div>
     )
   }
 
@@ -1687,9 +1697,13 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           {meleeWeapons.map(w => {
             const rows = buildAttackRows(char, w)
             const wActive = activeRows[w.id] ?? {}
-            const isActive = (rid: string) => rid === 'normal' ? true : (wActive[rid] ?? false)
+            const isActive = (rid: string) => {
+              if (rid === 'normal') return true
+              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
+              return wActive[rid] ?? false
+            }
             function toggleActive(rid: string) {
-              if (rid === 'normal') return
+              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
@@ -1711,7 +1725,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 </div>
                 <table className={styles.attackBreakdownTable}>
                   <thead>
-                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th></tr>
+                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th></tr>
                   </thead>
                   <tbody>
                     {rows.map(row => (
@@ -1722,6 +1736,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
+                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
                       </tr>
                     ))}
                     <tr className={styles.attackBreakdownTotalRow}>
@@ -1730,7 +1745,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
-                      <td colSpan={4}>{meleeSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                      <td colSpan={5}>{meleeSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1776,9 +1791,13 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           {offHandWeapons.map(w => {
             const rows = buildAttackRows(char, w, { offHand: true, hasTWF })
             const wActive = activeRows[w.id] ?? {}
-            const isActive = (rid: string) => rid === 'normal' ? true : (wActive[rid] ?? false)
+            const isActive = (rid: string) => {
+              if (rid === 'normal') return true
+              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
+              return wActive[rid] ?? false
+            }
             function toggleActive(rid: string) {
-              if (rid === 'normal') return
+              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
@@ -1800,7 +1819,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 </div>
                 <table className={styles.attackBreakdownTable}>
                   <thead>
-                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th></tr>
+                    <tr><th>Attack</th><th>To Hit</th><th>DMG</th><th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th></tr>
                   </thead>
                   <tbody>
                     {rows.map(row => (
@@ -1811,6 +1830,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
+                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
                       </tr>
                     ))}
                     <tr className={styles.attackBreakdownTotalRow}>
@@ -1819,7 +1839,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                         {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
                         {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
                       </td>
-                      <td colSpan={4}>{rangedSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                      <td colSpan={5}>{rangedSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>
