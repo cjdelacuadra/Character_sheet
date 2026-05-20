@@ -7,7 +7,7 @@
 
 .detailPane {
   background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px;
-  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
 }
 
 .detailHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -42,8 +42,18 @@
 .fightingStyleName { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .fightingStyleDesc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
+/* ── Attack action wrapper (flex column filling rightCol) ── */
+.attackWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  gap: 12px;
+}
+
 /* ── Spells wrapper ── */
-.spellsWrapper { display: flex; flex-direction: column; gap: 8px; }
+.spellsWrapper { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; min-height: 0; }
 
 /* ── Weapons section ── */
 .section { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -69,7 +79,7 @@
 .enchantBadge { display: inline-block; margin-left: 4px; padding: 1px 4px; background: var(--accent); color: #fff; border-radius: 3px; font-size: 10px; font-weight: 700; }
 
 /* ── Attack breakdown ── */
-.attackDetailWeapons { display: flex; flex-direction: column; gap: 12px; }
+.attackDetailWeapons { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
 .attackDetailWeaponsHead { display: flex; justify-content: flex-end; padding-bottom: 4px; }
 
 .noWeaponsHint { font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px 0; }
@@ -95,6 +105,11 @@
 .attackBreakdownRowDisabled td { opacity: 0.25; cursor: not-allowed; font-style: italic; }
 .attackBreakdownTotalRow { border-top: 1px solid var(--border); }
 .attackBreakdownTotalRow td { font-weight: 700; color: var(--accent); padding-top: 5px; padding-bottom: 5px; }
+.resourceChip {
+  display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 1px 5px; border-radius: 3px;
+  background: rgba(139,124,248,0.10); color: var(--text-muted); white-space: nowrap;
+}
 
 .attackDetailCard {
   background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px;

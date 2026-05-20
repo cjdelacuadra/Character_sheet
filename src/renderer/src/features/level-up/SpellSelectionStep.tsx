@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { SPELLS } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeSpellLevelUpConfig } from '@/domain/rules'
 import styles from './SpellSelectionStep.module.css'
 
@@ -11,28 +12,33 @@ interface Props {
   onConfirm: (newSpellIds: string[]) => void
   onCancel: () => void
   panelMode?: boolean
+  title?: string
+  forceSpellDelta?: number
+  forceCantripDelta?: number
 }
 
-export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, panelMode = false }: Props) {
+export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, panelMode = false, title, forceSpellDelta, forceCantripDelta }: Props) {
   const classDef = CLASS_BY_ID[character.classId]
   const [search, setSearch] = useState('')
   // Only newly selected spells — existing spellIds are merged by the store on confirm
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  if (!classDef) return null
+  const subclassDef = character.subclass ? SUBCLASS_BY_ID[character.subclass] : undefined
+  if (!classDef && !subclassDef?.spellsKnownTable) return null
 
   const oldLevel = newLevel - 1
-  const { spellsDelta, cantripsDelta, maxSlotLevel } = computeSpellLevelUpConfig(classDef, oldLevel, newLevel)
+  const { spellsDelta, cantripsDelta, maxSlotLevel } = computeSpellLevelUpConfig(classDef!, oldLevel, newLevel, character.subclass ?? undefined)
 
-  const maxCantrips = cantripsDelta
-  const maxSpells = spellsDelta
+  const maxCantrips = forceCantripDelta ?? cantripsDelta
+  const maxSpells = forceSpellDelta ?? spellsDelta
 
   const selectedCantrips = [...selected].filter(id => SPELLS.find(s => s.id === id)?.level === 0)
   const selectedSpells   = [...selected].filter(id => { const s = SPELLS.find(sp => sp.id === id); return s && s.level > 0 })
 
   // Already-known spells must not appear in the picker
+  const spellClassId = subclassDef?.spellListClassId ?? character.classId
   const knownIds = new Set(character.spellIds)
-  const classSpells = SPELLS.filter(s => s.classes.includes(character.classId) && !knownIds.has(s.id))
+  const classSpells = SPELLS.filter(s => s.classes.includes(spellClassId) && !knownIds.has(s.id))
 
   function toggle(id: string, level: number) {
     const isCantrip = level === 0
@@ -53,7 +59,7 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, p
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <div className={styles.titleBlock}>
-            <span className={styles.title}>Level {newLevel} — Pick Your Spells</span>
+            <span className={styles.title}>{title ?? `Level ${newLevel} — Pick Your Spells`}</span>
             <span className={styles.subtitle}>
               {maxCantrips > 0 && `${selectedCantrips.length}/${maxCantrips} cantrips`}
               {maxCantrips > 0 && maxSpells > 0 && ' · '}

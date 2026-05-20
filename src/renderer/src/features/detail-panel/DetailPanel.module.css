@@ -167,3 +167,32 @@
   border-radius: 4px;
   padding: 2px 7px;
 }
+
+/* ── Feature picker (subclass / fighting style) ── */
+.optionList { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.optionBtn {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+  border-radius: 7px; border: 1px solid var(--border); background: transparent;
+  cursor: pointer; text-align: left; transition: all 0.12s; width: 100%;
+}
+.optionBtn:hover { border-color: var(--accent); background: var(--bg-elevated); }
+.optionBtnActive { border-color: var(--accent); background: rgba(139,124,248,0.1); }
+.optionName { font-size: 12px; font-weight: 600; color: var(--text); }
+.optionDesc { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+.confirmBtn {
+  margin-top: 8px; background: var(--accent); color: #fff; border: none;
+  border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600;
+  cursor: pointer; align-self: flex-start;
+}
+.confirmBtn:hover { opacity: 0.85; }
+
+.chosenBlock {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px; border-radius: 6px;
+  background: rgba(139,124,248,0.08); border: 1px solid rgba(139,124,248,0.25);
+}
+.chosenName { font-size: 13px; font-weight: 600; color: var(--accent); }
+
+.lockedNote { font-size: 11px; color: var(--text-muted); font-style: italic; }
+.note { font-size: 11px; color: var(--accent); margin: 0; }

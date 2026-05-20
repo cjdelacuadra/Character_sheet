@@ -15,6 +15,12 @@ export interface SubclassDef {
   unarmoredAC?: (dex: number, con: number, wis: number) => number
   /** Spellcasting ability for subclasses that add magic to non-casting classes */
   spellcastingAbility?: AbilityScore
+  /** Spells-known progression table (keyed by class level) for subclass spellcasters */
+  spellsKnownTable?: Partial<Record<number, number>>
+  /** Which class spell list to offer in the spell picker (e.g. 'Wizard' for EK/AT) */
+  spellListClassId?: string
+  /** Cantrips-known progression table (keyed by class level) for subclass spellcasters */
+  cantripsKnownTable?: Partial<Record<number, number>>
 }
 
 export const SUBCLASSES: SubclassDef[] = [
@@ -105,7 +111,7 @@ export const SUBCLASSES: SubclassDef[] = [
   // ── Fighter (level 3) ───────────────────────────────────────────
   { id: 'Champion',       label: 'Champion',       classId: 'Fighter', unlocksAtLevel: 3, description: 'Master of martial perfection. Critical hits on 19–20, and later 18–20. Exceptional Athletics at higher levels.' },
   { id: 'BattleMaster',   label: 'Battle Master',  classId: 'Fighter', unlocksAtLevel: 3, description: 'Learn combat maneuvers that use Superiority Dice. Control the battlefield with trips, disarms, and feints.' },
-  { id: 'EldritchKnight', label: 'Eldritch Knight', classId: 'Fighter', unlocksAtLevel: 3, spellcastingAbility: 'int', description: 'Blend martial prowess with arcane magic. Cast wizard spells and bind a weapon to your soul.' },
+  { id: 'EldritchKnight', label: 'Eldritch Knight', classId: 'Fighter', unlocksAtLevel: 3, spellcastingAbility: 'int', spellListClassId: 'Wizard', spellsKnownTable: { 3:3, 4:4, 7:5, 8:6, 10:7, 11:8, 13:9, 14:10, 16:11, 19:12, 20:13 }, cantripsKnownTable: { 3:2, 10:3 }, description: 'Blend martial prowess with arcane magic. Cast wizard spells and bind a weapon to your soul.' },
   { id: 'ArcaneArcher',   label: 'Arcane Archer',  classId: 'Fighter', unlocksAtLevel: 3, spellcastingAbility: 'int', description: 'Infuse arrows with magic effects — banishing, curving shots, grasping vines, and more.' },
   { id: 'Cavalier',       label: 'Cavalier',        classId: 'Fighter', unlocksAtLevel: 3, description: 'Excel at mounted combat. Protect your mount, make opportunity attacks without a reaction, and mark enemies.' },
   { id: 'Samurai',        label: 'Samurai',         classId: 'Fighter', unlocksAtLevel: 3, description: 'Draw on an indomitable fighting spirit. Fighting Spirit grants advantage and temp HP, persisting through Relentless.' },
@@ -146,7 +152,7 @@ export const SUBCLASSES: SubclassDef[] = [
   // ── Rogue (level 3) ─────────────────────────────────────────────
   { id: 'Thief',           label: 'Thief',           classId: 'Rogue', unlocksAtLevel: 3, description: 'Fast Hands for bonus action item use and climbing. Use Magic Device lets you use magic items freely.' },
   { id: 'Assassin',        label: 'Assassin',        classId: 'Rogue', unlocksAtLevel: 3, description: 'Strike first and devastate. Assassinate grants auto-crit on surprised targets.' },
-  { id: 'ArcaneTrickster', label: 'Arcane Trickster', classId: 'Rogue', unlocksAtLevel: 3, spellcastingAbility: 'int', description: 'Blend illusion and enchantment magic with roguish tricks. Mage Hand Legerdemain for cunning heists.' },
+  { id: 'ArcaneTrickster', label: 'Arcane Trickster', classId: 'Rogue', unlocksAtLevel: 3, spellcastingAbility: 'int', spellListClassId: 'Wizard', spellsKnownTable: { 3:3, 4:4, 7:5, 8:6, 10:7, 11:8, 13:9, 14:10, 16:11, 19:12, 20:13 }, cantripsKnownTable: { 3:2, 10:3 }, description: 'Blend illusion and enchantment magic with roguish tricks. Mage Hand Legerdemain for cunning heists.' },
   { id: 'Inquisitive',     label: 'Inquisitive',     classId: 'Rogue', unlocksAtLevel: 3, description: 'Expert at uncovering secrets. Ear for Deceit and Eye for Detail help ferret out lies and hidden foes.' },
   { id: 'Mastermind',      label: 'Mastermind',      classId: 'Rogue', unlocksAtLevel: 3, description: 'The consummate planner. Help allies at range and read social situations in an instant.' },
   { id: 'Scout',           label: 'Scout',           classId: 'Rogue', unlocksAtLevel: 3, description: 'Expert skirmisher in the wild. Skirmisher lets you dash away when enemies close in.' },

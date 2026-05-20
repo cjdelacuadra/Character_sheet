@@ -3,6 +3,7 @@ import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
+import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
@@ -193,7 +194,8 @@ export function getAvailableActions(character: Character): ActionDef[] {
     if (a.requiresLevel && character.level < a.requiresLevel) return false
     return true
   })
-  const spellAction = CLASS_BY_ID[character.classId]?.isSpellcaster
+  const subclassCasts = character.subclass ? !!SUBCLASS_BY_ID[character.subclass]?.spellcastingAbility : false
+  const spellAction = (CLASS_BY_ID[character.classId]?.isSpellcaster || subclassCasts)
     ? [CAST_A_SPELL, CAST_BONUS_SPELL, CAST_REACTION_SPELL]
     : []
 
@@ -257,20 +259,27 @@ export interface SpellLevelUpConfig {
   maxSlotLevel: number
 }
 
-export function computeSpellLevelUpConfig(classDef: ClassDef, oldLevel: number, newLevel: number): SpellLevelUpConfig {
+export function computeSpellLevelUpConfig(classDef: ClassDef, oldLevel: number, newLevel: number, subclassId?: string): SpellLevelUpConfig {
+  const subclassDef = subclassId ? SUBCLASS_BY_ID[subclassId] : undefined
+  const knownTable = subclassDef?.spellsKnownTable ?? classDef.spellsKnownTable ?? {}
   const spellsDelta = Math.max(0,
-    spellsKnownAt(newLevel, classDef.spellsKnownTable ?? {}) -
-    spellsKnownAt(oldLevel, classDef.spellsKnownTable ?? {})
+    spellsKnownAt(newLevel, knownTable) -
+    spellsKnownAt(oldLevel, knownTable)
   )
+  const cantripTable = subclassDef?.cantripsKnownTable ?? classDef.cantripsKnownTable ?? {}
   const cantripsDelta = Math.max(0,
-    spellsKnownAt(newLevel, classDef.cantripsKnownTable ?? {}) -
-    spellsKnownAt(oldLevel, classDef.cantripsKnownTable ?? {})
+    spellsKnownAt(newLevel, cantripTable) -
+    spellsKnownAt(oldLevel, cantripTable)
   )
-  return {
-    spellsDelta,
-    cantripsDelta,
-    maxSlotLevel: Math.min(9, Math.ceil(newLevel / 2)),
+  let maxSlotLevel: number
+  if (subclassDef?.spellsKnownTable) {
+    const slots = defaultSpellSlots(classDef.id, newLevel, subclassId)
+    const levels = Object.keys(slots).map(Number)
+    maxSlotLevel = levels.length > 0 ? Math.max(...levels) : 1
+  } else {
+    maxSlotLevel = Math.min(9, Math.ceil(newLevel / 2))
   }
+  return { spellsDelta, cantripsDelta, maxSlotLevel }
 }
 
 // ── Special attacks ─────────────────────────────────────────────────────────

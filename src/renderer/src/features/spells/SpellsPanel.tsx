@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, SPELLS, computeUpcastDice } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import styles from './SpellsPanel.module.css'
 
@@ -22,14 +23,16 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
   const classDef = CLASS_BY_ID[char.classId]
+  const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
+  const isSpellcaster = !!classDef?.isSpellcaster || !!subclassDef?.spellcastingAbility
 
-  if (!classDef?.isSpellcaster) return null
+  if (!isSpellcaster) return null
 
   const spellSaveDC = computeSpellSaveDC(char)
   const spellAtkBonus = computeSpellAttackBonus(char)
   const isPreparedCaster = !!classDef?.prepareSpells
   const isWizard = char.classId === 'Wizard'
-  const spellcastingAbility = classDef?.spellcastingAbility
+  const spellcastingAbility = subclassDef?.spellcastingAbility ?? classDef?.spellcastingAbility
   const prepareLimit = isPreparedCaster && spellcastingAbility
     ? computePreparedSpellCount(char.classId, char.level, char.abilityScores[spellcastingAbility])
     : null
@@ -81,6 +84,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     if (!spell) return null
     const isConc = char.concentrationSpellId === id
     const canConc = spell.concentration && classDef?.spellcastingAbility
+    const existingConc = char.concentrationSpellId && char.concentrationSpellId !== id
+      ? SPELL_BY_ID[char.concentrationSpellId]
+      : null
     const castable = spell.level === 0
       ? []
       : (Object.entries(char.spellSlots) as [string, { used: number; total: number }][])
@@ -109,16 +115,26 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           <span className={styles.spellDisabledTip}>Not prepared today.</span>
         ) : spell.level === 0 ? (
           <div className={styles.spellExpandActions}>
-            <button className={styles.spellExpandCastBtn} onClick={() => setExpandedSpell(null)}>Cast</button>
+            {spell.concentration && existingConc && (
+              <span className={styles.concWarning}>
+                ⚠ Will drop concentration on <strong>{existingConc.name}</strong>
+              </span>
+            )}
+            <button className={styles.spellExpandCastBtn} onClick={() => { if (spell.concentration) setConcentration(spell.id); setExpandedSpell(null) }}>Cast</button>
           </div>
         ) : castable.length > 0 ? (
           <div className={styles.spellExpandActions}>
+            {spell.concentration && existingConc && (
+              <span className={styles.concWarning}>
+                ⚠ Will drop concentration on <strong>{existingConc.name}</strong>
+              </span>
+            )}
             {castable.map(([lvl, slot]) => {
               const castLevel = Number(lvl)
               const remaining = slot.total - slot.used
               const diceLabel = spell.scalingDice ? computeUpcastDice(spell.scalingDice, castLevel) : null
               return (
-                <button key={lvl} className={styles.spellExpandCastBtn} onClick={() => { useSlot(castLevel); setExpandedSpell(null) }}>
+                <button key={lvl} className={styles.spellExpandCastBtn} onClick={() => { useSlot(castLevel); if (spell.concentration) setConcentration(spell.id); setExpandedSpell(null) }}>
                   {ORDINAL[castLevel] ?? `${lvl}th`}
                   {diceLabel && <span className={styles.spellExpandCastDice}>{diceLabel}</span>}
                   <span style={{ opacity: 0.6, fontSize: 9 }}>{remaining} left</span>
@@ -132,12 +148,31 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
         {canConc && (
           <button
             className={styles.spellExpandCastBtn}
-            style={{ borderColor: isConc ? 'var(--danger)' : undefined, color: isConc ? 'var(--danger)' : undefined }}
+            style={{
+              borderColor: isConc ? 'var(--danger)' : undefined,
+              color:       isConc ? 'var(--danger)' : undefined,
+            }}
             onClick={() => { setConcentration(spell.id); setExpandedSpell(null) }}
           >
-            {isConc ? 'Drop Concentration' : 'Concentrate'}
+            {isConc ? 'Drop Concentration' : 'Concentrate (no slot)'}
           </button>
         )}
+        {spell.attackBuff && !spell.concentration && (() => {
+          const activeBuffs = char.activeBuffSpells ?? []
+          const isBuffActive = activeBuffs.includes(spell.id)
+          return (
+            <button
+              className={styles.spellExpandCastBtn}
+              style={{ borderColor: isBuffActive ? 'var(--success)' : undefined, color: isBuffActive ? 'var(--success)' : undefined }}
+              onClick={() => {
+                update({ activeBuffSpells: isBuffActive ? activeBuffs.filter(x => x !== spell.id) : [...activeBuffs, spell.id] })
+                setExpandedSpell(null)
+              }}
+            >
+              {isBuffActive ? 'Deactivate Buff' : 'Mark Active'}
+            </button>
+          )
+        })()}
       </div>
     )
   }
@@ -351,8 +386,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               )}
               {learnOpen && onLearnSpell && (() => {
                 const knownIds = new Set(char.spellIds)
+                const spellListClass = subclassDef?.spellListClassId ?? char.classId
                 const learnable = SPELLS.filter(s =>
-                  s.classes.includes(char.classId) &&
+                  s.classes.includes(spellListClass) &&
                   !knownIds.has(s.id) &&
                   s.name.toLowerCase().includes(learnSearch.toLowerCase())
                 ).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))

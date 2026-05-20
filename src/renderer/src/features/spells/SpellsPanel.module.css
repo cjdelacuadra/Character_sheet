@@ -20,6 +20,7 @@
 .concLabel strong { color: var(--accent); }
 .concDrop { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--danger); color: var(--danger); background: transparent; cursor: pointer; }
 .concDrop:hover { background: var(--danger); color: #fff; }
+.concWarning { font-size: 11px; color: var(--warning); display: block; margin-bottom: 4px; }
 
 .spellSearch { padding: 5px 8px; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); width: 100%; }
 .spellSearch:focus { outline: none; border-color: var(--accent); }

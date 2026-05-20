@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/app/store'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { SUBCLASSES_BY_CLASS } from '@/shared/data/subclassData'
-import { xpForNextLevel, computeSpellLevelUpConfig } from '@/domain/rules'
+import { RACE_BY_ID } from '@/shared/data/raceData'
+import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { xpForNextLevel, computeSpellLevelUpConfig, spellsKnownAt } from '@/domain/rules'
+import { SPELLS, SPELL_BY_ID } from '@/shared/data/spellData'
 
 import { CharacterHeader } from '@/features/character-header/CharacterHeader'
 import { RestPanel } from '@/features/rest/RestPanel'
@@ -38,6 +40,42 @@ export function CharacterView() {
   const [pendingAsiQueue, setPendingAsiQueue] = useState<number[]>([])
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
+  const [spellValidationDeficit, setSpellValidationDeficit] = useState<{ spells: number; cantrips: number } | null>(null)
+
+  // Validate known-spell count when selecting a character (handles post-update migrations)
+  useEffect(() => {
+    if (!activeCharacterId) return
+    const c = characters[activeCharacterId]
+    if (!c) return
+    const cls = CLASS_BY_ID[c.classId]
+    const sub = c.subclass ? SUBCLASS_BY_ID[c.subclass] : undefined
+    const spellTable = sub?.spellsKnownTable ?? cls?.spellsKnownTable
+    const cantripTable = sub?.cantripsKnownTable ?? cls?.cantripsKnownTable
+    if (!spellTable && !cantripTable) return
+
+    const spellListClassId = sub?.spellListClassId ?? c.classId
+    const classSpellSet = new Set(SPELLS.filter(s => s.classes.includes(spellListClassId)).map(s => s.id))
+
+    const raceDef = RACE_BY_ID[c.race]
+    const racialSpellSet = new Set<string>()
+    if (raceDef?.racialSpells) {
+      for (const [lvl, ids] of Object.entries(raceDef.racialSpells)) {
+        if (Number(lvl) <= c.level) ids?.forEach(id => racialSpellSet.add(id))
+      }
+    }
+
+    const expectedSpells   = spellTable   ? spellsKnownAt(c.level, spellTable)   : 0
+    const expectedCantrips = cantripTable ? spellsKnownAt(c.level, cantripTable) : 0
+    const knownSpells   = c.spellIds.filter(id => { const s = SPELL_BY_ID[id]; return s && s.level > 0  && classSpellSet.has(id) && !racialSpellSet.has(id) }).length
+    const knownCantrips = c.spellIds.filter(id => { const s = SPELL_BY_ID[id]; return s && s.level === 0 && classSpellSet.has(id) && !racialSpellSet.has(id) }).length
+
+    const spellDeficit   = Math.max(0, expectedSpells   - knownSpells)
+    const cantripDeficit = Math.max(0, expectedCantrips - knownCantrips)
+    if (spellDeficit > 0 || cantripDeficit > 0) {
+      setSpellValidationDeficit({ spells: spellDeficit, cantrips: cantripDeficit })
+      setSpellOnlyOpen(true)
+    }
+  }, [activeCharacterId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // All hooks must appear before any conditional return
   const update = useCallback(
@@ -84,7 +122,7 @@ export function CharacterView() {
             setPendingAsiQueue(queue)
             setLevelUpOpen(true)
           } else {
-            const cfg = classDef ? computeSpellLevelUpConfig(classDef, char.level, newLevel) : null
+            const cfg = classDef ? computeSpellLevelUpConfig(classDef, char.level, newLevel, char.subclass ?? undefined) : null
             if (cfg && (cfg.spellsDelta > 0 || cfg.cantripsDelta > 0)) {
               setSpellOnlyOpen(true)
             } else {
@@ -147,7 +185,7 @@ export function CharacterView() {
                 if (head !== undefined && head < targetNewLevel) {
                   applyPendingAsi(char.id, head, choice!)
                   if (tail.length === 0) {
-                    const cfg = classDef ? computeSpellLevelUpConfig(classDef, char.level, targetNewLevel) : null
+                    const cfg = classDef ? computeSpellLevelUpConfig(classDef, char.level, targetNewLevel, char.subclass ?? undefined) : null
                     if (cfg && (cfg.spellsDelta > 0 || cfg.cantripsDelta > 0)) {
                       setLevelUpOpen(false)
                       setSpellOnlyOpen(true)
@@ -169,12 +207,20 @@ export function CharacterView() {
             <SpellSelectionStep
               panelMode
               character={char}
-              newLevel={targetNewLevel}
+              newLevel={spellValidationDeficit ? char.level : targetNewLevel}
+              title={spellValidationDeficit ? `${char.classId} Level ${char.level} — Pick Missing Spells` : undefined}
+              forceSpellDelta={spellValidationDeficit?.spells}
+              forceCantripDelta={spellValidationDeficit?.cantrips}
               onConfirm={(newSpellIds) => {
-                levelUp(char.id, undefined, newSpellIds)
+                if (spellValidationDeficit) {
+                  update({ spellIds: [...new Set([...char.spellIds, ...newSpellIds])] })
+                  setSpellValidationDeficit(null)
+                } else {
+                  levelUp(char.id, undefined, newSpellIds)
+                }
                 setSpellOnlyOpen(false)
               }}
-              onCancel={() => setSpellOnlyOpen(false)}
+              onCancel={() => { setSpellOnlyOpen(false); setSpellValidationDeficit(null) }}
             />
           )}
           {!levelUpOpen && !spellOnlyOpen && equipOpen && (
@@ -206,6 +252,7 @@ export function CharacterView() {
             <FeatureDetailPanel
               character={char}
               feature={selectedFeature}
+              update={update}
               onClose={() => setSelectedFeature(null)}
             />
           )}

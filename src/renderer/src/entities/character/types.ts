@@ -92,6 +92,7 @@ export interface Character {
   preparedSpellIds: string[]
   spellSlots: SpellSlots
   concentrationSpellId: string | null
+  activeBuffSpells?: string[]
 
   weapons: Weapon[]
   conditionIds: ActiveCondition[]

@@ -242,7 +242,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       })(),
       preparedSpellIds: [],
       concentrationSpellId: null,
-      spellSlots: defaultSpellSlots(basics.classId, basics.level),
+      spellSlots: defaultSpellSlots(basics.classId, basics.level, basics.subclass ?? undefined),
       weapons,
       conditionIds: [],
       resources,
@@ -962,7 +962,7 @@ function StepSpells({
 }) {
   const [search, setSearch] = useState('')
   const cls = CLASS_BY_ID[basics.classId]
-  const rawSlots = defaultSpellSlots(basics.classId, basics.level)
+  const rawSlots = defaultSpellSlots(basics.classId, basics.level, basics.subclass ?? undefined)
   const maxSlotLevel = Object.keys(rawSlots).length > 0 ? Math.max(...Object.keys(rawSlots).map(Number)) : 1
   const availableSpells = getSelectableSpells(basics.classId, maxSlotLevel)
 
