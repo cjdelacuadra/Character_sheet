@@ -11,6 +11,9 @@ export function armorAllowed(armorType: ArmorType, proficiencies: ArmorProficien
 }
 
 const S = '/assets/equipment/sprites/'
+const A = '/assets/equipment/sprites/armor/'
+const W = '/assets/equipment/sprites/weapons/'
+const E = '/assets/equipment/sprites/equipment/'
 
 // ── Armor & Shields ───────────────────────────────────────────────────────────
 
