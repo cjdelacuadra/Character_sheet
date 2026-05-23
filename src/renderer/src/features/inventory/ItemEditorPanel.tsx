@@ -236,6 +236,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [accBdFlat,      setAccBdFlat]      = useState(accBd?.flat ?? 0)
   const [accBdType,      setAccBdType]      = useState<string>(accBd?.dmgType ?? 'fire')
   const [accBdAppliesTo, setAccBdAppliesTo] = useState<'melee' | 'ranged' | 'all'>(accBd?.appliesTo ?? 'all')
+  const [toHitAppliesTo, setToHitAppliesTo] = useState<'melee' | 'ranged' | 'both'>(gearDef?.stats?.toHitBonusAppliesTo ?? 'both')
 
   const computedSprite = `${SPRITE_PREFIX}${spriteFolder}${spriteFile}`
   const rarityColor    = RARITY_COLOR[editRarity] ?? 'var(--text-muted)'
@@ -266,6 +267,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
   function buildGearDef(overrideId?: string): GearEquipmentItem {
     const stats: AccessoryStats = rowsToStats(statRows)
+    if (stats.toHitBonus) stats.toHitBonusAppliesTo = toHitAppliesTo
     if (acBonus) stats.acBonus = acBonus
     if (hasAccBonusDmg) {
       stats.bonusDamage = {
@@ -704,6 +706,24 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                 </div>
               )
             })}
+            {statRows.some(r => r.key === 'toHitBonus') && (
+              <div className={styles.statRow}>
+                <span className={styles.statLabel}>To-Hit Applies</span>
+                {editMode ? (
+                  <select
+                    value={toHitAppliesTo}
+                    onChange={e => setToHitAppliesTo(e.target.value as 'melee' | 'ranged' | 'both')}
+                    className={styles.select}
+                  >
+                    <option value="both">both</option>
+                    <option value="melee">melee</option>
+                    <option value="ranged">ranged</option>
+                  </select>
+                ) : (
+                  <span className={styles.statVal}>{toHitAppliesTo}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

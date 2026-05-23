@@ -41,6 +41,7 @@ interface AttackRow {
   bonusDmg: string | null
   bonusDmgType: string | null
   disabled?: boolean
+  group?: 'melee' | 'ranged' | 'both'
 }
 
 function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { expr: string; type: string }[] {
@@ -110,12 +111,13 @@ function buildAttackRows(
   if (thrownPropStr && w.rangeType !== 'Ranged' && !opts?.offHand) {
     rows.push({
       id: 'thrown',
-      name: `Throw (${throwRange})`,
+      name: 'Normal',
       toHit:        computeAttackBonus(char, w, { forceRanged: true }),
       dmg:          dmgDice,
       dmgType:      w.damageType ?? null,
       bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
       bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
+      group:        'ranged',
     })
   }
 
@@ -136,6 +138,13 @@ function buildAttackRows(
     })
   }
 
+  const SPECIAL_GROUP: Record<string, AttackRow['group']> = {
+    'Sharpshooter':    'ranged',
+    'GWM Power Attack':'melee',
+    'Divine Smite':    'melee',
+    'Reckless Attack': 'melee',
+    'Sneak Attack':    'both',
+  }
   for (const sa of getWeaponSpecialAttacks(char, w)) {
     let toHit: number | null = null
     let bonusDmg: string | null = null
@@ -148,7 +157,8 @@ function buildAttackRows(
         : sa.name === 'Divine Smite' ? 'radiant'
         : w.damageType ?? null
     }
-    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType })
+    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType,
+      group: SPECIAL_GROUP[sa.name] ?? 'both' })
   }
 
   if (char.subclass === 'BattleMaster') {
@@ -164,6 +174,7 @@ function buildAttackRows(
         dmgType: null,
         bonusDmg: dieSize,
         bonusDmgType: m.dmgType === 'weapon' ? (w.damageType ?? null) : m.dmgType,
+        group: 'both',
       })
     }
   }
@@ -180,6 +191,7 @@ function buildAttackRows(
         dmgType: null,
         bonusDmg: shot.dice,
         bonusDmgType: shot.dmgType,
+        group: 'ranged',
       })
     }
   }
@@ -199,6 +211,22 @@ function buildAttackRows(
       if (parts) { bonusDmg = combineDiceExpr(parts); bonusDmgType = bd.dmgType }
     }
     if (toHit === 0 && !bonusDmg) continue
+    const toHitGroup: 'melee' | 'ranged' | 'both' =
+      toHit !== 0 ? (stats.toHitBonusAppliesTo ?? 'both') : 'both'
+    const dmgAppliesTo = stats.bonusDamage?.appliesTo ?? 'all'
+    const dmgGroup: 'melee' | 'ranged' | 'both' | null =
+      bonusDmg !== null
+        ? (dmgAppliesTo === 'melee' ? 'melee' : dmgAppliesTo === 'ranged' ? 'ranged' : 'both')
+        : null
+    const appliesMelee =
+      (toHit !== 0 && (toHitGroup === 'melee' || toHitGroup === 'both')) ||
+      (dmgGroup !== null && (dmgGroup === 'melee' || dmgGroup === 'both'))
+    const appliesRanged =
+      (toHit !== 0 && (toHitGroup === 'ranged' || toHitGroup === 'both')) ||
+      (dmgGroup !== null && (dmgGroup === 'ranged' || dmgGroup === 'both'))
+    const eGroup: AttackRow['group'] =
+      (appliesMelee && appliesRanged) ? 'both' :
+      appliesRanged ? 'ranged' : 'melee'
     rows.push({
       id: `equip-bonus-${slotKey}`,
       name: GEAR_BY_ID[itemId]!.name,
@@ -207,13 +235,14 @@ function buildAttackRows(
       dmgType: null,
       bonusDmg,
       bonusDmgType,
+      group: eGroup,
     })
   }
 
   // Booming Blade: melee cantrip that adds thunder damage on hit at level 5+
   if (isMelee && char.spellIds.includes('booming-blade') && char.level >= 5) {
     const boomingDice = char.level >= 17 ? '3d8' : char.level >= 11 ? '2d8' : '1d8'
-    rows.push({ id: 'booming-blade', name: 'Booming Blade', toHit: null, dmg: null, dmgType: null, bonusDmg: boomingDice, bonusDmgType: 'thunder' })
+    rows.push({ id: 'booming-blade', name: 'Booming Blade', toHit: null, dmg: null, dmgType: null, bonusDmg: boomingDice, bonusDmgType: 'thunder', group: 'melee' })
   }
 
   // Concentration attack-buff spells (e.g. Hex, Hunter's Mark, Divine Favor)
@@ -227,6 +256,7 @@ function buildAttackRows(
       dmg: null, dmgType: null,
       bonusDmg: bonusDmg ?? null,
       bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
+      group: 'both',
     })
   }
 
@@ -242,6 +272,7 @@ function buildAttackRows(
       dmg: null, dmgType: null,
       bonusDmg: bonusDmg ?? null,
       bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
+      group: 'both',
     })
   }
 
@@ -1227,16 +1258,137 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
             {char.weapons.map(w => {
               const rows = buildAttackRows(char, w)
               const wActive = activeRows[w.id] ?? {}
-              const hasVersatile = rows.some(r => r.id === 'versatile')
-              const hasThrown    = rows.some(r => r.id === 'thrown')
+              const hasVersatile   = rows.some(r => r.id === 'versatile')
+              const hasThrown      = rows.some(r => r.id === 'thrown')
               const versatileActive = hasVersatile && (wActive['versatile'] ?? false)
-              const thrownActive    = hasThrown    && (wActive['thrown']    ?? false)
+              const rollState = rollMap[w.id]
+              const adv = rollState?.adv ?? 'n'
+              const d20 = rollState
+                ? adv === 'a' ? Math.max(rollState.d1, rollState.d2)
+                : adv === 'd' ? Math.min(rollState.d1, rollState.d2)
+                : rollState.d1
+                : null
+
+              const renderTable = (
+                tableRows: AttackRow[],
+                isRowActive: (rid: string) => boolean,
+                onToggle: (rid: string) => void,
+                totalToHit: number | null,
+                subtotals: { expr: string; type: string }[],
+                hasVersatileInTable: boolean,
+              ) => (
+                <table className={styles.attackBreakdownTable}>
+                  <thead>
+                    <tr>
+                      <th>Attack</th><th>To Hit</th><th>DMG</th>
+                      <th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableRows.map(row => (
+                      <tr
+                        key={row.id}
+                        className={[
+                          styles.attackBreakdownRow,
+                          row.disabled ? styles.attackBreakdownRowDisabled : isRowActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed,
+                          (row.id !== 'normal' || hasVersatileInTable) && !row.disabled ? styles.attackBreakdownRowToggleable : '',
+                        ].join(' ')}
+                        onClick={() => !row.disabled && onToggle(row.id)}
+                      >
+                        <td>{row.name}{row.disabled ? ' *' : ''}</td>
+                        <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{row.dmg ?? '—'}</td>
+                        <td>{row.dmgType ?? '—'}</td>
+                        <td>{row.bonusDmg ?? '—'}</td>
+                        <td>{row.bonusDmgType ?? '—'}</td>
+                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownTotalRow}>
+                      <td>Total</td>
+                      <td>
+                        {d20 !== null && totalToHit !== null
+                          ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}`
+                          : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
+                        {rollState && adv !== 'n' && (
+                          <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
+                        )}
+                      </td>
+                      <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )
+
+              if (hasThrown) {
+                // Split into melee and ranged sub-tables
+                const thrownProp = w.properties?.find(p => p.toLowerCase().includes('thrown'))
+                const throwRange = thrownProp?.match(/range (\d+\/\d+)/i)?.[1] ?? '?'
+                const meleeRows  = rows.filter(r => (r.group ?? 'melee') !== 'ranged')
+                const rangedRows = rows.filter(r => r.group === 'ranged' || r.group === 'both')
+
+                const isMeleeActive = (rid: string) => {
+                  const row = rows.find(r => r.id === rid)
+                  if (row?.disabled) return false
+                  if (rid === 'normal')    return !versatileActive
+                  if (rid === 'versatile') return  versatileActive
+                  return rid.startsWith('maneuver-') || rid.startsWith('equip-bonus-') ||
+                         rid.startsWith('spell-buff-') || (wActive[rid] ?? false)
+                }
+                const isRangedActive = (rid: string) => {
+                  const row = rows.find(r => r.id === rid)
+                  if (row?.disabled) return false
+                  if (rid === 'thrown') return true
+                  return rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') ||
+                         rid.startsWith('spell-buff-') || rid.startsWith('maneuver-') ||
+                         (wActive[rid] ?? false)
+                }
+                function toggleMelee(rid: string) {
+                  const row = rows.find(r => r.id === rid)
+                  if (row?.disabled) return
+                  if (rid === 'normal' || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
+                  if (rid === 'versatile') {
+                    setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false) } }))
+                    return
+                  }
+                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
+                }
+                function toggleRanged(rid: string) {
+                  if (rid === 'thrown' || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
+                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
+                }
+
+                const meleeTotalToHit = meleeRows.filter(r => isMeleeActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
+                const rangedTotalToHit = rangedRows.filter(r => isRangedActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
+                const meleeSubtotals  = dmgSubtotals(meleeRows,  isMeleeActive)
+                const rangedSubtotals = dmgSubtotals(rangedRows, isRangedActive)
+
+                return (
+                  <div key={w.id} className={styles.attackBreakdownSection}>
+                    <div className={styles.attackBreakdownHead}>
+                      <span>{w.name}</span>
+                      <div className={styles.attackHeadActions}>
+                        <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
+                        <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
+                        <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
+                        <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
+                        <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
+                      </div>
+                    </div>
+                    <div className={styles.attackSubLabel}>{w.name} melee</div>
+                    {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile)}
+                    <div className={styles.attackSubLabel}>{w.name} ranged ({throwRange})</div>
+                    {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false)}
+                  </div>
+                )
+              }
+
+              // Non-throwable weapon — single table (original logic)
               const isActive = (rid: string) => {
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return false
-                if (rid === 'normal')    return !versatileActive && !thrownActive
-                if (rid === 'versatile') return  versatileActive && !thrownActive
-                if (rid === 'thrown')    return  thrownActive
+                if (rid === 'normal')    return !versatileActive
+                if (rid === 'versatile') return  versatileActive
                 return rid.startsWith('maneuver-') ||
                   rid.startsWith('arcane-') ||
                   rid.startsWith('equip-bonus-') ||
@@ -1247,17 +1399,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return
                 if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-')) return
-                if (rid === 'normal') {
-                  if (versatileActive || thrownActive)
-                    setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: false, thrown: false } }))
-                  return
-                }
+                if (rid === 'normal') return
                 if (rid === 'versatile') {
-                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false), thrown: false } }))
-                  return
-                }
-                if (rid === 'thrown') {
-                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), thrown: !(wActive['thrown'] ?? false), versatile: false } }))
+                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false) } }))
                   return
                 }
                 setActiveRows(prev => ({
@@ -1265,16 +1409,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                   [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) }
                 }))
               }
-              const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
-              const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
-              const subtotals = dmgSubtotals(rows, isActive)
-              const rollState = rollMap[w.id]
-              const adv = rollState?.adv ?? 'n'
-              const d20 = rollState
-                ? adv === 'a' ? Math.max(rollState.d1, rollState.d2)
-                : adv === 'd' ? Math.min(rollState.d1, rollState.d2)
-                : rollState.d1
-                : null
+              const totalToHit = rows.filter(r => isActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0) || null
+              const subtotals  = dmgSubtotals(rows, isActive)
               return (
                 <div key={w.id} className={styles.attackBreakdownSection}>
                   <div className={styles.attackBreakdownHead}>
@@ -1287,52 +1423,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                       <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
                     </div>
                   </div>
-                  <table className={styles.attackBreakdownTable}>
-                    <thead>
-                      <tr>
-                        <th>Attack</th>
-                        <th>To Hit</th>
-                        <th>DMG</th>
-                        <th>DMG Type</th>
-                        <th>Bonus DMG</th>
-                        <th>Bonus Type</th>
-                        <th>Resource</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map(row => (
-                        <tr
-                          key={row.id}
-                          className={[
-                            styles.attackBreakdownRow,
-                            row.disabled ? styles.attackBreakdownRowDisabled : isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed,
-                            (row.id !== 'normal' || hasVersatile) && !row.disabled ? styles.attackBreakdownRowToggleable : '',
-                          ].join(' ')}
-                          onClick={() => !row.disabled && toggleActive(row.id)}
-                        >
-                          <td>{row.name}{row.disabled ? ' *' : ''}</td>
-                          <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
-                          <td>{row.dmg ?? '—'}</td>
-                          <td>{row.dmgType ?? '—'}</td>
-                          <td>{row.bonusDmg ?? '—'}</td>
-                          <td>{row.bonusDmgType ?? '—'}</td>
-                          <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
-                        </tr>
-                      ))}
-                      <tr className={styles.attackBreakdownTotalRow}>
-                        <td>Total</td>
-                        <td>
-                          {d20 !== null && totalToHit !== null
-                            ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}`
-                            : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
-                          {rollState && adv !== 'n' && (
-                            <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
-                          )}
-                        </td>
-                        <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile)}
                 </div>
               )
             })}

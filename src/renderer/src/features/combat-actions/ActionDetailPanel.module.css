@@ -195,3 +195,6 @@
 .masterySpellChip:hover { border-color: var(--accent); }
 .masterySpellChipActive { border-color: var(--accent); background: rgba(139,124,248,0.15); color: var(--accent); font-weight: 600; }
 .masterySpellEmpty { font-size: 11px; color: var(--text-muted); font-style: italic; }
+
+/* ── Throwable weapon split sub-tables ── */
+.attackSubLabel { font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; padding: 2px 0; }
