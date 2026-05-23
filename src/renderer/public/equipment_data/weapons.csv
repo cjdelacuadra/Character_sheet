@@ -21,7 +21,7 @@ greataxe,Greataxe,weapon,30,,/assets/equipment/sprites/weapons/greataxe.png,1d12
 greatsword,Greatsword,weapon,50,,/assets/equipment/sprites/weapons/greatsword.png,2d6,slashing,Martial,Melee,Heavy|Two-Handed,,,,,,,,,,,,,
 halberd,Halberd,weapon,20,,/assets/equipment/sprites/weapons/halbert.png,1d10,slashing,Martial,Melee,Heavy|Reach|Two-Handed,,,,,,,,,,,,,
 lance,Lance,weapon,10,,/assets/equipment/sprites/weapons/lance.png,1d12,piercing,Martial,Melee,Reach|Special,,,,,,,,,,,,,
-longsword,Longsword,weapon,150000,common,/assets/equipment/sprites/weapons/longsword.png,1d8,slashing,Martial,Melee,Versatile (1d10),,,,,,,,,,,,,
+longsword,Longsword,weapon,150,common,/assets/equipment/sprites/weapons/longsword.png,1d8,slashing,Martial,Melee,Versatile (1d10),,,,,,,,,,,,,
 maul,Maul,weapon,10,,/assets/equipment/sprites/weapons/maul.png,2d6,bludgeoning,Martial,Melee,Heavy|Two-Handed,,,,,,,,,,,,,
 morningstar,Morningstar,weapon,15,,/assets/equipment/sprites/weapons/morningstar.png,1d8,piercing,Martial,Melee,,,,,,,,,,,,,,
 pike,Pike,weapon,5,,/assets/equipment/sprites/weapons/pike.png,1d10,piercing,Martial,Melee,Heavy|Reach|Two-Handed,,,,,,,,,,,,,

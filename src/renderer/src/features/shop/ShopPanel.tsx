@@ -40,6 +40,7 @@ function getCardPills(item: ShopItem): string[] {
     if (s) {
       if (s.acBonus)     pills.push(`AC +${s.acBonus}`)
       if (s.toHitBonus)  pills.push(`Hit +${s.toHitBonus}`)
+      if (s.speedBonus)  pills.push(`Spd +${s.speedBonus}ft`)
       Object.entries(s.abilityBonus    ?? {}).forEach(([k, v]) => v && pills.push(`${k.toUpperCase()} +${v}`))
       Object.entries(s.savingThrowBonus ?? {}).forEach(([k, v]) => v && pills.push(`${k.toUpperCase()} Sv +${v}`))
       Object.entries(s.skillBonus       ?? {}).forEach(([k, v]) => v && pills.push(`${k.charAt(0).toUpperCase() + k.slice(1)} +${v}`))
@@ -200,24 +201,47 @@ export function ShopPanel({ character: char, onClose }: Props) {
           <div className={styles.colHead}>Owned ({ownedItems.length})</div>
           <div className={styles.itemList}>
             {ownedItems.map(item => {
-              const inSell   = sellQueue.includes(item.id)
+              const inSell      = sellQueue.includes(item.id)
+              const rarityColor = RARITY_COLOR[item.rarity ?? ''] ?? ''
+              const pills       = getCardPills(item)
+              const costLabel   = inSell ? 'SELL' : `${item.cost}g`
               return (
                 <button
                   key={item.id}
                   draggable
                   className={[
-                    styles.itemRow,
-                    inSell   ? styles.rowSell     : '',
+                    styles.itemCard,
+                    inSell              ? styles.rowSell      : '',
+                    previewId === item.id ? styles.rowSelected : '',
                   ].filter(Boolean).join(' ')}
-                  onClick={() => setSellQueue(q => q.includes(item.id) ? q.filter(x => x !== item.id) : [...q, item.id])}
+                  onClick={() => togglePreview(item.id)}
                   onDragStart={(e) => handleDragStart(e, item.id, 'owned')}
                   title={`${item.name} · ${item.cost} gp`}
                 >
-                  {item.sprite && <img src={item.sprite} alt="" className={styles.itemSprite} />}
-                  <span className={styles.itemName}>{item.name}</span>
-                  <span className={`${styles.itemCost}${inSell ? ` ${styles.costSell}` : ''}`}>
-                    {inSell ? 'SELL' : `${item.cost}g`}
-                  </span>
+                  <div
+                    className={styles.cardHeader}
+                    style={rarityColor ? { background: `${rarityColor}18` } : undefined}
+                  >
+                    {item.sprite
+                      ? <img src={item.sprite} alt="" className={styles.cardSprite} />
+                      : <div className={styles.cardSpriteAbsent} />
+                    }
+                    <div className={styles.cardInfo}>
+                      <span className={styles.cardName}>{item.name}</span>
+                      <span className={styles.cardKind}>{item.kind}</span>
+                    </div>
+                    <span className={[
+                      styles.cardCost,
+                      inSell ? styles.cardCostPoor : '',
+                    ].filter(Boolean).join(' ')}>
+                      {costLabel}
+                    </span>
+                  </div>
+                  {pills.length > 0 && (
+                    <div className={styles.cardBody}>
+                      {pills.map((p, i) => <span key={i} className={styles.statPill}>{p}</span>)}
+                    </div>
+                  )}
                 </button>
               )
             })}

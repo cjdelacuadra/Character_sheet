@@ -20,6 +20,7 @@ export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot
 export interface AccessoryStats {
   acBonus?: number
   toHitBonus?: number
+  speedBonus?: number
   abilityBonus?: Partial<Record<AbilityScore, number>>
   savingThrowBonus?: Partial<Record<AbilityScore, number>>
   skillBonus?: Partial<Record<Skill, number>>

@@ -110,7 +110,7 @@ export function csvToWeapons(csv: string): WeaponEquipmentItem[] {
 const GEAR_COLS = [
   'id', 'name', 'kind', 'cost', 'rarity', 'sprite',
   'type', 'baseAC', 'dexCap', 'stealthDisadvantage', 'strRequirement', 'enchantmentBonus',
-  'stats_acBonus', 'stats_toHitBonus',
+  'stats_acBonus', 'stats_toHitBonus', 'stats_speedBonus',
   ...ABILITIES.map(a => `stats_ab_${a}`),
   ...ABILITIES.map(a => `stats_save_${a}`),
   ...SKILLS.map(s  => `stats_skill_${s}`),
@@ -136,6 +136,7 @@ export function gearToCsv(gear: GearEquipmentItem[]): string {
       enchantmentBonus:    g.enchantmentBonus ?? '',
       stats_acBonus:       s?.acBonus ?? '',
       stats_toHitBonus:    s?.toHitBonus ?? '',
+      stats_speedBonus:    s?.speedBonus ?? '',
     }
     for (const ab of ABILITIES) {
       row[`stats_ab_${ab}`]   = s?.abilityBonus?.[ab] ?? ''
@@ -185,6 +186,7 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
     const hasStats =
       num(r.stats_acBonus) !== undefined ||
       num(r.stats_toHitBonus) !== undefined ||
+      num(r.stats_speedBonus) !== undefined ||
       Object.keys(abilityBonus).length > 0 ||
       Object.keys(savingThrowBonus).length > 0 ||
       Object.keys(skillBonus).length > 0 ||
@@ -194,6 +196,7 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
     const stats = hasStats ? {
       acBonus:          num(r.stats_acBonus),
       toHitBonus:       num(r.stats_toHitBonus),
+      speedBonus:       num(r.stats_speedBonus),
       abilityBonus:     Object.keys(abilityBonus).length    ? abilityBonus     : undefined,
       savingThrowBonus: Object.keys(savingThrowBonus).length ? savingThrowBonus : undefined,
       skillBonus:       Object.keys(skillBonus).length       ? skillBonus       : undefined,

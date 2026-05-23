@@ -15,6 +15,13 @@ interface StatRow { key: string; value: number }
 
 const STAT_OPTIONS: { key: string; label: string; adv: boolean }[] = [
   { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false },
+  { key: 'speedBonus',       label: 'Speed Bonus',       adv: false },
+  { key: 'ab_str',           label: 'STR Bonus',         adv: false },
+  { key: 'ab_dex',           label: 'DEX Bonus',         adv: false },
+  { key: 'ab_con',           label: 'CON Bonus',         adv: false },
+  { key: 'ab_int',           label: 'INT Bonus',         adv: false },
+  { key: 'ab_wis',           label: 'WIS Bonus',         adv: false },
+  { key: 'ab_cha',           label: 'CHA Bonus',         adv: false },
   { key: 'str_save',         label: 'STR Save',          adv: false },
   { key: 'dex_save',         label: 'DEX Save',          adv: false },
   { key: 'con_save',         label: 'CON Save',          adv: false },
@@ -59,6 +66,9 @@ function statsToRows(stats: AccessoryStats | undefined): StatRow[] {
   if (!stats) return []
   const rows: StatRow[] = []
   if (stats.toHitBonus) rows.push({ key: 'toHitBonus', value: stats.toHitBonus })
+  if (stats.speedBonus) rows.push({ key: 'speedBonus', value: stats.speedBonus })
+  for (const [ab, v] of Object.entries(stats.abilityBonus ?? {}))
+    if (v) rows.push({ key: `ab_${ab}`, value: v })
   for (const [ab, v] of Object.entries(stats.savingThrowBonus ?? {}))
     if (v) rows.push({ key: `${ab}_save`, value: v })
   for (const [sk, v] of Object.entries(stats.skillBonus ?? {}))
@@ -76,6 +86,11 @@ function rowsToStats(rows: StatRow[]): AccessoryStats {
   for (const row of rows) {
     if (row.key === 'toHitBonus') {
       s.toHitBonus = row.value
+    } else if (row.key === 'speedBonus') {
+      s.speedBonus = row.value
+    } else if (row.key.startsWith('ab_')) {
+      const ab = row.key.slice(3) as AbilityScore
+      s.abilityBonus = { ...s.abilityBonus, [ab]: row.value }
     } else if (row.key === 'adv:death') {
       s.advantage = { ...s.advantage, deathSaves: true }
     } else if (row.key.startsWith('adv:')) {

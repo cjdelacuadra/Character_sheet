@@ -4,7 +4,7 @@ import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks } from '@/domain/rules'
-import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -1891,6 +1891,23 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           })}
         </div>
       </>
+    )
+  }
+
+  // DASH — dynamic speed
+  if (selectedAction === 'Dash') {
+    const speed = computeSpeedFull(char)
+    return (
+      <div className={styles.detailPane}>
+        <div className={styles.detailHeader}>
+          <span className={styles.detailName}>Dash</span>
+          <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action</span>
+        </div>
+        <p className={styles.detailFull}>
+          You gain extra movement for the current turn equal to your speed (after modifiers).
+          With {speed}ft speed and Dash, you can move up to {speed * 2}ft this turn.
+        </p>
+      </div>
     )
   }
 

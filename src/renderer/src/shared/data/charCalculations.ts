@@ -83,6 +83,11 @@ export function computeSpeed(race: string): number {
   return raceDef?.speed ?? 30
 }
 
+/** Base speed + equipment speed bonuses. */
+export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment'>): number {
+  return char.speed + computeEquipmentStats(char).speedBonus
+}
+
 /** Computes skill check bonus. */
 export function skillBonus(
   skill: Skill,
@@ -150,6 +155,7 @@ export const POINT_BUY_TOTAL = 27
 export interface EquipmentStats {
   acBonus: number
   toHitBonus: number
+  speedBonus: number
   abilityBonus: Partial<Record<AbilityScore, number>>
   savingThrowBonus: Partial<Record<AbilityScore, number>>
   skillBonus: Partial<Record<Skill, number>>
@@ -160,6 +166,7 @@ export interface EquipmentStats {
 export const ZERO_EQUIP_STATS: EquipmentStats = {
   acBonus: 0,
   toHitBonus: 0,
+  speedBonus: 0,
   abilityBonus: {},
   savingThrowBonus: {},
   skillBonus: {},
@@ -178,6 +185,7 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
   const result: EquipmentStats = {
     acBonus: 0,
     toHitBonus: 0,
+    speedBonus: 0,
     abilityBonus: {},
     savingThrowBonus: {},
     skillBonus: {},
@@ -192,8 +200,9 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
     if (!gear?.stats) continue
     const s = gear.stats
 
-    if (s.acBonus) result.acBonus += s.acBonus
-    if (s.toHitBonus) result.toHitBonus += s.toHitBonus
+    if (s.acBonus)     result.acBonus     += s.acBonus
+    if (s.toHitBonus)  result.toHitBonus  += s.toHitBonus
+    if (s.speedBonus)  result.speedBonus  += s.speedBonus
 
     if (s.abilityBonus) {
       for (const [ab, val] of Object.entries(s.abilityBonus) as [AbilityScore, number][]) {

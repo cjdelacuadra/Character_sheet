@@ -340,14 +340,14 @@ function Empty() { return <div /> }
 
 // ─── Stat rows ───────────────────────────────────────────────────────────────
 
-function StatRow({ label, value }: { label: string; value: number }) {
+function StatRow({ label, value, unit = '' }: { label: string; value: number; unit?: string }) {
   const sign  = value >= 0 ? '+' : ''
   const color = value > 0 ? 'var(--accent)' : value < 0 ? 'var(--danger, #e55)' : 'var(--text-muted)'
   return (
     <div className={styles.statRow}>
       <span className={styles.statLabel}>{label}</span>
       <span className={styles.statValue} style={{ color, fontWeight: value !== 0 ? 600 : 400 }}>
-        {sign}{value}
+        {sign}{value}{unit}
       </span>
     </div>
   )
@@ -359,7 +359,7 @@ function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
   const abilityEntries = Object.entries(stats.abilityBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
   const advSaves  = stats.advantage.savingThrows
   const advSkills = stats.advantage.skills
-  const hasAny = stats.acBonus || stats.toHitBonus || abilityEntries.length ||
+  const hasAny = stats.acBonus || stats.toHitBonus || stats.speedBonus || abilityEntries.length ||
     saveEntries.length || skillEntries.length || advSaves.length ||
     advSkills.length || stats.advantage.deathSaves || stats.bonusDamage.length
 
@@ -380,6 +380,7 @@ function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
     <div className={styles.statsPanel}>
       {stats.acBonus !== 0 && <StatRow label="AC Bonus" value={stats.acBonus} />}
       {stats.toHitBonus !== 0 && <StatRow label="To-Hit" value={stats.toHitBonus} />}
+      {stats.speedBonus !== 0 && <StatRow label="Speed" value={stats.speedBonus} unit=" ft" />}
       {abilityEntries.length > 0 && <div className={styles.statGroupTitle}>Ability</div>}
       {abilityEntries.map(([ab, val]) => <StatRow key={ab} label={ab.toUpperCase()} value={val} />)}
       {saveEntries.length > 0 && <div className={styles.statGroupTitle}>Saving Throws</div>}

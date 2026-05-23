@@ -3,7 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeACFull, mod } from '@/shared/data/charCalculations'
+import { computeACFull, computeSpeedFull, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import { DeathSaveDetailPanel } from '@/features/detail-panel/DeathSaveDetailPanel'
 import styles from './VitalsPanel.module.css'
@@ -155,7 +155,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
               onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit() }}
             />
           ) : (
-            <span className={styles.topStatVal}>{char.speed} <span className={styles.statUnit}>ft</span></span>
+            <span className={styles.topStatVal}>{computeSpeedFull(char)} <span className={styles.statUnit}>ft</span></span>
           )}
           <span className={styles.topStatLabel}>Speed</span>
         </div>
