@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { ARMOR_BY_ID, ARMOR_LIST } from '@/shared/data/equipment/accessories'
+import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeACFull, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
+import { DeathSaveDetailPanel } from '@/features/detail-panel/DeathSaveDetailPanel'
 import styles from './VitalsPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -22,6 +23,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const [armorOpen, setArmorOpen] = useState(false)
   const [fieldEdit, setFieldEdit] = useState<{ field: 'speed' | 'initiative'; value: string } | null>(null)
   const [deathDialogOpen, setDeathDialogOpen] = useState(false)
+  const [deathDetailOpen, setDeathDetailOpen] = useState(false)
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
@@ -32,7 +34,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const spellSaveDC = classDef?.spellcastingAbility ? computeSpellSaveDC(char) : null
   const spellAtkBonus = classDef?.spellcastingAbility ? computeSpellAttackBonus(char) : null
 
-  const equippedArmor = eq.armorId ? ARMOR_BY_ID[eq.armorId] : null
+  const equippedArmor = eq.armorId ? GEAR_BY_ID[eq.armorId] : null
   const armorStrRequired = equippedArmor?.strRequirement ?? 0
   const armorStrWarning = armorStrRequired > 0 && char.abilityScores.str < armorStrRequired
 
@@ -40,11 +42,11 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
     ...(classDef?.armorProficiencies ?? []),
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
-  const allowedArmors = ARMOR_LIST.filter(a =>
+  const allowedArmors = armorAndShields().filter(a =>
     a.kind !== 'shield' && (a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy'))
   )
   const canShield = effectiveArmorProfs.includes('shields')
-  const shieldOptions = canShield ? ARMOR_LIST.filter(a => a.kind === 'shield') : []
+  const shieldOptions = canShield ? armorAndShields().filter(a => a.kind === 'shield') : []
   const currentShieldId = eq.shieldId ?? null
 
   function setArmor(armorId: string | null, shieldId: string | null) {
@@ -249,7 +251,14 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         </div>
         {hp.current <= 0 && (
           <div className={styles.hpDeathSection}>
-            <span className={styles.hpSectionLabel}>Death Saves</span>
+            <span
+              className={styles.hpSectionLabel}
+              style={{ cursor: 'pointer' }}
+              onClick={() => setDeathDetailOpen(v => !v)}
+              title="Death saving throw details"
+            >
+              Death Saves ⓘ
+            </span>
             {(['successes', 'failures'] as const).map(type => (
               <div key={type} className={styles.deathRow}>
                 <span className={styles.deathLabel}>{type === 'successes' ? 'S' : 'F'}</span>
@@ -267,6 +276,10 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
           </div>
         )}
       </div>
+
+      {deathDetailOpen && hp.current <= 0 && (
+        <DeathSaveDetailPanel character={char} onClose={() => setDeathDetailOpen(false)} />
+      )}
 
       {/* HP bar */}
       <div className={styles.hpBar}>

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
+import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks } from '@/domain/rules'
-import { mod, computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
@@ -58,6 +60,12 @@ function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { e
   }))
 }
 
+const GEAR_SLOTS: (keyof Equipment)[] = [
+  'armorId', 'shieldId',
+  'helmetId', 'necklaceId', 'capeId', 'legsId',
+  'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
+]
+
 function buildAttackRows(
   char: Character,
   w: Weapon,
@@ -95,6 +103,21 @@ function buildAttackRows(
     bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
     bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
   }]
+
+  // Thrown row — for melee weapons with the Thrown property
+  const thrownPropStr = w.properties?.find(p => p.toLowerCase().includes('thrown'))
+  const throwRange = thrownPropStr?.match(/range (\d+\/\d+)/i)?.[1] ?? '?'
+  if (thrownPropStr && w.rangeType !== 'Ranged' && !opts?.offHand) {
+    rows.push({
+      id: 'thrown',
+      name: `Throw (${throwRange})`,
+      toHit:        computeAttackBonus(char, w, { forceRanged: true }),
+      dmg:          dmgDice,
+      dmgType:      w.damageType ?? null,
+      bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
+      bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
+    })
+  }
 
   // Versatile row — 2H grip option; disabled when off-hand is occupied
   if (versatileDie && !opts?.offHand) {
@@ -161,17 +184,29 @@ function buildAttackRows(
     }
   }
 
-  for (const bd of computeEquipmentStats(char).bonusDamage) {
-    const parts = [...bd.dice, ...(bd.flat ? [String(bd.flat)] : [])].join('+')
-    if (!parts) continue
+  // Equipment rows — one per equipped gear item that contributes to-hit and/or bonus damage
+  for (const slotKey of GEAR_SLOTS) {
+    const itemId = char.equipment[slotKey]
+    if (!itemId || typeof itemId !== 'string') continue
+    const stats = GEAR_BY_ID[itemId]?.stats
+    if (!stats) continue
+    const toHit = stats.toHitBonus ?? 0
+    let bonusDmg: string | null = null
+    let bonusDmgType: string | null = null
+    const bd = stats.bonusDamage
+    if (bd && (bd.appliesTo ?? 'all') !== (isMelee ? 'ranged' : 'melee')) {
+      const parts = [bd.dice, bd.flat ? String(bd.flat) : null].filter(Boolean).join('+')
+      if (parts) { bonusDmg = combineDiceExpr(parts); bonusDmgType = bd.dmgType }
+    }
+    if (toHit === 0 && !bonusDmg) continue
     rows.push({
-      id: `equip-bonus-${bd.dmgType}`,
-      name: bd.names.join(' + '),
-      toHit: null,
+      id: `equip-bonus-${slotKey}`,
+      name: GEAR_BY_ID[itemId]!.name,
+      toHit: toHit !== 0 ? toHit : null,
       dmg: null,
       dmgType: null,
-      bonusDmg: combineDiceExpr(parts),
-      bonusDmgType: bd.dmgType,
+      bonusDmg,
+      bonusDmgType,
     })
   }
 
@@ -285,8 +320,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
       rangeType: w.rangeType,
       properties: w.properties,
       enchantmentBonus: w.enchantmentBonus || undefined,
-      bonusDamageDie: w.bonusDamageDie,
-      bonusDamageType: w.bonusDamageType,
+      enchantment: w.enchantment,
+      bonusDamageDie: w.bonusDamageDie ?? (w.enchantment ? '1d6' : undefined),
+      bonusDamageType: w.bonusDamageType ?? w.enchantment ?? undefined,
     }
     update({ weapons: [...char.weapons, weapon] })
     setArmoryOpen(false)
@@ -1192,12 +1228,15 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
               const rows = buildAttackRows(char, w)
               const wActive = activeRows[w.id] ?? {}
               const hasVersatile = rows.some(r => r.id === 'versatile')
+              const hasThrown    = rows.some(r => r.id === 'thrown')
               const versatileActive = hasVersatile && (wActive['versatile'] ?? false)
+              const thrownActive    = hasThrown    && (wActive['thrown']    ?? false)
               const isActive = (rid: string) => {
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return false
-                if (rid === 'normal') return !versatileActive
-                if (rid === 'versatile') return versatileActive
+                if (rid === 'normal')    return !versatileActive && !thrownActive
+                if (rid === 'versatile') return  versatileActive && !thrownActive
+                if (rid === 'thrown')    return  thrownActive
                 return rid.startsWith('maneuver-') ||
                   rid.startsWith('arcane-') ||
                   rid.startsWith('equip-bonus-') ||
@@ -1209,12 +1248,16 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 if (row?.disabled) return
                 if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-')) return
                 if (rid === 'normal') {
-                  // Switch back to normal (deactivate versatile)
-                  if (versatileActive) setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: false } }))
+                  if (versatileActive || thrownActive)
+                    setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: false, thrown: false } }))
                   return
                 }
                 if (rid === 'versatile') {
-                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(prev[w.id]?.['versatile'] ?? false) } }))
+                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false), thrown: false } }))
+                  return
+                }
+                if (rid === 'thrown') {
+                  setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), thrown: !(wActive['thrown'] ?? false), versatile: false } }))
                   return
                 }
                 setActiveRows(prev => ({

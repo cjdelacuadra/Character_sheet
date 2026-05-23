@@ -1,10 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import type { Character, Equipment } from '@/entities/character/types'
+import type { Character } from '@/entities/character/types'
 import type { ShopItemKind } from '@/shared/data/equipment/types'
-import { SHOP_ITEM_BY_ID } from '@/shared/data/equipment/catalogue'
+import { getShopItemById } from '@/shared/data/equipment/catalogue'
 import type { ShopItem } from '@/shared/data/equipment/catalogue'
-import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import { useAppStore } from '@/app/store'
 import styles from './InventoryGrid.module.css'
 
@@ -36,6 +35,8 @@ interface Props {
   filterKind?: ShopItemKind | null
   onFilterChange: (kind: ShopItemKind | null) => void
   shakingId?: string | null
+  selectedItemId?: string | null
+  onSelectItem?: (id: string | null) => void
 }
 
 function DraggableCell({
@@ -81,40 +82,16 @@ function DroppableGrid({ children, className }: { children: ReactNode; className
   )
 }
 
-function ItemDetailPopup({
-  item,
-  onClose,
-  onEquip,
-}: {
-  item: ShopItem
-  onClose: () => void
-  onEquip: (item: ShopItem) => void
-}) {
-  const rarityColor = item.rarity ? RARITY_COLOR[item.rarity] : 'var(--text-muted)'
-  return (
-    <div className={styles.detailPopup}>
-      <div className={styles.detailHead}>
-        <span className={styles.detailName} style={{ color: rarityColor }}>{item.name}</span>
-        <button className={styles.detailClose} onClick={onClose}>×</button>
-      </div>
-      {item.keyStat && <span className={styles.detailStat}>{item.keyStat}</span>}
-      {item.rarity && <span className={styles.detailRarity} style={{ color: rarityColor }}>{item.rarity}</span>}
-      <span className={styles.detailKind}>{item.kind}</span>
-      {item.cost > 0 && <span className={styles.detailCost}>💰 {item.cost} gp</span>}
-      <button className={styles.detailEquip} onClick={() => { onEquip(item); onClose() }}>
-        Equip
-      </button>
-    </div>
-  )
-}
 
-export function InventoryGrid({ character: char, filterKind, onFilterChange, shakingId: _shakingId }: Props) {
-  const equipItemToSlot   = useAppStore(s => s.equipItemToSlot)
-  const equipWeaponFromId = useAppStore(s => s.equipWeaponFromId)
-  const unequipWeapon     = useAppStore(s => s.unequipWeapon)
-  const unequipSlot       = useAppStore(s => s.unequipSlot)
+export function InventoryGrid({ character: char, filterKind, onFilterChange, shakingId: _shakingId, selectedItemId: controlledId, onSelectItem }: Props) {
+  const customItems = useAppStore(s => s.customItems)
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
+  const selectedId = controlledId !== undefined ? controlledId : internalSelectedId
 
-  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null)
+  function setSelectedId(id: string | null) {
+    setInternalSelectedId(id)
+    onSelectItem?.(id)
+  }
 
   const equippedIds = useMemo(() => {
     const ids = new Set<string>()
@@ -128,46 +105,17 @@ export function InventoryGrid({ character: char, filterKind, onFilterChange, sha
   const unequippedOwned = useMemo(
     () =>
       char.ownedItemIds
-        .map(id => SHOP_ITEM_BY_ID[id])
+        .map(id => getShopItemById(id, customItems))
         .filter((i): i is ShopItem => !!i && !equippedIds.has(i.id))
         .filter(item => !filterKind || item.kind === filterKind),
-    [char.ownedItemIds, equippedIds, filterKind],
+    [char.ownedItemIds, equippedIds, filterKind, customItems],
   )
 
-  // Always pad to at least 5 full rows (40 cells)
   const minCells = Math.max(MIN_CELLS, Math.ceil(unequippedOwned.length / COLS) * COLS)
   const emptyCellCount = minCells - unequippedOwned.length
 
   function handleCellClick(item: ShopItem) {
-    setSelectedItem(prev => (prev?.id === item.id ? null : item))
-  }
-
-  function handleEquip(item: ShopItem) {
-    if (item.kind === 'weapon') {
-      equipWeaponFromId(char.id, item.id, 0)
-      const def = WEAPON_BY_ID[item.id]
-      if (def?.properties?.some(p => p.toLowerCase() === 'two-handed')) {
-        if (char.weapons[1]) unequipWeapon(char.id, 1)
-        if (char.equipment.shieldId) unequipSlot(char.id, 'shieldId')
-      }
-      return
-    }
-    // Block shield equip when main weapon is two-handed
-    if (item.kind === 'shield') {
-      const mainIsTwoHanded = char.weapons[0]?.properties?.some(p => p.toLowerCase() === 'two-handed') ?? false
-      if (mainIsTwoHanded) return
-    }
-    const slotMap: Partial<Record<ShopItemKind, keyof Equipment>> = {
-      armor:    'armorId',    shield:   'shieldId',
-      helmet:   'helmetId',  necklace: 'necklaceId',
-      cape:     'capeId',    legs:     'legsId',
-      boots:    'bootsId',   gloves:   'glovesId',
-      quiver:   'quiverId',
-      ring:     char.equipment.ring1Id ? 'ring2Id' : 'ring1Id',
-      amulet:   'amuletId',
-    }
-    const slot = slotMap[item.kind]
-    if (slot) equipItemToSlot(char.id, slot, item.id)
+    setSelectedId(selectedId === item.id ? null : item.id)
   }
 
   return (
@@ -194,21 +142,13 @@ export function InventoryGrid({ character: char, filterKind, onFilterChange, sha
             item={item}
             index={i}
             onClick={handleCellClick}
-            isSelected={selectedItem?.id === item.id}
+            isSelected={selectedId === item.id}
           />
         ))}
         {Array.from({ length: emptyCellCount }, (_, i) => (
           <div key={`empty-${i}`} className={styles.cell} />
         ))}
       </DroppableGrid>
-
-      {selectedItem && (
-        <ItemDetailPopup
-          item={selectedItem}
-          onClose={() => setSelectedItem(null)}
-          onEquip={handleEquip}
-        />
-      )}
     </div>
   )
 }

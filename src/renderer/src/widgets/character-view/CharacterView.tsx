@@ -230,6 +230,7 @@ export function CharacterView() {
                 onOpenShop={() => setShopOpen(true)}
                 onCloseShop={() => setShopOpen(false)}
                 isShopOpen={shopOpen}
+                onInventorySelectItem={(id) => { if (id) setShopOpen(false) }}
               />
               {shopOpen && (
                 <ShopPanel

@@ -15,4 +15,9 @@ interface Window {
   appLogger?: {
     logError: (source: string, message: string) => Promise<void>
   }
+  equipmentStore: {
+    readFile:   (filename: string) => Promise<string | null>
+    writeFile:  (filename: string, content: string) => Promise<{ ok: true }>
+    fileExists: (filename: string) => Promise<boolean>
+  }
 }

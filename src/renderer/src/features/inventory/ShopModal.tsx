@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { Character } from '@/entities/character/types'
-import { getShopCatalogue } from '@/shared/data/equipment/catalogue'
-import type { ShopItem, ShopItemKind } from '@/shared/data/equipment/catalogue'
+import { getShopCatalogueWithCustom } from '@/shared/data/equipment/catalogue'
+import type { ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { useAppStore } from '@/app/store'
 import { ItemCard } from './ItemCard'
+import { ItemEditorPanel } from './ItemEditorPanel'
 import styles from './ShopModal.module.css'
 
 interface Props {
@@ -22,13 +23,18 @@ const RARITY_ORDER: Record<string, number> = {
 }
 
 export function ShopModal({ character: char, onClose }: Props) {
-  const buyItem = useAppStore(s => s.buyItem)
+  const buyItem     = useAppStore(s => s.buyItem)
+  const customItems = useAppStore(s => s.customItems)
 
-  const [tab,    setTab]    = useState<Tab>('all')
-  const [sortBy, setSortBy] = useState<SortBy>('cost')
-  const [search, setSearch] = useState('')
+  const [tab,       setTab]       = useState<Tab>('all')
+  const [sortBy,    setSortBy]    = useState<SortBy>('cost')
+  const [search,    setSearch]    = useState('')
+  const [previewId, setPreviewId] = useState<string | null>(null)
 
-  const catalogue = useMemo(() => getShopCatalogue(), [])
+  const catalogue = useMemo(
+    () => getShopCatalogueWithCustom(Object.values(customItems)),
+    [customItems],
+  )
 
   const displayed = useMemo(() => {
     let items = catalogue
@@ -49,8 +55,9 @@ export function ShopModal({ character: char, onClose }: Props) {
     })
   }, [catalogue, tab, sortBy, search])
 
-  function handleBuy(item: ShopItem) {
-    buyItem(char.id, item.id, item.cost)
+  function handleBuy(itemId: string, cost: number) {
+    buyItem(char.id, itemId, cost)
+    setPreviewId(null)
   }
 
   return (
@@ -97,19 +104,39 @@ export function ShopModal({ character: char, onClose }: Props) {
 
         <div className={styles.grid}>
           {displayed.map(item => (
-            <ItemCard
+            <div
               key={item.id}
-              item={item}
-              mode="shop"
-              onAction={() => handleBuy(item)}
-              alreadyOwned={char.ownedItemIds.includes(item.id)}
-              canAfford={char.gold >= item.cost}
-            />
+              onClick={() => setPreviewId(prev => prev === item.id ? null : item.id)}
+              style={{ cursor: 'pointer' }}
+            >
+              <ItemCard
+                item={item}
+                mode="shop"
+                onAction={() => handleBuy(item.id, item.cost)}
+                alreadyOwned={char.ownedItemIds.includes(item.id)}
+                canAfford={char.gold >= item.cost}
+              />
+            </div>
           ))}
           {displayed.length === 0 && (
             <div className={styles.empty}>No items match your search.</div>
           )}
         </div>
+
+        {previewId && (() => {
+          const item = catalogue.find(i => i.id === previewId)
+          const owned = item ? char.ownedItemIds.includes(item.id) : false
+          return (
+            <div className={styles.previewPanel}>
+              <ItemEditorPanel
+                itemId={previewId}
+                readOnly
+                onClose={() => setPreviewId(null)}
+                onEquip={!owned && item && item.cost > 0 ? () => handleBuy(item.id, item.cost) : undefined}
+              />
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

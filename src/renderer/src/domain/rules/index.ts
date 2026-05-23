@@ -1,5 +1,6 @@
 import type { Character, Weapon } from '@/entities/character/types'
-import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore, computeEquipmentStats } from '@/shared/data/charCalculations'
+import { combineDiceExpr } from '@/shared/lib/diceExpr'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
@@ -44,16 +45,66 @@ export function isProficientWithWeapon(character: Character, weapon: Weapon): bo
   })
 }
 
-export function computeAttackBonus(character: Character, weapon: Weapon): number {
+export function computeAttackBonus(character: Character, weapon: Weapon, opts?: { forceRanged?: boolean }): number {
   const strMod = mod(effectiveAbilityScore(character, 'str'))
   const dexMod = mod(effectiveAbilityScore(character, 'dex'))
   const props = weapon.properties ?? []
   const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
-  const isRanged  = weapon.rangeType === 'Ranged'
-  const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
+  const isActuallyRanged = weapon.rangeType === 'Ranged'
+  // thrown weapons count as ranged for archery, but still use STR for ability mod
+  const isRangedForArchery = isActuallyRanged || opts?.forceRanged === true
+  const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isActuallyRanged ? dexMod : strMod
   const proficient = isProficientWithWeapon(character, weapon)
-  const archeryBonus = (character.fightingStyle === 'archery' && isRanged) ? 2 : 0
-  return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0) + archeryBonus
+  const hasArchery = character.fightingStyle === 'archery' || character.feats.includes('archery')
+  const archeryBonus = hasArchery && isRangedForArchery ? 2 : 0
+  // Equipment to-hit bonuses are surfaced on their own attack-table rows, not folded in here.
+  return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0) + (weapon.toHitFlat ?? 0) + archeryBonus
+}
+
+/**
+ * Builds the full damage expression for a weapon: weapon dice (versatile-aware),
+ * weapon bonus damage, enchantment, the effective ability modifier, and any
+ * equipped accessory damage riders whose `appliesTo` matches the weapon's range
+ * type. Riders that share the weapon's damage type fold into the base expression;
+ * riders of a different type are appended as separate ` + <expr> <type>` segments.
+ */
+export function computeWeaponDamage(character: Character, weapon: Weapon): string {
+  const strMod = mod(effectiveAbilityScore(character, 'str'))
+  const dexMod = mod(effectiveAbilityScore(character, 'dex'))
+  const props = (weapon.properties ?? []).map(p => p.toLowerCase())
+  const isFinesse = props.some(p => p === 'finesse')
+  const isRanged = weapon.rangeType === 'Ranged'
+  const dmgMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
+
+  const versatileDie = props.find(p => p.startsWith('versatile ('))?.match(/versatile \((\d+d\d+)\)/)?.[1]
+  const baseDie = (versatileDie && weapon.twoHanded) ? versatileDie : weapon.damage
+  const enchBonus = (weapon.enchantmentBonus ?? 0) + (weapon.dmgBonusFlat ?? 0)
+
+  const matchKind = isRanged ? 'ranged' : 'melee'
+  const riders = computeEquipmentStats(character).bonusDamage.filter(
+    b => b.appliesTo === 'all' || b.appliesTo === matchKind,
+  )
+  const weaponType = weapon.damageType ?? ''
+  const sameType = riders.filter(b => b.dmgType === weaponType)
+  const otherType = riders.filter(b => b.dmgType !== weaponType)
+
+  const baseParts = [
+    baseDie && baseDie !== '—' ? baseDie : null,
+    weapon.bonusDamageDie ?? null,
+    weapon.dmgBonusCount && weapon.dmgBonusDieType ? `${weapon.dmgBonusCount}d${weapon.dmgBonusDieType}` : null,
+    ...sameType.flatMap(b => [...b.dice, b.flat ? String(b.flat) : null]),
+    dmgMod + enchBonus !== 0 ? String(dmgMod + enchBonus) : null,
+  ].filter(Boolean) as string[]
+
+  const baseExpr = baseParts.length ? combineDiceExpr(baseParts.join('+')) : '—'
+  let result = weaponType ? `${baseExpr} ${weaponType}` : baseExpr
+
+  for (const rider of otherType) {
+    const riderParts = [...rider.dice, rider.flat ? String(rider.flat) : null].filter(Boolean) as string[]
+    if (!riderParts.length) continue
+    result += ` + ${combineDiceExpr(riderParts.join('+'))} ${rider.dmgType}`
+  }
+  return result
 }
 
 // ── Class-contextual actions ────────────────────────────────────────────────

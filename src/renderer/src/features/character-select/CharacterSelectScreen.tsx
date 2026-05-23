@@ -11,7 +11,7 @@ import { weaponsForClass, type WeaponDef } from '@/shared/data/equipment/weapons
 import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingStylesData'
 import { BACKGROUNDS, BACKGROUND_BY_ID } from '@/shared/data/backgrounds'
-import { ARMOR_LIST, ARMOR_BY_ID } from '@/shared/data/equipment/accessories'
+import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import {
   computeAC, computeMaxHP, computeSpeed, computeInitiative, profBonus, mod,
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL
@@ -197,12 +197,13 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       rangeType: w.rangeType,
       properties: w.properties,
       enchantmentBonus: w.enchantmentBonus || undefined,
-      bonusDamageDie: w.bonusDamageDie,
-      bonusDamageType: w.bonusDamageType,
+      enchantment: w.enchantment,
+      bonusDamageDie: w.bonusDamageDie ?? (w.enchantment ? '1d6' : undefined),
+      bonusDamageType: w.bonusDamageType ?? w.enchantment ?? undefined,
     }))
 
-    const armorCost  = armorId !== 'none' ? (ARMOR_BY_ID[armorId]?.cost ?? 0) : 0
-    const shieldCost = shieldId ? (ARMOR_BY_ID[shieldId]?.cost ?? 0) : 0
+    const armorCost  = armorId !== 'none' ? (GEAR_BY_ID[armorId]?.cost ?? 0) : 0
+    const shieldCost = shieldId ? (GEAR_BY_ID[shieldId]?.cost ?? 0) : 0
     const equipCost  = armorCost + shieldCost
 
     const now = new Date().toISOString()
@@ -744,14 +745,14 @@ function StepEquipment({
     ...(classDef?.armorProficiencies ?? []),
     ...(subclassDef?.extraArmorProficiencies ?? []),
   ]
-  const allowedArmor = ARMOR_LIST.filter(a => {
+  const allowedArmor = armorAndShields().filter(a => {
     if (a.kind === 'shield') return false  // shields handled separately in off-hand section
     if (a.type === 'none') return true
     if (a.enchantmentBonus) return false  // magic items are DM-granted, not chosen at creation
     return effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy')
   })
   const canShield = effectiveArmorProfs.includes('shields')
-  const availableShields = canShield ? ARMOR_LIST.filter(a => a.kind === 'shield' && !a.enchantmentBonus) : []
+  const availableShields = canShield ? armorAndShields().filter(a => a.kind === 'shield' && !a.enchantmentBonus) : []
 
   const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? []).filter(w => !w.enchantmentBonus)
   function toggleWeapon(w: WeaponDef) {
@@ -790,7 +791,7 @@ function StepEquipment({
       {/* Calculated stats preview */}
       <div className={styles.statPreview}>
         <StatPreviewChip label="Max HP" value={maxHp} sub={bonusHpPerLevel ? `d${classDef?.hitDie} + CON + ${bonusHpPerLevel}/lvl` : `d${classDef?.hitDie} + CON×${basics.level}`} />
-        <StatPreviewChip label="AC" value={ac} sub={armorId === 'none' ? 'unarmored' : (ARMOR_BY_ID[armorId]?.name ?? '')} />
+        <StatPreviewChip label="AC" value={ac} sub={armorId === 'none' ? 'unarmored' : (GEAR_BY_ID[armorId]?.name ?? '')} />
         <StatPreviewChip label="Speed" value={`${speed}ft`} sub={raceDef?.label ?? basics.race} />
         <StatPreviewChip label="Initiative" value={modStr(computeInitiative(scores, basics.classId, basics.level, profBonus(basics.level), [], basics.subclass))} sub="Initiative" />
         <StatPreviewChip label="Prof." value={`+${profBonus(basics.level)}`} sub={`level ${basics.level}`} />

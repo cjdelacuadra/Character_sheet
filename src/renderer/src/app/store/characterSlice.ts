@@ -1,13 +1,15 @@
 import type { StateCreator } from 'zustand'
 import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
+import type { GearEquipmentItem } from '@/shared/data/equipment/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
-import { profBonus, computeMaxHP, computeSpeed, computeInitiative, mod, computeACFull } from '@/shared/data/charCalculations'
+import { profBonus, computeMaxHP, computeSpeed, computeInitiativeFull, mod, computeACFull, computeDerivedStats } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import { migrateCharacter } from '@/domain/migrations'
 import { ipcService } from '@/services/ipc'
+import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 
@@ -43,11 +45,21 @@ export interface CharacterSlice {
   unequipSlot: (charId: string, slot: keyof Equipment) => void
   unequipWeapon: (charId: string, slotIndex: 0 | 1) => void
   equipWeaponFromId: (charId: string, defId: string, slotIndex: 0 | 1) => void
+
+  customItems: Record<string, GearEquipmentItem>
+  addCustomItem: (def: GearEquipmentItem) => void
 }
 
 export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => ({
   activeCharacterId: null,
   characters: {},
+  customItems: {},
+
+  addCustomItem: (def) => {
+    const customItems = { ...get().customItems, [def.id]: def }
+    set({ customItems })
+    ipcService.saveCustomItems(customItems as Record<string, unknown>)
+  },
   loaded: false,
 
   setActiveCharacter: (id) => set({ activeCharacterId: id }),
@@ -83,9 +95,12 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
   loadFromDisk: async () => {
     if (get().loaded) return
     try {
-      const ids = await ipcService.list()
+      await loadEquipmentFromCsv()
+
+      const allIds = await ipcService.list()
+      const charIds = allIds.filter(id => id !== '__customItems__')
       const entries = await Promise.all(
-        ids.map(async (id) => {
+        charIds.map(async (id) => {
           const data = await ipcService.load(id)
           if (data == null) return [id, null] as const
           return [id, migrateCharacter(data)] as const
@@ -94,7 +109,16 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
       const characters = Object.fromEntries(
         entries.filter(([, v]) => v != null)
       ) as Record<string, Character>
-      set({ characters, loaded: true })
+
+      let customItems: Record<string, GearEquipmentItem> = {}
+      try {
+        const rawCustom = await ipcService.loadCustomItems()
+        if (rawCustom && typeof rawCustom === 'object') {
+          customItems = rawCustom as Record<string, GearEquipmentItem>
+        }
+      } catch { /* no custom items file yet */ }
+
+      set({ characters, customItems, loaded: true })
     } catch {
       set({ loaded: true })
     }
@@ -243,7 +267,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         abilityScores: newScores,
         feats: newFeats,
         bonusHpPerLevel,
-        initiative: computeInitiative(newScores, char.classId, newLevel, newProf, newFeats, char.subclass),
+        initiative: computeInitiativeFull({ ...char, abilityScores: newScores, level: newLevel, proficiencyBonus: newProf, feats: newFeats }),
         armorClass: computeACFull({ ...char, abilityScores: newScores }),
         speed: mobileBonus > 0 ? computeSpeed(char.race) + mobileBonus : char.speed,
         hitPoints: {
@@ -295,6 +319,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         abilityScores: newScores,
         feats: newFeats,
         armorClass: computeACFull({ ...char, abilityScores: newScores }),
+        initiative: computeInitiativeFull({ ...char, abilityScores: newScores, feats: newFeats }),
         completedAsiLevels: [...(char.completedAsiLevels ?? []), asiLevel],
         completedAsiChoices: { ...(char.completedAsiChoices ?? {}), [asiLevel]: formatAsiChoice(choice) },
       }
@@ -325,7 +350,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
       const updated: Character = {
         ...withEquip,
         updatedAt: new Date().toISOString(),
-        armorClass: computeACFull(withEquip),
+        ...computeDerivedStats(withEquip),
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
@@ -352,16 +377,20 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
     set((state) => {
       const char = state.characters[charId]
       if (!char || !char.ownedItemIds.includes(itemId)) return state
-      const newEquipment = { ...char.equipment } as Record<string, string | null>
+      const newEquipment = { ...char.equipment } as unknown as Record<string, string | null>
       for (const key of Object.keys(newEquipment)) {
         if (newEquipment[key] === itemId) newEquipment[key] = null
       }
-      const updated: Character = {
+      const withEquip: Character = {
         ...char,
-        updatedAt: new Date().toISOString(),
         gold: char.gold + cost,
         ownedItemIds: char.ownedItemIds.filter(id => id !== itemId),
-        equipment: newEquipment as typeof char.equipment,
+        equipment: newEquipment as unknown as typeof char.equipment,
+      }
+      const updated: Character = {
+        ...withEquip,
+        updatedAt: new Date().toISOString(),
+        ...computeDerivedStats(withEquip),
       }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }
@@ -379,11 +408,15 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
       const itemId = char.equipment[slot] as string | null
       if (!itemId) return state
       const needsOwned = !char.ownedItemIds.includes(itemId)
-      const updated: Character = {
+      const withEquip: Character = {
         ...char,
-        updatedAt: new Date().toISOString(),
         equipment: { ...char.equipment, [slot]: null },
         ownedItemIds: needsOwned ? [...char.ownedItemIds, itemId] : char.ownedItemIds,
+      }
+      const updated: Character = {
+        ...withEquip,
+        updatedAt: new Date().toISOString(),
+        ...computeDerivedStats(withEquip),
       }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }
@@ -397,11 +430,15 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
       const weapon = char.weapons[slotIndex]
       if (!weapon) return state
       const needsOwned = !char.ownedItemIds.includes(weapon.id)
-      const updated: Character = {
+      const withWeapons: Character = {
         ...char,
-        updatedAt: new Date().toISOString(),
         weapons: char.weapons.filter((_, i) => i !== slotIndex),
         ownedItemIds: needsOwned ? [...char.ownedItemIds, weapon.id] : char.ownedItemIds,
+      }
+      const updated: Character = {
+        ...withWeapons,
+        updatedAt: new Date().toISOString(),
+        ...computeDerivedStats(withWeapons),
       }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }
@@ -423,12 +460,24 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         rangeType: def.rangeType,
         properties: [...def.properties],
         enchantmentBonus: def.enchantmentBonus || undefined,
+        toHitDiceCount:   def.toHitDiceCount,
+        toHitDieType:     def.toHitDieType,
+        toHitFlat:        def.toHitFlat,
+        dmgBonusCount:    def.dmgBonusCount,
+        dmgBonusDieType:  def.dmgBonusDieType,
+        dmgBonusFlat:     def.dmgBonusFlat,
+        dmgBonusType:     def.dmgBonusType,
       }
       const nextWeapons = [...char.weapons]
       nextWeapons[slotIndex] = newWeapon
       if (slotIndex === 0 && def.properties.some(p => p.toLowerCase().includes('two-handed')))
         nextWeapons.length = 1
-      const updated: Character = { ...char, updatedAt: new Date().toISOString(), weapons: nextWeapons }
+      const withWeapons: Character = { ...char, weapons: nextWeapons }
+      const updated: Character = {
+        ...withWeapons,
+        updatedAt: new Date().toISOString(),
+        ...computeDerivedStats(withWeapons),
+      }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }
     })

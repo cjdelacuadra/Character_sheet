@@ -19,6 +19,7 @@ export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot
 
 export interface AccessoryStats {
   acBonus?: number
+  toHitBonus?: number
   abilityBonus?: Partial<Record<AbilityScore, number>>
   savingThrowBonus?: Partial<Record<AbilityScore, number>>
   skillBonus?: Partial<Record<Skill, number>>
@@ -27,7 +28,7 @@ export interface AccessoryStats {
     skills?: Skill[]
     deathSaves?: boolean
   }
-  bonusDamage?: { flat?: number; dice?: string; dmgType: string }
+  bonusDamage?: { flat?: number; dice?: string; dmgType: string; appliesTo?: 'melee' | 'ranged' | 'all' }
 }
 
 export interface BaseEquipmentItem {
@@ -39,14 +40,17 @@ export interface BaseEquipmentItem {
   sprite?: string
 }
 
-export interface ArmorEquipmentItem extends BaseEquipmentItem {
-  kind: 'armor' | 'shield'
-  type: ArmorType
-  baseAC: number
+export interface GearEquipmentItem extends BaseEquipmentItem {
+  kind: AccessorySlot
+  // Armor-specific fields — present only for kind 'armor' | 'shield'
+  type?: ArmorType
+  baseAC?: number
   dexCap?: number
   stealthDisadvantage?: boolean
   strRequirement?: number
   enchantmentBonus?: number
+  // Stat bonuses — available to any gear
+  stats?: AccessoryStats
 }
 
 export interface WeaponEquipmentItem extends BaseEquipmentItem {
@@ -57,18 +61,21 @@ export interface WeaponEquipmentItem extends BaseEquipmentItem {
   rangeType: WeaponRangeType
   properties: string[]
   enchantmentBonus?: number
+  enchantment?: string
+  enchantments?: string[]
   bonusDamageDie?: string
   bonusDamageType?: string
   isMonkWeapon?: boolean
+  toHitDiceCount?: number
+  toHitDieType?: number
+  toHitFlat?: number
+  dmgBonusCount?: number
+  dmgBonusDieType?: number
+  dmgBonusFlat?: number
+  dmgBonusType?: string
 }
 
-export interface AccessoryEquipmentItem extends BaseEquipmentItem {
-  kind: AccessorySlot
-  stats?: AccessoryStats
-}
+export type EquipmentDef = WeaponEquipmentItem | GearEquipmentItem
 
-export type EquipmentDef = ArmorEquipmentItem | WeaponEquipmentItem | AccessoryEquipmentItem
-
-export type ArmorDef = ArmorEquipmentItem
 export type WeaponDef = WeaponEquipmentItem
-export type AccessoryDef = AccessoryEquipmentItem
+export type GearDef = GearEquipmentItem

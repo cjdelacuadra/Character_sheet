@@ -1,11 +1,10 @@
 import type { AbilityScores, Character, Equipment } from '@/entities/character/types'
 import type { AbilityScore } from './equipment/types'
 import type { Skill } from './skills'
-import { ARMOR_BY_ID } from './equipment/accessories'
+import { GEAR_BY_ID } from './equipment/gear'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'
-import { ACCESSORY_BY_ID } from './equipment/accessories'
 
 export function mod(score: number): number {
   return Math.floor((score - 10) / 2)
@@ -41,9 +40,9 @@ export function computeAC(char: {
   const conMod = mod(abilityScores.con + (ab.con ?? 0))
   const wisMod = mod(abilityScores.wis + (ab.wis ?? 0))
   // Shield adds +2 + enchantment (additive on top of armor, never replaces it)
-  const shieldDef = equipment.shieldId ? ARMOR_BY_ID[equipment.shieldId] : null
+  const shieldDef = equipment.shieldId ? GEAR_BY_ID[equipment.shieldId] : null
   const shield = shieldDef
-    ? 2 + (shieldDef.enchantmentBonus ?? 0)
+    ? (shieldDef.baseAC ?? 2) + (shieldDef.enchantmentBonus ?? 0)
     : equipment.hasShield ? 2 : 0
 
   // Check natural armor first (race-based)
@@ -53,9 +52,9 @@ export function computeAC(char: {
   }
 
   const armorId = equipment.armorId ?? 'none'
-  const armor = ARMOR_BY_ID[armorId]
+  const armor = GEAR_BY_ID[armorId]
 
-  if (!armor || armorId === 'none') {
+  if (!armor || armorId === 'none' || armor.baseAC === undefined) {
     // Subclass unarmored AC override (e.g. Draconic Bloodline Sorcerer: 13 + DEX)
     const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
     if (subclassDef?.unarmoredAC) {
@@ -119,8 +118,9 @@ export function computeInitiative(
   profBonusValue: number,
   feats: string[],
   subclass?: string,
+  abilityBonus?: Partial<Record<AbilityScore, number>>,
 ): number {
-  const base = mod(abilityScores.dex)
+  const base = mod(abilityScores.dex + (abilityBonus?.dex ?? 0))
   const alertBonus = feats.includes('alert') ? 5 : 0
   const jackBonus = classId === 'Bard' && level >= 2 ? Math.floor(profBonusValue / 2) : 0
   const remarkableBonus = classId === 'Fighter' && subclass === 'Champion' && level >= 7 ? Math.ceil(profBonusValue / 2) : 0
@@ -149,15 +149,17 @@ export const POINT_BUY_TOTAL = 27
 
 export interface EquipmentStats {
   acBonus: number
+  toHitBonus: number
   abilityBonus: Partial<Record<AbilityScore, number>>
   savingThrowBonus: Partial<Record<AbilityScore, number>>
   skillBonus: Partial<Record<Skill, number>>
   advantage: { savingThrows: AbilityScore[]; skills: Skill[]; deathSaves: boolean }
-  bonusDamage: { flat: number; dice: string[]; dmgType: string; names: string[] }[]
+  bonusDamage: { flat: number; dice: string[]; dmgType: string; appliesTo: 'melee' | 'ranged' | 'all'; names: string[] }[]
 }
 
 export const ZERO_EQUIP_STATS: EquipmentStats = {
   acBonus: 0,
+  toHitBonus: 0,
   abilityBonus: {},
   savingThrowBonus: {},
   skillBonus: {},
@@ -165,15 +167,17 @@ export const ZERO_EQUIP_STATS: EquipmentStats = {
   bonusDamage: [],
 }
 
-const ACC_SLOTS: Array<keyof Equipment> = [
+const GEAR_SLOTS: Array<keyof Equipment> = [
+  'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
   'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
-/** Aggregates D&D 5e equipment bonus stats across all equipped accessories. */
+/** Aggregates D&D 5e equipment bonus stats across all equipped gear (armor + accessories). */
 export function computeEquipmentStats(char: Pick<Character, 'equipment'>): EquipmentStats {
   const result: EquipmentStats = {
     acBonus: 0,
+    toHitBonus: 0,
     abilityBonus: {},
     savingThrowBonus: {},
     skillBonus: {},
@@ -181,14 +185,15 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
     bonusDamage: [],
   }
 
-  for (const slotKey of ACC_SLOTS) {
+  for (const slotKey of GEAR_SLOTS) {
     const itemId = char.equipment[slotKey]
     if (!itemId || typeof itemId !== 'string') continue
-    const acc = ACCESSORY_BY_ID[itemId]
-    if (!acc?.stats) continue
-    const s = acc.stats
+    const gear = GEAR_BY_ID[itemId]
+    if (!gear?.stats) continue
+    const s = gear.stats
 
     if (s.acBonus) result.acBonus += s.acBonus
+    if (s.toHitBonus) result.toHitBonus += s.toHitBonus
 
     if (s.abilityBonus) {
       for (const [ab, val] of Object.entries(s.abilityBonus) as [AbilityScore, number][]) {
@@ -215,14 +220,14 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
     if (s.advantage?.deathSaves) result.advantage.deathSaves = true
 
     if (s.bonusDamage) {
-      const { flat = 0, dice, dmgType } = s.bonusDamage
-      const existing = result.bonusDamage.find(b => b.dmgType === dmgType)
+      const { flat = 0, dice, dmgType, appliesTo = 'all' } = s.bonusDamage
+      const existing = result.bonusDamage.find(b => b.dmgType === dmgType && b.appliesTo === appliesTo)
       if (existing) {
         existing.flat += flat
         if (dice) existing.dice.push(dice)
-        existing.names.push(acc.name)
+        existing.names.push(gear.name)
       } else {
-        result.bonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, names: [acc.name] })
+        result.bonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, appliesTo, names: [gear.name] })
       }
     }
   }
@@ -243,4 +248,21 @@ export function effectiveAbilityScore(
 export function computeACFull(char: Character): number {
   const equip = computeEquipmentStats(char)
   return computeAC(char, equip.abilityBonus) + equip.acBonus
+}
+
+/** computeInitiative including DEX bonuses from equipped accessories. */
+export function computeInitiativeFull(char: Character): number {
+  const equip = computeEquipmentStats(char)
+  return computeInitiative(
+    char.abilityScores, char.classId, char.level,
+    char.proficiencyBonus, char.feats, char.subclass, equip.abilityBonus,
+  )
+}
+
+/** Recomputes the stored derived stats (AC + initiative) together, so neither drifts. */
+export function computeDerivedStats(char: Character): { armorClass: number; initiative: number } {
+  return {
+    armorClass: computeACFull(char),
+    initiative: computeInitiativeFull(char),
+  }
 }

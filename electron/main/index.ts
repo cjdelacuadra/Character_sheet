@@ -4,13 +4,22 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlink
 import { initLogger, writeEntry } from './logger'
 
 let DATA_DIR: string
+let EQUIPMENT_DIR: string
 
 function ensureDataDir(): void {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
 }
 
+function ensureEquipmentDir(): void {
+  if (!existsSync(EQUIPMENT_DIR)) mkdirSync(EQUIPMENT_DIR, { recursive: true })
+}
+
 function characterPath(id: string): string {
   return join(DATA_DIR, `${id}.json`)
+}
+
+function equipmentPath(filename: string): string {
+  return join(EQUIPMENT_DIR, filename)
 }
 
 function registerIpc(): void {
@@ -41,6 +50,22 @@ function registerIpc(): void {
 
   ipcMain.handle('log:error', (_e, source: string, message: string) => {
     writeEntry(source, message)
+  })
+
+  ipcMain.handle('equipment:readFile', (_e, filename: string) => {
+    const p = equipmentPath(filename)
+    if (!existsSync(p)) return null
+    return readFileSync(p, 'utf-8')
+  })
+
+  ipcMain.handle('equipment:writeFile', (_e, filename: string, content: string) => {
+    ensureEquipmentDir()
+    writeFileSync(equipmentPath(filename), content, 'utf-8')
+    return { ok: true }
+  })
+
+  ipcMain.handle('equipment:fileExists', (_e, filename: string) => {
+    return existsSync(equipmentPath(filename))
   })
 }
 
@@ -76,6 +101,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   initLogger(app.getPath('userData'))
   DATA_DIR = join(app.getPath('userData'), 'characters')
+  EQUIPMENT_DIR = !app.isPackaged
+    ? join(__dirname, '../../src/renderer/public/equipment_data')
+    : join(app.getPath('userData'), 'equipment')
+  console.log('[equipment] dir:', EQUIPMENT_DIR)
   registerIpc()
   createWindow()
   app.on('activate', () => {

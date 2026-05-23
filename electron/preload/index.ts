@@ -15,3 +15,12 @@ contextBridge.exposeInMainWorld('appLogger', {
   logError: (source: string, message: string) =>
     ipcRenderer.invoke('log:error', source, message)
 })
+
+contextBridge.exposeInMainWorld('equipmentStore', {
+  readFile:   (filename: string) =>
+    ipcRenderer.invoke('equipment:readFile', filename),
+  writeFile:  (filename: string, content: string) =>
+    ipcRenderer.invoke('equipment:writeFile', filename, content),
+  fileExists: (filename: string) =>
+    ipcRenderer.invoke('equipment:fileExists', filename),
+})

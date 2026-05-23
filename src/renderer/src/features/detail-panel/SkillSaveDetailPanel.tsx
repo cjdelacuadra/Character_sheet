@@ -2,7 +2,7 @@ import type { Character, AbilityScore, Equipment } from '@/entities/character/ty
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
 import { mod } from '@/shared/data/charCalculations'
-import { ACCESSORY_BY_ID } from '@/shared/data/equipment/accessories'
+import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import styles from './DetailPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -18,7 +18,8 @@ const SAVE_DESCS: Record<AbilityScore, string> = {
   cha: 'Resist effects that sap your identity — Banishment and possession.',
 }
 
-const ACC_SLOTS: (keyof Equipment)[] = [
+const GEAR_SLOTS: (keyof Equipment)[] = [
+  'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
   'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
@@ -33,26 +34,26 @@ function equipSources(
   const sources: Source[] = []
   let cumulativeScore = char.abilityScores[abilityKey]
 
-  for (const slotKey of ACC_SLOTS) {
+  for (const slotKey of GEAR_SLOTS) {
     const itemId = char.equipment[slotKey]
     if (!itemId || typeof itemId !== 'string') continue
-    const acc = ACCESSORY_BY_ID[itemId]
-    if (!acc?.stats) continue
+    const gear = GEAR_BY_ID[itemId]
+    if (!gear?.stats) continue
 
     // Ability score bonus → compute actual modifier delta
-    const abilBonus = acc.stats.abilityBonus?.[abilityKey] ?? 0
+    const abilBonus = gear.stats.abilityBonus?.[abilityKey] ?? 0
     if (abilBonus !== 0) {
       const delta = mod(cumulativeScore + abilBonus) - mod(cumulativeScore)
       cumulativeScore += abilBonus
-      if (delta !== 0) sources.push({ name: acc.name, value: delta })
+      if (delta !== 0) sources.push({ name: gear.name, value: delta })
     }
 
     // Flat bonus to the specific save or skill
     const flatBonus =
       flatKey.type === 'save'
-        ? (acc.stats.savingThrowBonus?.[flatKey.ab] ?? 0)
-        : (acc.stats.skillBonus?.[flatKey.skill] ?? 0)
-    if (flatBonus !== 0) sources.push({ name: acc.name, value: flatBonus, tag: flatKey.type })
+        ? (gear.stats.savingThrowBonus?.[flatKey.ab] ?? 0)
+        : (gear.stats.skillBonus?.[flatKey.skill] ?? 0)
+    if (flatBonus !== 0) sources.push({ name: gear.name, value: flatBonus, tag: flatKey.type })
   }
 
   return sources
@@ -75,11 +76,11 @@ export function SkillSaveDetailPanel({ character: char, detail, onClose }: Props
     const baseAbilMod = mod(char.abilityScores[ab])
     const sources = equipSources(char, ab, { type: 'save', ab })
     const hasAdv = char.equipment && (() => {
-      for (const s of ACC_SLOTS) {
+      for (const s of GEAR_SLOTS) {
         const id = char.equipment[s]
         if (!id || typeof id !== 'string') continue
-        const acc = ACCESSORY_BY_ID[id]
-        if (acc?.stats?.advantage?.savingThrows?.includes(ab)) return true
+        const gear = GEAR_BY_ID[id]
+        if (gear?.stats?.advantage?.savingThrows?.includes(ab)) return true
       }
       return false
     })()
@@ -114,11 +115,11 @@ export function SkillSaveDetailPanel({ character: char, detail, onClose }: Props
   const baseAbilMod = mod(char.abilityScores[skill.ability])
   const sources = equipSources(char, skill.ability, { type: 'skill', skill: skill.key as Skill })
   const hasAdv = (() => {
-    for (const s of ACC_SLOTS) {
+    for (const s of GEAR_SLOTS) {
       const id = char.equipment[s]
       if (!id || typeof id !== 'string') continue
-      const acc = ACCESSORY_BY_ID[id]
-      if (acc?.stats?.advantage?.skills?.includes(skill.key as Skill)) return true
+      const gear = GEAR_BY_ID[id]
+      if (gear?.stats?.advantage?.skills?.includes(skill.key as Skill)) return true
     }
     return false
   })()

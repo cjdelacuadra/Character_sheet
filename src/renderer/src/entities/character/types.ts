@@ -53,9 +53,17 @@ export interface Weapon {
   rangeType?: 'Melee' | 'Ranged' | 'Melee or Ranged'
   properties?: string[]
   enchantmentBonus?: number
+  enchantment?: string
   bonusDamageDie?: string
   bonusDamageType?: string
   twoHanded?: boolean
+  toHitDiceCount?: number
+  toHitDieType?: number
+  toHitFlat?: number
+  dmgBonusCount?: number
+  dmgBonusDieType?: number
+  dmgBonusFlat?: number
+  dmgBonusType?: string
 }
 
 export interface Character {

@@ -4,6 +4,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
 import styles from './FeaturesPanel.module.css'
 
@@ -81,11 +82,18 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
   }))
 
   // Feat chosen at creation (Variant Human or any race with freeFeat)
-  if (char.chosenFeat && raceDef?.freeFeat) {
-    const featDef = FEAT_BY_ID[char.chosenFeat]
+  const raceFeat = raceDef?.freeFeat ? char.feats[0] : undefined
+  if (raceFeat) {
+    const featDef = FEAT_BY_ID[raceFeat]
     if (featDef) {
       raceFeatures.push({ level: 0, source: 'race', name: featDef.name, desc: featDef.description })
     }
+  }
+
+  // ── Background feature ──────────────────────────────────────────────────
+  const bgDef = BACKGROUNDS.find(b => b.id === char.background)
+  if (bgDef?.feature) {
+    raceFeatures.unshift({ level: 0, source: 'race' as const, name: bgDef.feature, desc: `Background: ${bgDef.label}` })
   }
 
   // ── Merge: race traits first (level 0), then class by level ────────────

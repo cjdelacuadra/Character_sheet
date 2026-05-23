@@ -1,7 +1,6 @@
-import { ARMOR_LIST } from './accessories'
+import { GEAR, isArmorKind } from './gear'
 import { WEAPONS } from './weapons'
-import { ACCESSORIES } from './accessories'
-import type { AccessoryEquipmentItem } from './accessories'
+import type { GearEquipmentItem } from './gear'
 import type { ShopItemKind, ItemRarity } from './types'
 export type { ShopItemKind, ItemRarity }
 
@@ -41,17 +40,16 @@ export function slotPlaceholderUrl(kind: ShopItemKind | string): string {
   return SLOT_PLACEHOLDER_URLS[kind] ?? ''
 }
 
-function armorKeyStat(item: (typeof ARMOR_LIST)[0]): string {
-  const ac  = item.baseAC + (item.enchantmentBonus ?? 0)
-  const enc = item.enchantmentBonus ? ` +${item.enchantmentBonus}` : ''
-  return `AC ${ac}${enc}`
-}
-
 function weaponKeyStat(item: (typeof WEAPONS)[0]): string {
   return `${item.damageDie} ${item.damageType.slice(0, 3)}`
 }
 
-function accKeyStat(item: AccessoryEquipmentItem): string | undefined {
+export function gearKeyStat(item: GearEquipmentItem): string | undefined {
+  if (isArmorKind(item.kind)) {
+    const ac  = (item.baseAC ?? 0) + (item.enchantmentBonus ?? 0)
+    const enc = item.enchantmentBonus ? ` +${item.enchantmentBonus}` : ''
+    return `AC ${ac}${enc}`
+  }
   const s = item.stats
   if (!s) return undefined
   if (s.acBonus) return `+${s.acBonus} AC`
@@ -68,14 +66,14 @@ function accKeyStat(item: AccessoryEquipmentItem): string | undefined {
 }
 
 export function getAllShopItems(): ShopItem[] {
-  const armorItems: ShopItem[] = ARMOR_LIST.map(a => ({
-    id: a.id,
-    name: a.name,
-    kind: a.kind,
-    cost: a.cost,
-    rarity: a.rarity,
-    sprite: a.sprite ?? slotPlaceholderUrl(a.kind),
-    keyStat: armorKeyStat(a),
+  const gearItems: ShopItem[] = GEAR.map(g => ({
+    id: g.id,
+    name: g.name,
+    kind: g.kind,
+    cost: g.cost,
+    rarity: g.rarity,
+    sprite: g.sprite ?? slotPlaceholderUrl(g.kind),
+    keyStat: gearKeyStat(g),
   }))
 
   const weaponItems: ShopItem[] = WEAPONS.map(w => ({
@@ -88,22 +86,39 @@ export function getAllShopItems(): ShopItem[] {
     keyStat: weaponKeyStat(w),
   }))
 
-  const accItems: ShopItem[] = ACCESSORIES.map(a => ({
-    id: a.id,
-    name: a.name,
-    kind: a.kind,
-    cost: a.cost,
-    rarity: a.rarity,
-    sprite: a.sprite ?? slotPlaceholderUrl(a.kind),
-    keyStat: accKeyStat(a),
-  }))
-
-  return [...armorItems, ...weaponItems, ...accItems]
+  return [...gearItems, ...weaponItems]
 }
 
 const _all = getAllShopItems()
-export const SHOP_CATALOGUE: ShopItem[] = _all
-export const SHOP_ITEM_BY_ID: Record<string, ShopItem> = Object.fromEntries(_all.map(i => [i.id, i]))
+export let SHOP_CATALOGUE: ShopItem[] = _all
+export let SHOP_ITEM_BY_ID: Record<string, ShopItem> = Object.fromEntries(_all.map(i => [i.id, i]))
+
+export function rebuildCatalogue(): void {
+  const fresh = getAllShopItems()
+  SHOP_CATALOGUE = fresh
+  SHOP_ITEM_BY_ID = Object.fromEntries(fresh.map(i => [i.id, i]))
+}
 
 /** @deprecated use SHOP_CATALOGUE */
 export function getShopCatalogue(): ShopItem[] { return SHOP_CATALOGUE }
+
+export function gearToShopItem(g: GearEquipmentItem): ShopItem {
+  return {
+    id: g.id,
+    name: g.name,
+    kind: g.kind,
+    cost: g.cost,
+    rarity: g.rarity,
+    sprite: g.sprite ?? slotPlaceholderUrl(g.kind),
+    keyStat: gearKeyStat(g),
+  }
+}
+
+export function getShopCatalogueWithCustom(customItems: GearEquipmentItem[]): ShopItem[] {
+  const customShop = customItems.map(gearToShopItem)
+  return [...SHOP_CATALOGUE, ...customShop]
+}
+
+export function getShopItemById(id: string, customItems?: Record<string, GearEquipmentItem>): ShopItem | undefined {
+  return SHOP_ITEM_BY_ID[id] ?? (customItems?.[id] ? gearToShopItem(customItems[id]) : undefined)
+}

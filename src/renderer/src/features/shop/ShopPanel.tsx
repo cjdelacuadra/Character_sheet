@@ -1,13 +1,60 @@
 import { useMemo, useState } from 'react'
 import type { Character } from '@/entities/character/types'
-import { SHOP_CATALOGUE, SHOP_ITEM_BY_ID } from '@/shared/data/equipment/catalogue'
+import { getShopItemById, getShopCatalogueWithCustom, type ShopItem } from '@/shared/data/equipment/catalogue'
 import type { ShopItemKind } from '@/shared/data/equipment/types'
+import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
+import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import { useAppStore } from '@/app/store'
+import { ItemEditorPanel } from '@/features/inventory/ItemEditorPanel'
 import styles from './ShopPanel.module.css'
 
 type SortBy = 'name' | 'cost' | 'rarity'
 
 const RARITY_ORDER: Record<string, number> = { common: 0, uncommon: 1, rare: 2, 'very rare': 3, legendary: 4 }
+
+const RARITY_COLOR: Record<string, string> = {
+  uncommon:   '#1eff00',
+  rare:       '#0070dd',
+  'very rare':'#a335ee',
+  legendary:  '#ff8000',
+}
+
+function getCardPills(item: ShopItem): string[] {
+  const pills: string[] = []
+  if (item.kind === 'weapon') {
+    const wDef = WEAPON_BY_ID[item.id]
+    if (wDef) {
+      if (wDef.damageDie && wDef.damageDie !== '—') pills.push(`${wDef.damageDie}${wDef.damageType ? ` ${wDef.damageType}` : ''}`)
+      if (wDef.rangeType && wDef.rangeType !== 'Melee') pills.push(wDef.rangeType)
+      const keyProps = (wDef.properties ?? []).filter(p =>
+        ['finesse', 'light', 'two-handed', 'versatile', 'reach', 'thrown'].some(kw => p.toLowerCase().startsWith(kw))
+      )
+      pills.push(...keyProps.map(p => p.split(' ')[0].charAt(0).toUpperCase() + p.split(' ')[0].slice(1)))
+      if (wDef.enchantmentBonus) pills.push(`+${wDef.enchantmentBonus}`)
+    }
+  } else {
+    const gDef = GEAR_BY_ID[item.id]
+    if (gDef?.baseAC) pills.push(`AC ${gDef.baseAC}`)
+    if (gDef?.enchantmentBonus) pills.push(`+${gDef.enchantmentBonus}`)
+    const s = gDef?.stats
+    if (s) {
+      if (s.acBonus)     pills.push(`AC +${s.acBonus}`)
+      if (s.toHitBonus)  pills.push(`Hit +${s.toHitBonus}`)
+      Object.entries(s.abilityBonus    ?? {}).forEach(([k, v]) => v && pills.push(`${k.toUpperCase()} +${v}`))
+      Object.entries(s.savingThrowBonus ?? {}).forEach(([k, v]) => v && pills.push(`${k.toUpperCase()} Sv +${v}`))
+      Object.entries(s.skillBonus       ?? {}).forEach(([k, v]) => v && pills.push(`${k.charAt(0).toUpperCase() + k.slice(1)} +${v}`))
+      ;(s.advantage?.skills        ?? []).forEach(sk => pills.push(`${sk.charAt(0).toUpperCase() + sk.slice(1)} Adv`))
+      ;(s.advantage?.savingThrows  ?? []).forEach(ab => pills.push(`${ab.toUpperCase()} Sv Adv`))
+      if (s.advantage?.deathSaves) pills.push('Death Sv Adv')
+      if (s.bonusDamage) {
+        const bd = s.bonusDamage
+        const expr = [bd.dice, bd.flat ? String(bd.flat) : null].filter(Boolean).join('+')
+        if (expr) pills.push(`${bd.dmgType} ${expr}`)
+      }
+    }
+  }
+  return pills
+}
 
 const FILTER_KINDS: { kind: ShopItemKind | 'all'; label: string }[] = [
   { kind: 'all',    label: 'All'    },
@@ -23,45 +70,93 @@ interface Props {
 }
 
 export function ShopPanel({ character: char, onClose }: Props) {
-  const buyItem  = useAppStore(s => s.buyItem)
-  const sellItem = useAppStore(s => s.sellItem)
+  const buyItem     = useAppStore(s => s.buyItem)
+  const sellItem    = useAppStore(s => s.sellItem)
+  const customItems = useAppStore(s => s.customItems)
 
-  const [sellQueue, setSellQueue] = useState<string[]>([])
-  const [buyQueue,  setBuyQueue]  = useState<string[]>([])
+  const [sellQueue,  setSellQueue]  = useState<string[]>([])
+  const [buyQueue,   setBuyQueue]   = useState<string[]>([])
   const [filterKind, setFilterKind] = useState<ShopItemKind | null>(null)
   const [sortBy,     setSortBy]     = useState<SortBy>('cost')
+  const [previewId,  setPreviewId]  = useState<string | null>(null)
+
+  function togglePreview(id: string) {
+    setPreviewId(prev => prev === id ? null : id)
+  }
+
+  function handleDragStart(e: React.DragEvent, id: string, source: 'owned' | 'sell' | 'catalog' | 'buy') {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/json', JSON.stringify({ id, source }))
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDropOnSell(e: React.DragEvent) {
+    e.preventDefault()
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      if (data.id) {
+        if (data.source === 'sell') {
+          // Remove from sell queue if dragged from sell queue
+          setSellQueue(q => q.filter(x => x !== data.id))
+        } else if (data.source === 'owned') {
+          // Toggle in sell queue if dragged from owned
+          setSellQueue(q => q.includes(data.id) ? q.filter(x => x !== data.id) : [...q, data.id])
+        }
+      }
+    } catch {}
+  }
+
+  function handleDropOnBuy(e: React.DragEvent) {
+    e.preventDefault()
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      if (data.id) {
+        if (data.source === 'buy') {
+          // Remove from buy queue if dragged from buy queue
+          setBuyQueue(q => q.filter(x => x !== data.id))
+        } else if (data.source === 'catalog') {
+          // Toggle in buy queue if dragged from catalog
+          setBuyQueue(q => q.includes(data.id) ? q.filter(x => x !== data.id) : [...q, data.id])
+        }
+      }
+    } catch {}
+  }
 
   const ownedItems = useMemo(
     () => char.ownedItemIds
-      .map(id => SHOP_ITEM_BY_ID[id])
-      .filter(Boolean)
+      .map(id => getShopItemById(id, customItems))
+      .filter((x): x is NonNullable<typeof x> => x !== undefined)
       .filter(item => !filterKind || item.kind === filterKind),
-    [char.ownedItemIds, filterKind]
+    [char.ownedItemIds, filterKind, customItems]
   )
 
   const catalogItems = useMemo(() => {
-    let items = SHOP_CATALOGUE
+    let items = getShopCatalogueWithCustom(Object.values(customItems))
     if (filterKind) items = items.filter(i => i.kind === filterKind)
     return [...items].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name)
       if (sortBy === 'cost') return a.cost - b.cost
       return (RARITY_ORDER[a.rarity ?? 'common'] ?? 0) - (RARITY_ORDER[b.rarity ?? 'common'] ?? 0)
     })
-  }, [filterKind, sortBy])
+  }, [filterKind, sortBy, customItems])
 
-  const sellTotal  = sellQueue.reduce((s, id) => s + (SHOP_ITEM_BY_ID[id]?.cost ?? 0), 0)
-  const buyTotal   = buyQueue.reduce( (s, id) => s + (SHOP_ITEM_BY_ID[id]?.cost ?? 0), 0)
+  const sellTotal  = sellQueue.reduce((s, id) => s + (getShopItemById(id, customItems)?.cost ?? 0), 0)
+  const buyTotal   = buyQueue.reduce( (s, id) => s + (getShopItemById(id, customItems)?.cost ?? 0), 0)
   const netGold    = char.gold + sellTotal - buyTotal
   const canAfford  = netGold >= 0
   const hasChanges = sellQueue.length > 0 || buyQueue.length > 0
 
   function handleConfirm() {
     for (const id of sellQueue) {
-      const item = SHOP_ITEM_BY_ID[id]
+      const item = getShopItemById(id, customItems)
       if (item) sellItem(char.id, id, item.cost)
     }
     for (const id of buyQueue) {
-      const item = SHOP_ITEM_BY_ID[id]
+      const item = getShopItemById(id, customItems)
       if (item) buyItem(char.id, id, item.cost)
     }
     onClose()
@@ -105,14 +200,20 @@ export function ShopPanel({ character: char, onClose }: Props) {
           <div className={styles.colHead}>Owned ({ownedItems.length})</div>
           <div className={styles.itemList}>
             {ownedItems.map(item => {
-              const inSell = sellQueue.includes(item.id)
+              const inSell   = sellQueue.includes(item.id)
               return (
                 <button
                   key={item.id}
-                  className={`${styles.itemRow}${inSell ? ` ${styles.rowSell}` : ''}`}
+                  draggable
+                  className={[
+                    styles.itemRow,
+                    inSell   ? styles.rowSell     : '',
+                  ].filter(Boolean).join(' ')}
                   onClick={() => setSellQueue(q => q.includes(item.id) ? q.filter(x => x !== item.id) : [...q, item.id])}
-                  title={`${item.name} · ${item.cost} gp — click to ${inSell ? 'cancel sell' : 'sell'}`}
+                  onDragStart={(e) => handleDragStart(e, item.id, 'owned')}
+                  title={`${item.name} · ${item.cost} gp`}
                 >
+                  {item.sprite && <img src={item.sprite} alt="" className={styles.itemSprite} />}
                   <span className={styles.itemName}>{item.name}</span>
                   <span className={`${styles.itemCost}${inSell ? ` ${styles.costSell}` : ''}`}>
                     {inSell ? 'SELL' : `${item.cost}g`}
@@ -127,12 +228,12 @@ export function ShopPanel({ character: char, onClose }: Props) {
         {/* Sell queue */}
         <div className={styles.queueCol}>
           <div className={styles.colHead}>↑ Sell</div>
-          <div className={styles.queueItems}>
+          <div className={styles.queueItems} onDragOver={handleDragOver} onDrop={handleDropOnSell}>
             {sellQueue.map(id => {
-              const item = SHOP_ITEM_BY_ID[id]
+              const item = getShopItemById(id, customItems)
               if (!item) return null
               return (
-                <div key={id} className={styles.queueChip} title={item.name}>
+                <div key={id} draggable className={styles.queueChip} title={item.name} onDragStart={(e) => handleDragStart(e, id, 'sell')}>
                   <span className={styles.chipLabel}>{item.name.slice(0, 3)}</span>
                   <button
                     className={styles.chipRemove}
@@ -149,12 +250,12 @@ export function ShopPanel({ character: char, onClose }: Props) {
         {/* Buy queue */}
         <div className={styles.queueCol}>
           <div className={styles.colHead}>↓ Buy</div>
-          <div className={styles.queueItems}>
+          <div className={styles.queueItems} onDragOver={handleDragOver} onDrop={handleDropOnBuy}>
             {buyQueue.map(id => {
-              const item = SHOP_ITEM_BY_ID[id]
+              const item = getShopItemById(id, customItems)
               if (!item) return null
               return (
-                <div key={id} className={styles.queueChip} title={item.name}>
+                <div key={id} draggable className={styles.queueChip} title={item.name} onDragStart={(e) => handleDragStart(e, id, 'buy')}>
                   <span className={styles.chipLabel}>{item.name.slice(0, 3)}</span>
                   <button
                     className={styles.chipRemove}
@@ -175,37 +276,55 @@ export function ShopPanel({ character: char, onClose }: Props) {
         {/* Catalog column */}
         <div className={`${styles.col} ${styles.colCatalog}`}>
           <div className={styles.colHead}>Catalog</div>
-          <div className={styles.itemList}>
+          <div className={styles.itemList} onDragOver={handleDragOver} onDrop={handleDropOnBuy}>
             {catalogItems.map(item => {
-              const owned  = char.ownedItemIds.includes(item.id)
-              const inBuy  = buyQueue.includes(item.id)
-              const canAddThis = char.gold + sellTotal >= buyTotal + (inBuy ? 0 : item.cost)
+              const owned       = char.ownedItemIds.includes(item.id)
+              const inBuy       = buyQueue.includes(item.id)
+              const canAddThis  = char.gold + sellTotal >= buyTotal + (inBuy ? 0 : item.cost)
+              const rarityColor = RARITY_COLOR[item.rarity ?? ''] ?? ''
+              const pills       = getCardPills(item)
+              const costLabel   = owned ? '✓' : inBuy ? 'BUY' : item.cost === 0 ? '—' : `${item.cost}g`
               return (
                 <button
                   key={item.id}
+                  draggable
                   className={[
-                    styles.itemRow,
-                    owned   ? styles.rowOwned : '',
-                    inBuy   ? styles.rowBuy   : '',
+                    styles.itemCard,
+                    owned              ? styles.rowOwned    : '',
+                    inBuy              ? styles.rowBuy      : '',
+                    previewId === item.id ? styles.rowSelected : '',
                     !owned && !inBuy && !canAddThis ? styles.rowPoor : '',
                   ].filter(Boolean).join(' ')}
-                  onClick={() => {
-                    if (!owned && item.cost > 0) {
-                      setBuyQueue(q => q.includes(item.id) ? q.filter(x => x !== item.id) : [...q, item.id])
-                    }
-                  }}
-                  disabled={owned || item.cost === 0}
+                  onClick={() => togglePreview(item.id)}
+                  onDragStart={(e) => handleDragStart(e, item.id, 'catalog')}
                   title={`${item.name} · ${item.cost === 0 ? 'Quest reward' : `${item.cost} gp`}`}
                 >
-                  <span className={styles.itemName}>{item.name}</span>
-                  <span className={[
-                    styles.itemCost,
-                    owned             ? styles.costOwned : '',
-                    inBuy             ? styles.costBuy   : '',
-                    !owned && !inBuy && !canAddThis ? styles.costPoor  : '',
-                  ].filter(Boolean).join(' ')}>
-                    {owned ? '✓' : inBuy ? 'BUY' : item.cost === 0 ? '—' : `${item.cost}g`}
-                  </span>
+                  <div
+                    className={styles.cardHeader}
+                    style={rarityColor ? { background: `${rarityColor}18` } : undefined}
+                  >
+                    {item.sprite
+                      ? <img src={item.sprite} alt="" className={styles.cardSprite} />
+                      : <div className={styles.cardSpriteAbsent} />
+                    }
+                    <div className={styles.cardInfo}>
+                      <span className={styles.cardName}>{item.name}</span>
+                      <span className={styles.cardKind}>{item.kind}</span>
+                    </div>
+                    <span className={[
+                      styles.cardCost,
+                      owned ? styles.cardCostOwned : '',
+                      inBuy ? styles.cardCostBuy   : '',
+                      !owned && !inBuy && !canAddThis ? styles.cardCostPoor : '',
+                    ].filter(Boolean).join(' ')}>
+                      {costLabel}
+                    </span>
+                  </div>
+                  {pills.length > 0 && (
+                    <div className={styles.cardBody}>
+                      {pills.map((p, i) => <span key={i} className={styles.statPill}>{p}</span>)}
+                    </div>
+                  )}
                 </button>
               )
             })}
@@ -213,6 +332,28 @@ export function ShopPanel({ character: char, onClose }: Props) {
         </div>
 
       </div>
+
+      {/* Item preview */}
+      {previewId && (() => {
+        const item = catalogItems.find(i => i.id === previewId) ?? ownedItems.find(i => i.id === previewId)
+        const owned = char.ownedItemIds.includes(previewId)
+        const inBuy = buyQueue.includes(previewId)
+        const inSell = sellQueue.includes(previewId)
+        return (
+          <div className={styles.preview}>
+            <ItemEditorPanel
+              itemId={previewId}
+              readOnly
+              onClose={() => setPreviewId(null)}
+              onEquip={!owned && item && item.cost > 0
+                ? () => { setBuyQueue(q => inBuy ? q.filter(x => x !== previewId) : [...q, previewId]); setPreviewId(null) }
+                : owned
+                  ? () => { setSellQueue(q => inSell ? q.filter(x => x !== previewId) : [...q, previewId]); setPreviewId(null) }
+                  : undefined}
+            />
+          </div>
+        )
+      })()}
 
       {/* Footer */}
       <div className={styles.footer}>

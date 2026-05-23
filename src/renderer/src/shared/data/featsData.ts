@@ -15,6 +15,11 @@ export const FEATS: FeatDef[] = [
     description: '+5 bonus to initiative. You can\'t be surprised while conscious. Other creatures don\'t gain advantage on attack rolls against you from being hidden from you.',
   },
   {
+    id: 'archery',
+    name: 'Archery',
+    description: 'You gain a +2 bonus to attack rolls you make with ranged weapons.',
+  },
+  {
     id: 'athlete',
     name: 'Athlete',
     description: '+1 STR or DEX (your choice). Climbing costs no extra movement. Standing up from prone uses only 5 ft of movement. Running long/high jump no longer requires a 10-ft running start.',

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Character, AbilityScore, AbilityScores } from '@/entities/character/types'
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
-import { mod, computeACFull, computeMaxHP, computeEquipmentStats } from '@/shared/data/charCalculations'
+import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats } from '@/shared/data/charCalculations'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
@@ -34,12 +34,11 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
     const newAC = computeACFull({ ...char, abilityScores: newScores })
     const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
     const toughBonusHp = char.feats.includes('tough') ? 2 : 0
-    const alertBonus = char.feats.includes('alert') ? 5 : 0
     const newMaxHP = computeMaxHP(char.classId, char.level, newScores.con, raceBonusHp + toughBonusHp)
     const hpDiff = newMaxHP - hp.max
     update({
       abilityScores: newScores,
-      initiative: mod(newScores.dex) + alertBonus,
+      initiative: computeInitiativeFull({ ...char, abilityScores: newScores }),
       armorClass: newAC,
       hitPoints: { ...hp, max: newMaxHP, current: Math.max(0, hp.current + hpDiff) },
     })

@@ -1,4 +1,4 @@
-import type { ArmorProficiency } from './equipment/accessories'
+import type { ArmorProficiency } from './equipment/gear'
 import type { AbilityScore } from '@/entities/character/types'
 
 export interface SubclassDef {
