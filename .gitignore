@@ -5,3 +5,4 @@ dist
 tsconfig.*.tsbuildinfo
 characters/
 .xlsx
+src\renderer\public\assets\equipment\sprites
