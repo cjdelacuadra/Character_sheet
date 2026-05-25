@@ -3,44 +3,30 @@
 A desktop companion app for D&D 5th Edition, built with Electron + React + TypeScript.  
 Current version: **2.1.0**
 
-## Preview
+## Development
 
+**Requirements:** Node.js ≥ 18 and npm ≥ 9. See [INSTALL.md](INSTALL.md) for full setup.
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (opens Electron window)
+npm run dev
+
+# TypeScript check
+npm run typecheck
+
+# Run tests
+npm test
+
+# Production build (outputs to out/)
+npm run build
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  Sylara Ashveil                                          ◐  Dark Mode   │
-│  Tiefling · Wizard · Level 5 · Sage                                     │
-│  HP  32 / 32   AC 13   Initiative +3   Speed 30 ft                      │
-│  Spell Save DC 14   Spell Attack +6   Prof +3                           │
-├──────────────────────┬──────────────────────────────────────────────────┤
-│  ABILITIES           │  SAVING THROWS                     Prof +3       │
-│                      │  ○ −1  STR   d20−1                               │
-│   (−1)  STR   8      │  ○ +3  DEX   d20+3                               │
-│   (+3)  DEX  16      │  ● +5  CON   d20+2+3p     ← proficient           │
-│   (+2)  CON  14      │  ● +7  INT   d20+4+3p     ← proficient           │
-│   (+4)  INT  18      │  ○ +1  WIS   d20+1                               │
-│   (+1)  WIS  12      │  ○ +0  CHA   d20+0                               │
-│   (+0)  CHA  10      │                                                  │
-│                      │  SKILLS                                          │
-│                      │  ◆◆ +10 Arcana         INT   ← expertise        │
-│                      │  ◆  +7  History        INT   ← proficient        │
-│                      │  ◆  +7  Investigation  INT                        │
-│                      │  ○  +1  Perception     WIS                        │
-│                      │  ○  +3  Stealth        DEX                        │
-│                      │  Passive Perception: 11                          │
-├──────────────────────┴──────────────────────────────────────────────────┤
-│  SPELLS              SPELL SLOTS  1st ◆◆◆◆  2nd ◆◆◆  3rd ◆◆           │
-│  Cantrips: Fire Bolt · Mage Hand · Prestidigitation · Thaumaturgy*      │
-│  1st  Burning Hands · Magic Missile · Shield · Hellish Rebuke*          │
-│  2nd  Misty Step · Scorching Ray · Darkness*                            │
-│  3rd  Fireball · Counterspell                                           │
-│  * Racial spells — granted by Tiefling heritage, free once per day      │
-├─────────────────────────────────────────────────────────────────────────┤
-│  FEATURES            Arcane Tradition: School of Evocation              │
-│  Arcane Recovery   ◆◆◆  (recover up to 3 levels of slots · SR)         │
-│  Sculpt Spells     Automatically exclude allies from AoE spells         │
-│  Empowered Evocation  Add +4 to damage rolls of evocation spells        │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+
+> **Windows note:** If `npm` is blocked by PowerShell execution policy, use `cmd /c "npm run dev"` or prefix commands with `npm.cmd`.
+
+---
 
 ## Stack
 
@@ -232,31 +218,6 @@ Key shared calculation helpers (`src/renderer/src/shared/data/charCalculations.t
 - `computeInitiativeFull(char)` — DEX mod + Alert / Jack of All Trades / Remarkable Athlete + DEX bonuses from accessories
 - `computeSpeedFull(char)` — base speed + equipment speed bonuses
 - `computeEquipmentStats(char)` — aggregates all accessory bonuses across every gear slot
-
----
-
-## Development
-
-**Requirements:** Node.js ≥ 18 and npm ≥ 9. See [INSTALL.md](INSTALL.md) for full setup.
-
-```bash
-# Install dependencies
-npm install
-
-# Start dev server (opens Electron window)
-npm run dev
-
-# TypeScript check
-npm run typecheck
-
-# Run tests
-npm test
-
-# Production build (outputs to out/)
-npm run build
-```
-
-> **Windows note:** If `npm` is blocked by PowerShell execution policy, use `cmd /c "npm run dev"` or prefix commands with `npm.cmd`.
 
 ---
 
