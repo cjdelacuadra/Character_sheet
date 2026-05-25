@@ -49,8 +49,8 @@ cmd /c "npm run dev"
  node "$PATH\Character_sheet\node_modules\electron\install.js"
 ```                                                                                                                 
 ```powershell
-$PATH\Character_sheet> $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"                                                                                                    
-$PATHCharacter_sheet\node_modules\electron\install.js"
+ $PATH\Character_sheet> $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"       
+ $PATH\Character_sheet\node_modules\electron\install.js"
 ```
 
 **OneDrive sync** — if the project lives inside an OneDrive folder (as in the default
