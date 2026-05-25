@@ -43,11 +43,18 @@ Or prefix every command with `cmd /c`:
 ```powershell
 cmd /c "npm run dev"
 ```
+sometimes power shell throws:
+`error during start dev server and electron app:`
+`Error: Electron uninstall`
+
+to fix it add electron to path
 
 ```powershell
  $env:PATH += ";$env:USERPROFILE\node\bin"    
  node "$PATH\Character_sheet\node_modules\electron\install.js"
-```                                                                                                                 
+```
+if doesn't work add the mirror image
+                                                                                                
 ```powershell
  $PATH\Character_sheet> $env:ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"       
  $PATH\Character_sheet\node_modules\electron\install.js"
