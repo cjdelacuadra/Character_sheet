@@ -5,52 +5,81 @@
 }
 
 :root {
-  /* Dark theme (default) */
-  --bg-base: #0f1117;
-  --bg-surface: #1a1d27;
-  --bg-elevated: #22263a;
-  --border: #2e3248;
-  --text-primary: #e8eaf0;
-  --text-secondary: #8b90a8;
-  --text-muted: #555b75;
-  --accent: #7c6af7;
-  --accent-dim: #3d3580;
-  --accent-rgb: 124, 106, 247;
-  --danger: #e05c5c;
-  --success: #4caf7d;
-  --warning: #e8a44a;
-  --gold: #d4af37;
-  --text-on-accent: #ffffff;
+  /* ─── Typefaces ───────────────────────────────────────────────────────── */
+  --font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
+  --font-body:    'Crimson Pro', 'Georgia', 'Times New Roman', serif;
+  --font-hand:    'Kalam', 'Segoe Print', cursive;
 
-  /* Aliases used in feature modules */
-  --text: var(--text-primary);
+  /* ─── Dark theme — aged leather tome ─────────────────────────────────── */
+  --bg-base:     #17100a;    /* dark mahogany / binding leather */
+  --bg-surface:  #231a0d;    /* aged vellum panel */
+  --bg-elevated: #2c2112;    /* raised inset surface */
+  --border:      #4e3c22;    /* worn leather stitching */
+
+  --text-primary:   #e2cfA0; /* cream-vellum ink */
+  --text-secondary: #bf9f6e; /* warm amber ink */
+  --text-muted:     #8a6840; /* faded sepia */
+
+  --accent:      #c8a040;    /* antique gold foil */
+  --accent-dim:  #3a2908;    /* deep amber shadow */
+  --accent-rgb:  200, 160, 64;
+
+  --danger:      #b03030;    /* dried blood */
+  --success:     #3a7048;    /* forest green ink */
+  --warning:     #c47820;    /* burnt amber */
+  --gold:        #c8a040;    /* antique gold */
+  --text-on-accent: #17100a;
+
+  /* Card elevation shadows — dark mode */
+  --shadow-card:       0 2px 10px rgba(0,0,0,.55), 0 6px 24px rgba(0,0,0,.38);
+  --shadow-card-inner: inset 0 1px 0 rgba(200,160,64,.05);
+
+  /* Aliases used across feature modules */
+  --text:      var(--text-primary);
   --surface-2: var(--bg-surface);
   --surface-3: var(--bg-elevated);
-  --bg: var(--bg-surface);
-  --bg-alt: var(--bg-elevated);
+  --bg:        var(--bg-surface);
+  --bg-alt:    var(--bg-elevated);
 
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
+  line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-base);
 }
 
+/* ─── Light theme — parchment sheets on a walnut gaming table ─────────── */
 :root[data-theme="light"] {
-  --bg-base: #f0f2f8;
-  --bg-surface: #ffffff;
-  --bg-elevated: #e4e8f2;
-  --border: #c4c9dc;
-  --text-primary: #1a1d2e;
-  --text-secondary: #4a4f6a;
-  --text-muted: #8890a8;
-  --accent: #5b4cd6;
-  --accent-dim: #ece9ff;
-  --accent-rgb: 91, 76, 214;
-  --danger: #c94040;
-  --success: #2e8f5e;
-  --warning: #b07030;
-  --gold: #9a7820;
-  --text-on-accent: #ffffff;
+  --bg-base:     #b8956a;    /* warm walnut table surface */
+  --bg-surface:  #f3e8cc;    /* aged parchment sheet */
+  --bg-elevated: #f9f2e0;    /* lighter, fresher parchment highlight */
+  --border:      #b89060;    /* dried brown ink line / ruling */
+
+  --text-primary:   #2a180c; /* dark sepia ink */
+  --text-secondary: #5a3c24; /* medium brown */
+  --text-muted:     #9a7050; /* faded ink */
+
+  --accent:      #7a2020;    /* deep crimson — classic D&D red */
+  --accent-dim:  #f0dada;    /* very faint red blush */
+  --accent-rgb:  122, 32, 32;
+
+  --danger:      #8b2020;    /* blood red */
+  --success:     #2c5c3a;    /* forest green ink */
+  --warning:     #8a5a10;    /* amber ochre */
+  --gold:        #9a7820;    /* antique gold */
+  --text-on-accent: #f9f2e0;
+
+  /* Card elevation shadows — light mode (paper resting on wood) */
+  --shadow-card:       0 2px 6px rgba(60,30,8,.28), 0 8px 28px rgba(60,30,8,.18);
+  --shadow-card-inner: inset 0 1px 0 rgba(255,248,220,.9);
+}
+
+/* ─── HTML root — paper-grain texture tiled over the table/binding ──────── */
+html {
+  background-color: var(--bg-base);
+  /* SVG fractal noise at 18% opacity gives natural paper grain */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
 }
 
 body {
@@ -58,13 +87,9 @@ body {
   overflow: hidden;
 }
 
-/* Hide scrollbars globally while preserving scroll functionality */
-* {
-  scrollbar-width: none;
-}
-*::-webkit-scrollbar {
-  display: none;
-}
+/* ─── Hide scrollbars while preserving scroll ─────────────────────────── */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 
 #root {
   height: 100vh;

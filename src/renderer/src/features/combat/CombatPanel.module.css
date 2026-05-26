@@ -1,7 +1,7 @@
 .section { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .section:last-child { border-bottom: none; }
 .sectionHead { display: flex; justify-content: space-between; align-items: center; }
-.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
 .addBtn { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
 .addBtn:hover { border-color: var(--accent); color: var(--accent); }
 

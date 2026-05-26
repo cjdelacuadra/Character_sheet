@@ -5,7 +5,7 @@
   overflow: hidden;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body, 'Crimson Pro', Georgia, serif);
 }
 
 /* ── HEADER — 2-ROW IDENTITY GRID ── */
@@ -14,15 +14,24 @@
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: auto auto;
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(60,30,8,.2);
+  /* Aged-form ruled lines via repeating gradient */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent calc(100% - 2px),
+    color-mix(in srgb, var(--border) 30%, transparent) calc(100% - 2px),
+    color-mix(in srgb, var(--border) 30%, transparent) 100%
+  );
 }
 
 .headerCell {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 6px 14px 5px;
+  padding: 7px 16px 6px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   min-width: 0;
@@ -32,8 +41,10 @@
 .headerCell:nth-child(5), .headerCell:nth-child(6), .headerCell:nth-child(7), .headerCell:nth-child(8) { border-bottom: none; }
 
 .headerValue {
+  font-family: var(--font-display, 'Cinzel', serif);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.03em;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -42,12 +53,13 @@
 }
 
 .headerLabel {
-  font-size: 8px;
-  font-weight: 700;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 7px;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .headerActions {
@@ -71,11 +83,13 @@
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
-  padding: 5px 12px;
-  border-radius: 20px;
+  padding: 4px 12px;
+  border-radius: 2px;
   transition: all 0.15s;
   white-space: nowrap;
 }
@@ -83,7 +97,7 @@
 .inspirationBtn:hover { border-color: var(--accent); color: var(--accent); }
 
 .inspirationOn {
-  background: rgba(139, 124, 248, 0.15);
+  background: rgba(var(--accent-rgb), 0.12);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -101,11 +115,14 @@
 
 .backBtn:hover { color: var(--text-secondary); background: var(--bg-elevated); }
 
-/* ── THREE COLUMNS ── */
+/* ── THREE COLUMNS — parchment sheets resting on the wooden table ── */
 .columns {
   flex: 1;
   display: flex;
   overflow: hidden;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-base); /* the "table" shows in the gaps */
 }
 
 .leftCol {
@@ -113,11 +130,13 @@
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--bg-surface);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 1px;
   padding: 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: var(--shadow-card), var(--shadow-card-inner);
 }
 
 .leftCol > * { flex-shrink: 0; }
@@ -129,8 +148,11 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 1px;
   min-width: 220px;
+  box-shadow: var(--shadow-card), var(--shadow-card-inner);
 }
 
 .rightCol {
@@ -139,6 +161,10 @@
   display: flex;
   flex-direction: column;
   min-width: 280px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  box-shadow: var(--shadow-card), var(--shadow-card-inner);
 }
 
 /* Equipment + inventory side-by-side */
@@ -175,10 +201,11 @@
 }
 
 .sectionLabel {
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 9px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--text-muted);
 }
 

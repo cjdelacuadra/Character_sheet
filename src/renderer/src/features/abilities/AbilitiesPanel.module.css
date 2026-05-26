@@ -28,7 +28,7 @@
 
 .statsSubRight { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .savesHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
-.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
 .profBadge { font-size: 10px; color: var(--accent); }
 .saveRow { display: flex; align-items: center; gap: 4px; padding: 1px 2px; cursor: pointer; border-radius: 3px; }
 .saveRow:hover { background: var(--surface-3); }

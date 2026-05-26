@@ -22,10 +22,12 @@
 .themeBtn {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 2px;
   color: var(--text-secondary);
-  padding: 8px 14px;
-  font-size: 13px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 7px 14px;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -36,10 +38,12 @@
 }
 
 .title {
-  font-size: 28px;
-  font-weight: 600;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 24px;
+  font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .list {
@@ -68,7 +72,7 @@
   flex: 1;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 1px;
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -76,13 +80,15 @@
   gap: 16px;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
   color: inherit;
+  box-shadow: var(--shadow-card), var(--shadow-card-inner);
 }
 
 .card:hover {
   background: var(--bg-elevated);
   border-color: var(--accent);
+  box-shadow: var(--shadow-card), var(--shadow-card-inner), 0 0 0 1px rgba(var(--accent-rgb), .25);
 }
 
 .cardLeft {
@@ -92,9 +98,11 @@
 }
 
 .cardName {
-  font-size: 15px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: 0.04em;
 }
 
 .cardSub {
@@ -115,10 +123,11 @@
 }
 
 .cardStatLabel {
-  font-size: 9px;
-  font-weight: 600;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 8px;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
 }
 
@@ -161,12 +170,15 @@
 
 .createBtn {
   background: var(--accent);
-  color: #fff;
+  color: var(--text-on-accent);
   border: none;
-  border-radius: 8px;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 2px;
+  padding: 10px 22px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: opacity 0.15s;
 }
@@ -188,7 +200,7 @@
 .modal {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 1px;
   padding: 24px 28px;
   width: 520px;
   max-width: 96vw;
@@ -197,6 +209,7 @@
   gap: 18px;
   max-height: 88vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-card), var(--shadow-card-inner), 0 24px 60px rgba(0,0,0,.4);
 }
 
 .modalHeader {
@@ -206,8 +219,10 @@
 }
 
 .modalTitle {
-  font-size: 19px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 .stepIndicator {
@@ -280,10 +295,13 @@
 .cancelBtn {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 2px;
   color: var(--text-secondary);
   padding: 8px 16px;
-  font-size: 13px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: border-color 0.15s;
 }
@@ -293,16 +311,19 @@
 .nextBtn {
   background: var(--bg-elevated);
   border: 1px solid var(--accent);
-  border-radius: 7px;
+  border-radius: 2px;
   color: var(--accent);
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: 8px 18px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.nextBtn:hover { background: rgba(124, 106, 247, 0.12); }
+.nextBtn:hover { background: rgba(var(--accent-rgb), 0.12); }
 .nextBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .infoBox {
@@ -352,7 +373,7 @@
 .methodTab:hover { background: var(--bg-elevated); color: var(--text-primary); }
 
 .methodTabActive {
-  background: rgba(124, 106, 247, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--accent);
   font-weight: 600;
 }
@@ -371,10 +392,11 @@
 }
 
 .scoreKey {
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 8px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
   width: 26px;
   flex-shrink: 0;
@@ -407,7 +429,7 @@
 }
 
 .scorePipSelected {
-  background: rgba(124, 106, 247, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 700;
@@ -581,10 +603,11 @@
 }
 
 .equipLabel {
-  font-size: 11px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
 }
 
@@ -617,7 +640,7 @@
 }
 
 .armorOptionSelected {
-  background: rgba(124, 106, 247, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border-color: var(--accent);
 }
 
@@ -678,7 +701,7 @@
 }
 
 .skillChoiceSelected {
-  background: rgba(124, 106, 247, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
@@ -709,7 +732,7 @@
 .spellChoice:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
 .spellChoiceSelected {
-  background: rgba(124, 106, 247, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border-color: var(--accent);
   color: var(--text-primary);
 }
@@ -790,7 +813,7 @@
 .weaponOption:hover { border-color: var(--accent); }
 
 .weaponOptionSelected {
-  background: rgba(124, 106, 247, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border-color: var(--accent);
 }
 

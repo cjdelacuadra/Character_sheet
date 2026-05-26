@@ -1,6 +1,6 @@
 .section { display: flex; flex-direction: column; gap: 6px; }
 .sectionHead { display: flex; justify-content: space-between; align-items: center; }
-.sectionLabel { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+.sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
 .resourceList { display: flex; flex-direction: column; gap: 6px; }
 .resourceRow { display: flex; align-items: center; gap: 8px; }
 .resourceName { font-size: 11px; color: var(--text); min-width: 80px; font-weight: 500; }

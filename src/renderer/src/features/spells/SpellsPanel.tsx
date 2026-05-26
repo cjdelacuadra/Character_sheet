@@ -428,6 +428,77 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
         </section>
       )}
 
+      {/* Racial Spells */}
+      {hasRacialSpells && (
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionLabel}>Racial Spells</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>1/long rest each</span>
+          </div>
+          <div className={styles.spellList}>
+            {racialSpellIds.map(id => {
+              const spell = SPELL_BY_ID[id]
+              if (!spell) return null
+              const isCantrip = spell.level === 0
+              const resourceKey = `Racial:${spell.id}`
+              const used = char.resources[resourceKey]?.used ?? 0
+              const isExpanded = expandedSpell === id
+              return (
+                <div key={id}>
+                  <div className={styles.spellEntry} onClick={() => toggleExpand(id)}>
+                    <div className={styles.spellEntryLeft}>
+                      <span className={`${styles.spellLevelBadge} ${isCantrip ? styles.spellLevelCantrip : ''}`}>
+                        {isCantrip ? 'C' : spell.level}
+                      </span>
+                      <span className={styles.spellName}>{spell.name}</span>
+                      <span className={styles.spellSchool}>{spell.school}</span>
+                    </div>
+                    <div className={styles.spellEntryRight}>
+                      {!isCantrip && (
+                        <button
+                          className={`${styles.slotPip} ${used < 1 ? styles.pipFull : styles.pipEmpty}`}
+                          title={used < 1 ? 'Use (1/long rest)' : 'Recover on long rest'}
+                          onClick={e => {
+                            e.stopPropagation()
+                            update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className={styles.spellExpandArea}>
+                      <button className={styles.spellExpandClose} onClick={() => setExpandedSpell(null)}>×</button>
+                      <dl className={styles.spellExpandMeta}>
+                        <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
+                        <dt>Range</dt><dd>{spell.range}</dd>
+                        <dt>Components</dt><dd>{spell.components}</dd>
+                        <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
+                      </dl>
+                      <p className={styles.spellExpandDesc}>{spell.description}</p>
+                      {!isCantrip && (
+                        <div className={styles.spellExpandActions}>
+                          <button
+                            className={styles.spellExpandCastBtn}
+                            style={{ borderColor: used < 1 ? undefined : 'var(--danger)', color: used < 1 ? undefined : 'var(--danger)' }}
+                            onClick={() => {
+                              update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
+                              setExpandedSpell(null)
+                            }}
+                          >
+                            {used < 1 ? 'Cast (1/long rest)' : 'Already used · click to recover'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Spells section */}
       {(char.spellIds.length > 0 || onLearnSpell) && (
         <section className={styles.section}>
