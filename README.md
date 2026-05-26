@@ -3,6 +3,31 @@
 A desktop companion app for D&D 5th Edition, built with Electron + React + TypeScript.  
 Current version: **2.1.0**
 
+## Development
+
+**Requirements:** Node.js ≥ 18 and npm ≥ 9. See [INSTALL.md](INSTALL.md) for full setup.
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (opens Electron window)
+npm run dev
+
+# TypeScript check
+npm run typecheck
+
+# Run tests
+npm test
+
+# Production build (outputs to out/)
+npm run build
+```
+
+> **Windows note:** If `npm` is blocked by PowerShell execution policy, use `cmd /c "npm run dev"` or prefix commands with `npm.cmd`.
+
+---
+
 ## Stack
 
 - **Electron 42** — native desktop shell, file-based character persistence
@@ -193,31 +218,6 @@ Key shared calculation helpers (`src/renderer/src/shared/data/charCalculations.t
 - `computeInitiativeFull(char)` — DEX mod + Alert / Jack of All Trades / Remarkable Athlete + DEX bonuses from accessories
 - `computeSpeedFull(char)` — base speed + equipment speed bonuses
 - `computeEquipmentStats(char)` — aggregates all accessory bonuses across every gear slot
-
----
-
-## Development
-
-**Requirements:** Node.js ≥ 18 and npm ≥ 9. See [INSTALL.md](INSTALL.md) for full setup.
-
-```bash
-# Install dependencies
-npm install
-
-# Start dev server (opens Electron window)
-npm run dev
-
-# TypeScript check
-npm run typecheck
-
-# Run tests
-npm test
-
-# Production build (outputs to out/)
-npm run build
-```
-
-> **Windows note:** If `npm` is blocked by PowerShell execution policy, use `cmd /c "npm run dev"` or prefix commands with `npm.cmd`.
 
 ---
 
