@@ -45,36 +45,37 @@ export function computeAC(char: {
     ? (shieldDef.baseAC ?? 2) + (shieldDef.enchantmentBonus ?? 0)
     : equipment.hasShield ? 2 : 0
 
-  // Check natural armor first (race-based)
+  // Compute unarmored AC (natural armor, subclass override, or standard formula)
   const raceDef = RACE_BY_ID[race]
+  let unarmoredBase: number
   if (raceDef?.naturalAC) {
-    return raceDef.naturalAC(abilityScores) + shield
+    unarmoredBase = raceDef.naturalAC(abilityScores)
+  } else {
+    const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
+    if (subclassDef?.unarmoredAC) {
+      unarmoredBase = subclassDef.unarmoredAC(dexMod, conMod, wisMod)
+    } else {
+      unarmoredBase = 10 + dexMod
+      if (classId === 'Barbarian') unarmoredBase = 10 + dexMod + conMod
+      else if (classId === 'Monk')  unarmoredBase = 10 + dexMod + wisMod
+    }
   }
+  const unarmoredAC = unarmoredBase + shield
 
   const armorId = equipment.armorId ?? 'none'
   const armor = GEAR_BY_ID[armorId]
 
-  if (!armor || armorId === 'none' || armor.baseAC === undefined) {
-    // Subclass unarmored AC override (e.g. Draconic Bloodline Sorcerer: 13 + DEX)
-    const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
-    if (subclassDef?.unarmoredAC) {
-      return subclassDef.unarmoredAC(dexMod, conMod, wisMod) + shield
-    }
-    // Standard unarmored defense
-    let ac = 10 + dexMod
-    if (classId === 'Barbarian') ac = 10 + dexMod + conMod
-    else if (classId === 'Monk')  ac = 10 + dexMod + wisMod
-    return ac + shield
-  }
+  if (!armor || armorId === 'none' || armor.baseAC === undefined) return unarmoredAC
 
-  // Apply DEX cap + enchantment bonus
+  // Compute armored AC and return whichever is higher
   const effectiveDex =
     armor.dexCap === undefined ? dexMod :
     armor.dexCap === 0         ? 0      :
     Math.min(dexMod, armor.dexCap)
 
   const defenseBonus = char.fightingStyle === 'defense' ? 1 : 0
-  return armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield + defenseBonus
+  const armoredAC = armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield + defenseBonus
+  return Math.max(unarmoredAC, armoredAC)
 }
 
 /** Computes race-adjusted speed (class modifications applied separately). */

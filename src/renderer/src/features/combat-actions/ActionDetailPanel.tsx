@@ -1243,18 +1243,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
 
-        {char.weapons.length === 0 && (
-          <div className={styles.noWeaponsHint}>
-            No weapons equipped —{' '}
-            <button className={styles.addWeaponLink} onClick={() => setArmoryOpen(true)}>add a weapon</button>
+        <div className={styles.attackDetailWeapons}>
+          <div className={styles.attackDetailWeaponsHead}>
+            <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add weapon</button>
           </div>
-        )}
-
-        {char.weapons.length > 0 && (
-          <div className={styles.attackDetailWeapons}>
-            <div className={styles.attackDetailWeaponsHead}>
-              <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add weapon</button>
-            </div>
             {char.weapons.map(w => {
               const rows = buildAttackRows(char, w)
               const wActive = activeRows[w.id] ?? {}
@@ -1276,7 +1268,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 totalToHit: number | null,
                 subtotals: { expr: string; type: string }[],
                 hasVersatileInTable: boolean,
-              ) => (
+                overrideRoll?: { d1: number; d2: number; adv: 'n' | 'a' | 'd' } | null,
+              ) => {
+                const tRoll = overrideRoll !== undefined ? overrideRoll : rollState
+                const tAdv  = tRoll?.adv ?? 'n'
+                const tD20  = tRoll ? tAdv === 'a' ? Math.max(tRoll.d1, tRoll.d2) : tAdv === 'd' ? Math.min(tRoll.d1, tRoll.d2) : tRoll.d1 : null
+                return (
                 <table className={styles.attackBreakdownTable}>
                   <thead>
                     <tr>
@@ -1307,18 +1304,19 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td>
-                        {d20 !== null && totalToHit !== null
-                          ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}`
-                          : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
-                        {rollState && adv !== 'n' && (
-                          <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>
+                        {tD20 !== null && totalToHit !== null
+                          ? `${tD20} ${fmtMod(totalToHit)} = ${tD20 + totalToHit}`
+                          : totalToHit !== null ? formatToHit(totalToHit, tAdv) : '—'}
+                        {tRoll && tAdv !== 'n' && (
+                          <span className={styles.diceNote}>{` (${tRoll.d1}, ${tRoll.d2})`}</span>
                         )}
                       </td>
                       <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>
-              )
+                )
+              }
 
               if (hasThrown) {
                 // Split into melee and ranged sub-tables
@@ -1358,27 +1356,43 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
                 }
 
+                const meleeKey = `${w.id}_melee`
+                const rangedKey = `${w.id}_ranged`
+                const meleeRoll = rollMap[meleeKey]
+                const rangedRoll = rollMap[rangedKey]
+                const meleeAdv = meleeRoll?.adv ?? 'n'
+                const rangedAdv = rangedRoll?.adv ?? 'n'
                 const meleeTotalToHit = meleeRows.filter(r => isMeleeActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
                 const rangedTotalToHit = rangedRows.filter(r => isRangedActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
                 const meleeSubtotals  = dmgSubtotals(meleeRows,  isMeleeActive)
                 const rangedSubtotals = dmgSubtotals(rangedRows, isRangedActive)
 
                 return (
-                  <div key={w.id} className={styles.attackBreakdownSection}>
-                    <div className={styles.attackBreakdownHead}>
-                      <span>{w.name}</span>
-                      <div className={styles.attackHeadActions}>
-                        <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
-                        <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
-                        <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
-                        <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
-                        <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
+                  <div key={w.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className={styles.attackBreakdownSection}>
+                      <div className={styles.attackBreakdownHead}>
+                        <span>{w.name} melee</span>
+                        <div className={styles.attackHeadActions}>
+                          <button className={`${styles.advBtn} ${meleeAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'n')}>Norm</button>
+                          <button className={`${styles.advBtn} ${meleeAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'a')}>Adv</button>
+                          <button className={`${styles.advBtn} ${meleeAdv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'd')}>Dis</button>
+                          <button className={styles.rollBtn} onClick={() => rollWeapon(meleeKey)} title="Roll d20">🎲</button>
+                        </div>
                       </div>
+                      {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, meleeRoll ?? null)}
                     </div>
-                    <div className={styles.attackSubLabel}>{w.name} melee</div>
-                    {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile)}
-                    <div className={styles.attackSubLabel}>{w.name} ranged ({throwRange})</div>
-                    {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false)}
+                    <div className={styles.attackBreakdownSection}>
+                      <div className={styles.attackBreakdownHead}>
+                        <span>{w.name} ranged ({throwRange})</span>
+                        <div className={styles.attackHeadActions}>
+                          <button className={`${styles.advBtn} ${rangedAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'n')}>Norm</button>
+                          <button className={`${styles.advBtn} ${rangedAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'a')}>Adv</button>
+                          <button className={`${styles.advBtn} ${rangedAdv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'd')}>Dis</button>
+                          <button className={styles.rollBtn} onClick={() => rollWeapon(rangedKey)} title="Roll d20">🎲</button>
+                        </div>
+                      </div>
+                      {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, rangedRoll ?? null)}
+                    </div>
                   </div>
                 )
               }
@@ -1427,17 +1441,30 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                 </div>
               )
             })}
-            {specialAttacks.filter(sa => sa.name === 'Unarmed Strike').length > 0 && (
-              <div className={styles.specialAttackList}>
-                {specialAttacks.filter(sa => sa.name === 'Unarmed Strike').map(sa => (
-                  <div key={sa.name} className={styles.specialAttackRow}>
-                    <span className={styles.specialAttackName}>{sa.name}</span>
-                    {sa.dice && <span className={styles.specialAttackDice}>{sa.dice}</span>}
-                    <span className={styles.specialAttackNote}>{sa.note}</span>
+            {(() => {
+              const uStrMod = mod(char.abilityScores.str)
+              const uDexMod = mod(char.abilityScores.dex)
+              const isMon = char.classId === 'Monk'
+              const uStatMod = isMon ? Math.max(uStrMod, uDexMod) : uStrMod
+              const uAtkMod = uStatMod + char.proficiencyBonus
+              const uDie = isMon
+                ? (char.level >= 17 ? 'd10' : char.level >= 11 ? 'd8' : char.level >= 5 ? 'd6' : 'd4')
+                : null
+              const uDmg = uDie
+                ? `1${uDie}+${uStatMod}`
+                : `${Math.max(1, 1 + uStrMod)}`
+              return (
+                <div className={styles.specialAttackList}>
+                  <div className={styles.specialAttackRow}>
+                    <span className={styles.specialAttackName}>Unarmed Strike</span>
+                    <span className={styles.specialAttackDice}>{uDmg} bludgeoning</span>
+                    <span className={styles.specialAttackNote}>
+                      Attack: {uAtkMod >= 0 ? '+' : ''}{uAtkMod}{isMon ? ' · DEX or STR' : ''}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              )
+            })()}
             {char.subclass === 'BattleMaster' && (() => {
               const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
               const dieSize = char.level >= 10 ? '1d10' : '1d8'
@@ -1584,7 +1611,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
               )
             })()}
           </div>
-        )}
 
         {spellDetailId && (() => {
           const spell = SPELL_BY_ID[spellDetailId]

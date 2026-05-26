@@ -80,6 +80,34 @@
 .spellDisabledTip { font-size: 9px; color: var(--text-muted); }
 .spellAboveLevelNote { font-size: 9px; color: var(--warning); font-weight: 600; margin-left: 4px; }
 
+/* Two-column expand layout for damage spells with visualization */
+.spellExpandTwoCol { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: flex-start; }
+.spellExpandLeftCol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.spellExpandRightCol { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 720px) { .spellExpandTwoCol { grid-template-columns: 1fr; } }
+
+/* Scaling list */
+.spellScalingList { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 3px; }
+.spellScalingRow {
+  display: grid;
+  grid-template-columns: 52px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: border-color 0.1s, background 0.1s;
+}
+.spellScalingRow:hover { border-color: var(--accent); }
+.spellScalingRowActive { border-color: var(--accent); background: rgba(139, 124, 248, 0.12); }
+.spellScalingSlot { font-weight: 600; color: var(--text); }
+.spellScalingDmg { color: var(--accent); font-weight: 600; }
+.spellScalingMiss { color: var(--text-muted); font-weight: 400; font-size: 10px; }
+.spellScalingDc { color: var(--text-muted); font-size: 10px; }
+.spellScalingLeft { color: var(--text-muted); font-size: 10px; min-width: 40px; text-align: right; }
+
 /* Spell modal */
 .modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .spellModal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }

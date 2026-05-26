@@ -3,7 +3,8 @@ import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, SPELLS, computeUpcastDice } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { SpellVisualization } from './SpellVisualization'
 import styles from './SpellsPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -22,6 +23,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
+  const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const isSpellcaster = !!classDef?.isSpellcaster || !!subclassDef?.spellcastingAbility
@@ -69,6 +71,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
 
   function toggleExpand(id: string) {
     setExpandedSpell(prev => prev === id ? null : id)
+    setSelectedSlotLevel(null)
   }
 
   function togglePrepare(id: string) {
@@ -93,10 +96,23 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           .filter(([lvl, slot]) => Number(lvl) >= spell.level && slot.used < slot.total)
           .sort(([a], [b]) => Number(a) - Number(b))
     const notPrepared = isPreparedCaster && spell.level > 0 && !preparedSet.has(id)
+    const hasVisualization = !!(spell.aoeShape && spell.damageType)
 
-    return (
-      <div className={styles.spellExpandArea}>
-        <button className={styles.spellExpandClose} onClick={() => setExpandedSpell(null)}>×</button>
+    const defaultSlotLevel = spell.level === 0 ? 0 : (castable[0] ? Number(castable[0][0]) : spell.level)
+    const activeSlotLevel = selectedSlotLevel ?? defaultSlotLevel
+
+    const scalingRows = hasVisualization
+      ? (spell.level === 0
+          ? [{ castLevel: 0, remaining: Infinity, slot: null as null | { used: number; total: number } }]
+          : castable.map(([lvl, slot]) => ({
+              castLevel: Number(lvl),
+              remaining: slot.total - slot.used,
+              slot,
+            })))
+      : []
+
+    const leftCol = (
+      <>
         <dl className={styles.spellExpandMeta}>
           <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
           <dt>Range</dt><dd>{spell.range}</dd>
@@ -106,6 +122,43 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           {SPELL_ATTACK_IDS.has(spell.id) && (<><dt>To Hit</dt><dd>{fmtMod(spellAtkBonus)}</dd></>)}
         </dl>
         <p className={styles.spellExpandDesc}>{spell.description}</p>
+        {hasVisualization && scalingRows.length > 0 && (
+          <ul className={styles.spellScalingList}>
+            {scalingRows.map(({ castLevel, remaining }) => {
+              const dmg = computeSpellDamage(spell, castLevel, char)
+              const isActive = castLevel === activeSlotLevel
+              const dcOrToHit = spell.attackType === 'attack-roll'
+                ? fmtMod(spellAtkBonus)
+                : spell.saveAbility
+                  ? `DC ${spellSaveDC} ${spell.saveAbility.toUpperCase()}`
+                  : '—'
+              return (
+                <li
+                  key={castLevel}
+                  className={`${styles.spellScalingRow} ${isActive ? styles.spellScalingRowActive : ''}`}
+                  onClick={() => setSelectedSlotLevel(castLevel)}
+                >
+                  <span className={styles.spellScalingSlot}>
+                    {castLevel === 0 ? 'Cantrip' : (ORDINAL[castLevel] ?? `${castLevel}th`)}
+                  </span>
+                  <span className={styles.spellScalingDmg}>
+                    {dmg.hitFormula}
+                    {dmg.missFormula === 'half' && (
+                      <span className={styles.spellScalingMiss}> · save: half</span>
+                    )}
+                    {dmg.missFormula === '—' && (
+                      <span className={styles.spellScalingMiss}> · miss: —</span>
+                    )}
+                  </span>
+                  <span className={styles.spellScalingDc}>{dcOrToHit}</span>
+                  <span className={styles.spellScalingLeft}>
+                    {castLevel === 0 ? '∞' : `${remaining} left`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
         {(spell.id === char.masterySpells?.level1 || spell.id === char.masterySpells?.level2) && (
           <button className={styles.spellExpandCastBtn} onClick={() => setExpandedSpell(null)}>
             Cast (Mastery) — no slot required
@@ -173,6 +226,22 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             </button>
           )
         })()}
+      </>
+    )
+
+    return (
+      <div className={styles.spellExpandArea}>
+        <button className={styles.spellExpandClose} onClick={() => setExpandedSpell(null)}>×</button>
+        {hasVisualization ? (
+          <div className={styles.spellExpandTwoCol}>
+            <div className={styles.spellExpandLeftCol}>{leftCol}</div>
+            <div className={styles.spellExpandRightCol}>
+              <SpellVisualization spell={spell} character={char} slotLevel={activeSlotLevel} />
+            </div>
+          </div>
+        ) : (
+          leftCol
+        )}
       </div>
     )
   }
