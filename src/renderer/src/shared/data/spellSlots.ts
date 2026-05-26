@@ -73,6 +73,30 @@ const WARLOCK_SLOTS: Record<number, number[]> = {
   20: [0,0,0,0,4,0,0,0,0],
 }
 
+// Artificer — special half-caster (rounds UP, slots start at level 1, max 5th-level slots)
+const ARTIFICER_SLOTS: Record<number, number[]> = {
+  1:  [2,0,0,0,0,0,0,0,0],
+  2:  [2,0,0,0,0,0,0,0,0],
+  3:  [3,0,0,0,0,0,0,0,0],
+  4:  [3,0,0,0,0,0,0,0,0],
+  5:  [4,2,0,0,0,0,0,0,0],
+  6:  [4,2,0,0,0,0,0,0,0],
+  7:  [4,3,0,0,0,0,0,0,0],
+  8:  [4,3,0,0,0,0,0,0,0],
+  9:  [4,3,2,0,0,0,0,0,0],
+  10: [4,3,2,0,0,0,0,0,0],
+  11: [4,3,3,0,0,0,0,0,0],
+  12: [4,3,3,0,0,0,0,0,0],
+  13: [4,3,3,1,0,0,0,0,0],
+  14: [4,3,3,1,0,0,0,0,0],
+  15: [4,3,3,2,0,0,0,0,0],
+  16: [4,3,3,2,0,0,0,0,0],
+  17: [4,3,3,3,1,0,0,0,0],
+  18: [4,3,3,3,1,0,0,0,0],
+  19: [4,3,3,3,2,0,0,0,0],
+  20: [4,3,3,3,2,0,0,0,0],
+}
+
 // Third-casters (Eldritch Knight, Arcane Trickster) — by class level, start level 3
 const THIRD_CASTER: Record<number, number[]> = {
   1:  [0,0,0,0,0,0,0,0,0],  2:  [0,0,0,0,0,0,0,0,0],
@@ -98,6 +122,7 @@ export function defaultSpellSlots(classId: string, level: number, subclassId?: s
   else if (FULL_CASTERS.has(classId)) table = FULL_CASTER
   else if (HALF_CASTERS.has(classId)) table = HALF_CASTER
   else if (classId === 'Warlock') table = WARLOCK_SLOTS
+  else if (classId === 'Artificer') table = ARTIFICER_SLOTS
   else return {}
 
   const row = table[Math.min(20, Math.max(1, level))]

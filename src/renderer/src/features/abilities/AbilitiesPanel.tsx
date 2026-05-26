@@ -3,7 +3,7 @@ import type { Character, AbilityScore, AbilityScores } from '@/entities/characte
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
 import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats } from '@/shared/data/charCalculations'
-import { RACE_BY_ID } from '@/shared/data/raceData'
+import { RACE_BY_ID, RACE_SAVE_ADVANTAGES } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
 
@@ -133,7 +133,13 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
           const isProficient = char.savingThrowProficiencies.includes(ab)
           const equipBonus = equipStats.savingThrowBonus[ab] ?? 0
           const abilBonus = equipStats.abilityBonus[ab] ?? 0
-          const hasAdv = equipStats.advantage.savingThrows.includes(ab)
+          const hasEquipAdv = equipStats.advantage.savingThrows.includes(ab)
+          const racialAdv = (RACE_SAVE_ADVANTAGES[char.race] ?? []).filter(adv => adv.saves.includes(ab))
+          const hasAdv = hasEquipAdv || racialAdv.length > 0
+          const advTooltip = [
+            ...(hasEquipAdv ? ['Equipment'] : []),
+            ...racialAdv.map(a => `${a.source} (${a.vs})`),
+          ].join(' · ')
           const abilMod = mod(char.abilityScores[ab] + abilBonus)
           const bonus = abilMod + (isProficient ? prof : 0) + equipBonus
           const isSel = selectedDetail?.type === 'save' && selectedDetail.key === ab
@@ -153,7 +159,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
               />
               <span className={styles.saveBonus}>{fmtMod(bonus)}</span>
               {equipBonus !== 0 && <span className={styles.equipBadge}>★</span>}
-              {hasAdv && <span className={styles.advBadge}>ADV</span>}
+              {hasAdv && <span className={styles.advBadge} title={advTooltip}>ADV</span>}
               <span className={styles.saveAb}>{ab.toUpperCase()}</span>
               <span className={styles.saveFormula}>
                 d20{fmtMod(abilMod)}{isProficient ? `+${prof}p` : ''}{equipBonus !== 0 ? `+${equipBonus}eq` : ''}

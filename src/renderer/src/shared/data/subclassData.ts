@@ -1,5 +1,6 @@
 import type { ArmorProficiency } from './equipment/gear'
 import type { AbilityScore } from '@/entities/character/types'
+import type { FeatureEntry } from './classFeaturesData'
 
 export interface SubclassDef {
   id: string
@@ -21,6 +22,10 @@ export interface SubclassDef {
   spellListClassId?: string
   /** Cantrips-known progression table (keyed by class level) for subclass spellcasters */
   cantripsKnownTable?: Partial<Record<number, number>>
+  /** Subclass-specific features unlocked at given levels (merged into FeaturesPanel) */
+  subclassFeatures?: FeatureEntry[]
+  /** Subclass-granted spells, keyed by class level (always known/prepared, don't count against limits) */
+  subclassSpells?: Partial<Record<number, string[]>>
 }
 
 export const SUBCLASSES: SubclassDef[] = [
@@ -195,10 +200,82 @@ export const SUBCLASSES: SubclassDef[] = [
   { id: 'WarMagic',       label: 'War Magic',                classId: 'Wizard', unlocksAtLevel: 2, description: 'Blend offense and defense for battlefield wizardry. Arcane Deflection adds to AC and saves as a reaction.' },
 
   // ── Artificer (level 3) ─────────────────────────────────────────
-  { id: 'Alchemist',   label: 'Alchemist',   classId: 'Artificer', unlocksAtLevel: 3, description: 'Create experimental elixirs that grant random beneficial effects when consumed.' },
-  { id: 'Armorer',     label: 'Armorer',     classId: 'Artificer', unlocksAtLevel: 3, description: 'Use armor as a weapon platform. Choose Guardian or Infiltrator mode for your magical suit.' },
-  { id: 'Artillerist', label: 'Artillerist', classId: 'Artificer', unlocksAtLevel: 3, description: 'Create a magical cannon that fires force, fire, or necrotic projectiles.' },
-  { id: 'BattleSmith', label: 'Battle Smith', classId: 'Artificer', unlocksAtLevel: 3, description: 'A master of weapons and constructs. Use INT for weapon attacks and summon a Steel Defender.' },
+  {
+    id: 'Alchemist', label: 'Alchemist', classId: 'Artificer', unlocksAtLevel: 3,
+    description: 'Create experimental elixirs that grant random beneficial effects when consumed.',
+    subclassFeatures: [
+      { level: 3, name: 'Tool Proficiency (Alchemist\'s Supplies)', desc: 'You gain proficiency with alchemist\'s supplies. If you already have it, you learn one other tool proficiency of your choice.' },
+      { level: 3, name: 'Experimental Elixir', desc: 'After a long rest, magically create elixirs. Roll on the Experimental Elixir table (Healing, Swiftness, Resilience, Boldness, Flight, Transformation). Number of free elixirs = max(1, INT mod).' },
+      { level: 5, name: 'Alchemical Savant', desc: 'When you cast a spell using alchemist\'s supplies as a focus, add INT mod (min +1) to one healing or acid/fire/necrotic/poison damage roll of the spell.' },
+      { level: 9, name: 'Restorative Reagents', desc: 'When a creature drinks an experimental elixir, it gains temp HP equal to 2d6 + INT mod. You can also cast Lesser Restoration as an action without using a spell slot (uses = INT mod per long rest).' },
+      { level: 15, name: 'Chemical Mastery', desc: 'Resistance to acid and poison damage; immunity to the poisoned condition. You can cast Greater Restoration and Heal once each per long rest without using a spell slot.' },
+    ],
+    subclassSpells: {
+      3: ['healing-word', 'ray-of-sickness'],
+      5: ['flaming-sphere', 'melfs-acid-arrow'],
+      9: ['gaseous-form', 'mass-healing-word'],
+      13: ['blight', 'death-ward'],
+      17: ['cloudkill', 'raise-dead'],
+    },
+  },
+  {
+    id: 'Armorer', label: 'Armorer', classId: 'Artificer', unlocksAtLevel: 3,
+    description: 'Use armor as a weapon platform. Choose Guardian or Infiltrator mode for your magical suit.',
+    extraArmorProficiencies: ['heavy'],
+    subclassFeatures: [
+      { level: 3, name: 'Tools of the Trade', desc: 'You gain proficiency with heavy armor and smith\'s tools. If you already have smith\'s tools, you gain one other tool proficiency.' },
+      { level: 3, name: 'Arcane Armor', desc: 'Your armor becomes a magical suit. It includes integrated weapons (Thunder Gauntlets for Guardian; Lightning Launcher for Infiltrator), grants benefits per chosen Armor Model, and you can don/doff it in 1 action.' },
+      { level: 3, name: 'Armor Model (Guardian / Infiltrator)', desc: 'Guardian: Thunder Gauntlets (1d8 thunder, disadvantage on attacks not targeting you), Defensive Field (bonus action: temp HP = Artificer level). Infiltrator: Lightning Launcher (1d6 lightning ranged, bonus 1d6 lightning once per turn), Powered Steps (+5 ft speed), Dampening Field (advantage on Stealth in this armor).' },
+      { level: 3, name: 'Armor Modifications', desc: 'You can apply up to 2 infusions at once to your Arcane Armor (it counts as 2 separate items for infusion purposes).' },
+      { level: 5, name: 'Extra Attack', desc: 'You can attack twice, instead of once, whenever you take the Attack action on your turn.' },
+      { level: 9, name: 'Armor Modifications (improved)', desc: 'You can apply up to 4 infusions at once to your Arcane Armor (helmet, boots, breastplate, gauntlets — each treated separately).' },
+      { level: 15, name: 'Perfected Armor', desc: 'Guardian: when a creature within 30 ft you can see hits a target other than you with an attack, use a reaction to magnetically pull the target up to 30 ft (Strength save to resist). Infiltrator: critical hit range becomes 19–20 against creatures it has already hit this turn.' },
+    ],
+    subclassSpells: {
+      3: ['magic-missile', 'thunderwave'],
+      5: ['mirror-image', 'shatter'],
+      9: ['hypnotic-pattern', 'lightning-bolt'],
+      13: ['fire-shield', 'greater-invisibility'],
+      17: ['passwall', 'wall-of-force'],
+    },
+  },
+  {
+    id: 'Artillerist', label: 'Artillerist', classId: 'Artificer', unlocksAtLevel: 3,
+    description: 'Create a magical cannon that fires force, fire, or necrotic projectiles.',
+    subclassFeatures: [
+      { level: 3, name: 'Tools of the Trade', desc: 'You gain proficiency with martial weapons and woodcarver\'s tools.' },
+      { level: 3, name: 'Eldritch Cannon', desc: 'As an action, magically conjure a Tiny or Small cannon (AC 18, HP = 5×Artificer level). Choose Flamethrower (15 ft cone, 2d8 fire, DEX save half), Force Ballista (120 ft ranged spell attack, 2d8 force, push 5 ft), or Protector (10 ft radius, 1d8+INT temp HP to allies). Move it 5 ft as a bonus action; activate or summon a new one as a bonus action thereafter.' },
+      { level: 5, name: 'Arcane Firearm', desc: 'After a long rest, magically modify a wand/staff/rod into your Arcane Firearm. When you cast a spell through it, roll a d8 and add the result to one damage roll of that spell.' },
+      { level: 9, name: 'Explosive Cannon', desc: 'Eldritch Cannon damage dice increase from d8 to d10. You can also command the cannon to detonate as an action (forfeiting it; each creature within 20 ft makes DEX save or takes 3d8 force damage, half on success).' },
+      { level: 15, name: 'Fortified Position', desc: 'You and allies have half cover while within 10 ft of an Eldritch Cannon you can see. You can have two Eldritch Cannons at the same time and activate both with the same bonus action.' },
+    ],
+    subclassSpells: {
+      3: ['shield', 'thunderwave'],
+      5: ['scorching-ray', 'shatter'],
+      9: ['fireball', 'wind-wall'],
+      13: ['ice-storm', 'wall-of-fire'],
+      17: ['cone-of-cold', 'wall-of-force'],
+    },
+  },
+  {
+    id: 'BattleSmith', label: 'Battle Smith', classId: 'Artificer', unlocksAtLevel: 3,
+    description: 'A master of weapons and constructs. Use INT for weapon attacks and summon a Steel Defender.',
+    subclassFeatures: [
+      { level: 3, name: 'Tools of the Trade', desc: 'You gain proficiency with martial weapons and smith\'s tools.' },
+      { level: 3, name: 'Battle Ready', desc: 'When you attack with a magic weapon you can use INT instead of STR or DEX for attack and damage rolls.' },
+      { level: 3, name: 'Steel Defender', desc: 'Construct an iron defender (AC 15, HP = 2 + INT mod + 5×Artificer level, speed 40 ft). It obeys your commands. Use your bonus action to command it to take an action; otherwise it Dodges. Force-Empowered Rend (1d8 + PB force) and Deflect Attack reaction available.' },
+      { level: 5, name: 'Extra Attack', desc: 'You can attack twice, instead of once, whenever you take the Attack action on your turn.' },
+      { level: 9, name: 'Arcane Jolt', desc: 'When you hit a target with a magic weapon attack or your Steel Defender hits, deal extra 2d6 force damage OR distribute 2d6 HP to creatures within 30 ft. Uses = INT mod (min 1) per long rest.' },
+      { level: 15, name: 'Improved Defender', desc: 'Steel Defender gets +2 AC and Arcane Jolt extra is 4d6. Whenever the defender uses Deflect Attack, the attacker takes 1d4 + INT force damage.' },
+    ],
+    subclassSpells: {
+      3: ['heroism', 'shield'],
+      5: ['branding-smite', 'warding-bond'],
+      9: ['aura-of-vitality', 'conjure-barrage'],
+      13: ['aura-of-purity', 'fire-shield'],
+      17: ['banishing-smite', 'mass-cure-wounds'],
+    },
+  },
 ]
 
 export const SUBCLASS_BY_ID = Object.fromEntries(SUBCLASSES.map(s => [s.id, s])) as Record<string, SubclassDef>

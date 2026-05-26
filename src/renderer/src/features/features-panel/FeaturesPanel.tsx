@@ -63,6 +63,16 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
     })
   }
 
+  // Subclass-defined features (per SubclassDef.subclassFeatures)
+  if (char.subclass) {
+    const subclassDef = SUBCLASS_BY_ID[char.subclass]
+    for (const f of subclassDef?.subclassFeatures ?? []) {
+      if (f.level <= char.level) {
+        classFeatures.push({ ...f, source: 'class' })
+      }
+    }
+  }
+
   const classDef = CLASS_BY_ID[char.classId]
   const spellcastingAbility = classDef?.spellcastingAbility
   if (classDef?.prepareSpells && spellcastingAbility) {

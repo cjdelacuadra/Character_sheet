@@ -1,4 +1,4 @@
-import type { AbilityScores } from '@/entities/character/types'
+import type { AbilityScore, AbilityScores } from '@/entities/character/types'
 
 export interface RaceDef {
   id: string
@@ -232,3 +232,27 @@ export const RACES: RaceDef[] = [
 export const RACE_BY_ID = Object.fromEntries(RACES.map(r => [r.id, r])) as Record<string, RaceDef>
 
 export const RACE_LABELS = RACES.map(r => ({ id: r.id, label: r.label }))
+
+export interface RaceSaveAdvantage {
+  saves: AbilityScore[]
+  vs: string
+  source: string
+}
+
+export const RACE_SAVE_ADVANTAGES: Record<string, RaceSaveAdvantage[]> = {
+  Dwarf:         [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
+  MountainDwarf: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
+  Elf:           [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
+  WoodElf:       [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
+  Drow:          [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
+  HalfElf:       [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
+  Halfling:      [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }],
+  StoutHalfling: [
+    { saves: ['wis'], vs: 'vs frightened', source: 'Brave' },
+    { saves: ['con'], vs: 'vs poison', source: 'Stout Resilience' },
+  ],
+  Gnome:         [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
+  RockGnome:     [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
+  Warforged:     [{ saves: ['con'], vs: 'vs poison', source: 'Constructed Resilience' }],
+  Githzerai:     [{ saves: ['wis'], vs: 'vs charm & frightened', source: 'Mental Discipline' }],
+}

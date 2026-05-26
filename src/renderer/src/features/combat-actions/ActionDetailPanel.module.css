@@ -30,6 +30,16 @@
 }
 .detailResourceRemaining { color: var(--text-muted); font-weight: 400; }
 
+.detailChipBtn {
+  padding: 6px 12px; border-radius: 14px; border: 1px solid var(--border);
+  background: var(--surface-alt); color: var(--text-primary); font-size: 12px;
+  font-weight: 500; cursor: pointer; transition: all 0.12s;
+}
+.detailChipBtn:hover:not(:disabled) {
+  background: var(--accent); color: var(--accent-fg, white); border-color: var(--accent);
+}
+.detailChipBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── Fighting style picker ── */
 .fightingStyleList { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
 .fightingStyleOption {

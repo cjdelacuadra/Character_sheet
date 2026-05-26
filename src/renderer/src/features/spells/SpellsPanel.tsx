@@ -3,6 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, SPELLS, computeUpcastDice } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { SpellVisualization } from './SpellVisualization'
 import styles from './SpellsPanel.module.css'
@@ -23,12 +24,24 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
+  const [learnShowAllLevels, setLearnShowAllLevels] = useState(false)
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
+  const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
+  const raceDef = RACE_BY_ID[char.race]
   const isSpellcaster = !!classDef?.isSpellcaster || !!subclassDef?.spellcastingAbility
 
-  if (!isSpellcaster) return null
+  // Aggregate racial spells available at the character's current level
+  const racialSpellIds: string[] = []
+  if (raceDef?.racialSpells) {
+    for (const [lvlStr, ids] of Object.entries(raceDef.racialSpells)) {
+      if (Number(lvlStr) <= char.level) racialSpellIds.push(...(ids ?? []))
+    }
+  }
+  const hasRacialSpells = racialSpellIds.length > 0
+
+  if (!isSpellcaster && !hasRacialSpells) return null
 
   const spellSaveDC = computeSpellSaveDC(char)
   const spellAtkBonus = computeSpellAttackBonus(char)
@@ -78,6 +91,62 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     update({ preparedSpellIds: preparedSet.has(id)
       ? char.preparedSpellIds.filter(x => x !== id)
       : [...char.preparedSpellIds, id] })
+  }
+
+  // ── Drag-and-drop helpers ───────────────────────────────────────────
+  function onSpellDragStart(e: React.DragEvent, id: string, from: 'prepared' | 'known' | 'learnable') {
+    e.dataTransfer.setData('text/spell-id', id)
+    e.dataTransfer.setData('text/from-section', from)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  function onSectionDragOver(e: React.DragEvent, section: 'prepared' | 'known' | 'spellbook') {
+    if (e.dataTransfer.types.includes('text/spell-id')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      setDragOver(section)
+    }
+  }
+  function onSectionDragLeave() { setDragOver(null) }
+  function onSectionDrop(e: React.DragEvent, section: 'prepared' | 'known' | 'spellbook') {
+    e.preventDefault()
+    setDragOver(null)
+    const id = e.dataTransfer.getData('text/spell-id')
+    const from = e.dataTransfer.getData('text/from-section')
+    if (!id) return
+    const spell = SPELL_BY_ID[id]
+    if (!spell) return
+
+    if (section === 'prepared') {
+      if (from === 'learnable') return // can't prepare without learning first
+      if (spell.level === 0) return    // cantrips don't get prepared
+      if (preparedSet.has(id)) return  // already prepared
+      if (prepareLimit !== null && char.preparedSpellIds.length >= prepareLimit) return
+      update({ preparedSpellIds: [...char.preparedSpellIds, id] })
+    } else if (section === 'known') {
+      // Move prepared spell back to known
+      if (preparedSet.has(id)) {
+        update({ preparedSpellIds: char.preparedSpellIds.filter(x => x !== id) })
+      }
+    } else if (section === 'spellbook') {
+      // Wizard copy flow: must be from 'learnable'
+      if (from !== 'learnable') return
+      if (!onLearnSpell) return
+      const cost = computeLearnCost(spell)
+      if (char.gold < cost) return
+      onLearnSpell(id)
+      if (cost > 0) update({ gold: char.gold - cost })
+    }
+  }
+
+  // Wizard spellbook copy cost. PHB: 50gp × spell level (cantrips free).
+  // Specialty Wizards get half cost for spells of their school (PHB Savant rule).
+  function computeLearnCost(spell: { level: number; school: string }): number {
+    if (spell.level === 0) return 0
+    const base = 50 * spell.level
+    if (!isWizard || !subclassDef) return base
+    // Match School of X subclass to spell school (e.g., subclass "Evocation" ⇒ spells with school "Evocation")
+    if (subclassDef.label.toLowerCase().includes(spell.school.toLowerCase())) return Math.floor(base / 2)
+    return base
   }
 
   const activeConcentration = char.concentrationSpellId ? SPELL_BY_ID[char.concentrationSpellId] : null
@@ -246,15 +315,18 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     )
   }
 
-  function SpellRow({ id }: { id: string }) {
+  function SpellRow({ id, fromSection }: { id: string; fromSection?: 'prepared' | 'known' }) {
     const spell = SPELL_BY_ID[id]
     const isExpanded = expandedSpell === id
     const isConc = char.concentrationSpellId === id
+    const draggable = isPreparedCaster && !!spell && spell.level > 0 && (fromSection === 'prepared' || fromSection === 'known')
 
     return (
       <>
         <div
           className={`${styles.spellEntry} ${isConc ? styles.spellConc : ''}`}
+          draggable={draggable}
+          onDragStart={draggable && fromSection ? e => onSpellDragStart(e, id, fromSection) : undefined}
           onClick={() => toggleExpand(id)}
         >
           <div className={styles.spellEntryLeft}>
@@ -291,6 +363,16 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     )
   }
 
+  // Subclass-granted spells (e.g., Cleric domain spells, Artificer subclass spells)
+  // — always known/prepared, don't count against the prepared cap.
+  const subclassGrantedIds: string[] = []
+  if (subclassDef?.subclassSpells) {
+    for (const [lvlStr, ids] of Object.entries(subclassDef.subclassSpells)) {
+      if (Number(lvlStr) <= char.level) subclassGrantedIds.push(...(ids ?? []))
+    }
+  }
+  const subclassGrantedSet = new Set(subclassGrantedIds)
+
   // Decide which spells go in which section
   const allKnownIds = char.spellIds.filter(id => {
     const spell = SPELL_BY_ID[id]
@@ -299,8 +381,18 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     return spell.name.toLowerCase().includes(search.toLowerCase())
   }).sort((a, b) => (SPELL_BY_ID[a]?.level ?? 0) - (SPELL_BY_ID[b]?.level ?? 0))
 
+  // Subclass spells filtered the same way and only those that exist in the catalog
+  const subclassDisplayIds = subclassGrantedIds
+    .filter(id => SPELL_BY_ID[id])
+    .filter(id => {
+      const spell = SPELL_BY_ID[id]!
+      if (castingTimeFilter && !spell.castingTime.toLowerCase().includes(castingTimeFilter.toLowerCase())) return false
+      return spell.name.toLowerCase().includes(search.toLowerCase())
+    })
+    .sort((a, b) => (SPELL_BY_ID[a]?.level ?? 0) - (SPELL_BY_ID[b]?.level ?? 0))
+
   const preparedIds = allKnownIds.filter(id => preparedSet.has(id))
-  const cantripsAndKnown = allKnownIds.filter(id => !preparedSet.has(id))
+  const cantripsAndKnown = allKnownIds.filter(id => !preparedSet.has(id) && !subclassGrantedSet.has(id))
 
   return (
     <>
@@ -368,40 +460,71 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
 
           {isPreparedCaster ? (
             <>
-              {/* Section 1: Prepared */}
+              {/* Section 1: Prepared — drop target */}
               <span className={styles.spellSubLabel}>Prepared ({preparedIds.length}{prepareLimit !== null ? `/${prepareLimit}` : ''})</span>
-              <div className={styles.spellList}>
-                {preparedIds.map(id => <SpellRow key={id} id={id} />)}
-                {preparedIds.length === 0 && <div className={styles.emptyNote}>No spells prepared.</div>}
+              <div
+                className={`${styles.spellList} ${dragOver === 'prepared' ? styles.spellListDropActive : ''}`}
+                onDragOver={e => onSectionDragOver(e, 'prepared')}
+                onDragLeave={onSectionDragLeave}
+                onDrop={e => onSectionDrop(e, 'prepared')}
+              >
+                {preparedIds.map(id => <SpellRow key={id} id={id} fromSection="prepared" />)}
+                {preparedIds.length === 0 && <div className={styles.emptyNote}>No spells prepared. Drag from Spellbook to prepare.</div>}
               </div>
+
+              {subclassDisplayIds.length > 0 && (
+                <>
+                  <div className={styles.spellSubDivider} />
+                  <span className={styles.spellSubLabel}>
+                    Subclass Spells ({subclassDisplayIds.length}) <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>· always prepared</span>
+                  </span>
+                  <div className={styles.spellList}>
+                    {subclassDisplayIds.map(id => <SpellRow key={id} id={id} />)}
+                  </div>
+                </>
+              )}
 
               <div className={styles.spellSubDivider} />
 
-              {/* Section 2: Known / Spellbook (not prepared) */}
-              <span className={styles.spellSubLabel}>{isWizard ? 'Spellbook' : 'Known'}</span>
-              <div className={styles.spellList}>
-                {cantripsAndKnown.map(id => <SpellRow key={id} id={id} />)}
+              {/* Section 2: Known / Spellbook (not prepared) — drop target */}
+              <span className={styles.spellSubLabel}>
+                {isWizard ? 'Spellbook' : 'Known'} ({cantripsAndKnown.length})
+              </span>
+              <div
+                className={`${styles.spellList} ${dragOver === 'spellbook' || dragOver === 'known' ? styles.spellListDropActive : ''}`}
+                onDragOver={e => onSectionDragOver(e, isWizard ? 'spellbook' : 'known')}
+                onDragLeave={onSectionDragLeave}
+                onDrop={e => onSectionDrop(e, isWizard ? 'spellbook' : 'known')}
+              >
+                {cantripsAndKnown.map(id => <SpellRow key={id} id={id} fromSection="known" />)}
                 {cantripsAndKnown.length === 0 && <div className={styles.emptyNote}>No other spells known.</div>}
               </div>
 
               {/* Section 3: Learnable (Wizard + onLearnSpell) */}
-              {isWizard && onLearnSpell && (
-                <>
-                  <div className={styles.spellSubDivider} />
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span className={styles.spellSubLabel}>Learnable</span>
-                    <button className={styles.learnBtn} onClick={() => { setLearnOpen(v => !v); setLearnSearch('') }}>
-                      {learnOpen ? '− Close' : '+ Learn'}
-                    </button>
-                  </div>
-                  {learnOpen && (() => {
-                    const knownIds = new Set(char.spellIds)
-                    const learnable = SPELLS.filter(s =>
-                      s.classes.includes(char.classId) &&
-                      !knownIds.has(s.id) &&
-                      s.name.toLowerCase().includes(learnSearch.toLowerCase())
-                    ).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
-                    return (
+              {isWizard && onLearnSpell && (() => {
+                const knownIds = new Set(char.spellIds)
+                const allLearnable = SPELLS.filter(s =>
+                  s.classes.includes(char.classId) &&
+                  !knownIds.has(s.id)
+                )
+                const learnable = allLearnable
+                  .filter(s => learnShowAllLevels || s.level === 0 || s.level <= maxCastableLevel)
+                  .filter(s => s.name.toLowerCase().includes(learnSearch.toLowerCase()))
+                  .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+                const totalLearnableCount = allLearnable.length
+                return (
+                  <>
+                    <div className={styles.spellSubDivider} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span className={styles.spellSubLabel}>
+                        Learnable ({totalLearnableCount})
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11, marginLeft: 8 }}>· {char.gold} gp owned</span>
+                      </span>
+                      <button className={styles.learnBtn} onClick={() => { setLearnOpen(v => !v); setLearnSearch('') }}>
+                        {learnOpen ? '− Hide' : '+ Browse'}
+                      </button>
+                    </div>
+                    {learnOpen && (
                       <div className={styles.learnPicker}>
                         <input
                           className={styles.spellSearch}
@@ -409,16 +532,35 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                           placeholder="Search spells to learn…"
                           value={learnSearch}
                           onChange={e => setLearnSearch(e.target.value)}
-                          autoFocus
                         />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', padding: '4px 2px' }}>
+                          <input
+                            type="checkbox"
+                            checked={learnShowAllLevels}
+                            onChange={e => setLearnShowAllLevels(e.target.checked)}
+                          />
+                          Show higher-level spells (spellbook-only, can't cast yet)
+                        </label>
                         <div className={styles.spellList}>
                           {learnable.map(s => {
                             const aboveSlotsLevel = s.level > 0 && s.level > maxCastableLevel
+                            const cost = computeLearnCost(s)
+                            const baseCost = s.level === 0 ? 0 : 50 * s.level
+                            const discounted = cost > 0 && cost < baseCost
+                            const canAfford = char.gold >= cost
                             return (
                               <button
                                 key={s.id}
                                 className={styles.spellEntry}
-                                onClick={() => { onLearnSpell(s.id); setLearnOpen(false) }}
+                                draggable={canAfford}
+                                onDragStart={canAfford ? e => onSpellDragStart(e, s.id, 'learnable') : undefined}
+                                disabled={!canAfford}
+                                title={canAfford ? `Drag to Spellbook to copy (costs ${cost} gp)` : `Need ${cost} gp to copy this spell`}
+                                onClick={() => {
+                                  if (!canAfford) return
+                                  onLearnSpell(s.id)
+                                  if (cost > 0) update({ gold: char.gold - cost })
+                                }}
                               >
                                 <div className={styles.spellEntryLeft}>
                                   <span className={`${styles.spellLevelBadge} ${s.level === 0 ? styles.spellLevelCantrip : ''}`}>
@@ -432,16 +574,19 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                                     </span>
                                   )}
                                 </div>
+                                <span style={{ fontSize: 11, color: canAfford ? (discounted ? 'var(--success)' : 'var(--text-muted)') : 'var(--danger)' }}>
+                                  {s.level === 0 ? 'free' : `${cost} gp${discounted ? ' (½ school)' : ''}`}
+                                </span>
                               </button>
                             )
                           })}
                           {learnable.length === 0 && <div className={styles.emptyNote}>No spells found.</div>}
                         </div>
                       </div>
-                    )
-                  })()}
-                </>
-              )}
+                    )}
+                  </>
+                )
+              })()}
             </>
           ) : (
             // Spontaneous casters: single list

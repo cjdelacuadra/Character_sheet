@@ -6,7 +6,13 @@ import {
   computeSpeed,
   skillBonus,
   savingThrowBonus,
+  computeAC,
 } from '@/shared/data/charCalculations'
+import type { AbilityScores } from '@/entities/character/types'
+
+function scores(partial: Partial<AbilityScores>): AbilityScores {
+  return { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, ...partial }
+}
 
 describe('mod', () => {
   it('returns 0 for 10', () => expect(mod(10)).toBe(0))
@@ -91,5 +97,40 @@ describe('savingThrowBonus', () => {
   })
   it('negative modifier without proficiency', () => {
     expect(savingThrowBonus(8, false, 2)).toBe(-1)
+  })
+})
+
+describe('computeAC unarmored', () => {
+  const noArmor = { armorId: undefined, shieldId: undefined, hasShield: false }
+
+  it('Wizard, no race effect: 10 + DEX', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14 }), equipment: noArmor, classId: 'Wizard', race: 'Human' })).toBe(12)
+  })
+  it('Barbarian Human DEX 14 CON 16: 10 + 2 + 3 = 15', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14, con: 16 }), equipment: noArmor, classId: 'Barbarian', race: 'Human' })).toBe(15)
+  })
+  it('Monk Human DEX 14 WIS 16: 10 + 2 + 3 = 15', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14, wis: 16 }), equipment: noArmor, classId: 'Monk', race: 'Human' })).toBe(15)
+  })
+  it('Lizardfolk Wizard DEX 16: natural AC 13 + 3 = 16 (beats 10 + DEX)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 16 }), equipment: noArmor, classId: 'Wizard', race: 'Lizardfolk' })).toBe(16)
+  })
+  it('Lizardfolk Barbarian DEX 14 CON 16: tie at 15 (natural and Barbarian formulas both yield 15)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14, con: 16 }), equipment: noArmor, classId: 'Barbarian', race: 'Lizardfolk' })).toBe(15)
+  })
+  it('Lizardfolk Barbarian DEX 10 CON 18: Barbarian wins (14 > 13 natural)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 10, con: 18 }), equipment: noArmor, classId: 'Barbarian', race: 'Lizardfolk' })).toBe(14)
+  })
+  it('Lizardfolk Barbarian DEX 16 CON 20: natural wins (16 > 15 Barbarian)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 16, con: 20 }), equipment: noArmor, classId: 'Barbarian', race: 'Lizardfolk' })).toBe(16)
+  })
+  it('Tortle Wizard DEX 8: natural AC 17 (Tortle fixed shell)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 8 }), equipment: noArmor, classId: 'Wizard', race: 'Tortle' })).toBe(17)
+  })
+  it('Draconic Sorcerer DEX 14: subclass formula 13 + DEX = 15 beats default 12', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14 }), equipment: noArmor, classId: 'Sorcerer', race: 'Human', subclass: 'DraconicBloodline' })).toBe(15)
+  })
+  it('Githzerai Monk DEX 14 WIS 16: natural (10+2+3=15) ties Monk formula (10+2+3=15)', () => {
+    expect(computeAC({ abilityScores: scores({ dex: 14, wis: 16 }), equipment: noArmor, classId: 'Monk', race: 'Githzerai' })).toBe(15)
   })
 })

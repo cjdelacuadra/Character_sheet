@@ -45,21 +45,18 @@ export function computeAC(char: {
     ? (shieldDef.baseAC ?? 2) + (shieldDef.enchantmentBonus ?? 0)
     : equipment.hasShield ? 2 : 0
 
-  // Compute unarmored AC (natural armor, subclass override, or standard formula)
+  // Compute unarmored AC by considering every applicable formula
+  // (natural armor, subclass override, Barbarian/Monk unarmored defense) and
+  // taking the highest. Per RAW these mechanics don't stack — the player uses
+  // whichever yields the best AC.
   const raceDef = RACE_BY_ID[race]
-  let unarmoredBase: number
-  if (raceDef?.naturalAC) {
-    unarmoredBase = raceDef.naturalAC(abilityScores)
-  } else {
-    const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
-    if (subclassDef?.unarmoredAC) {
-      unarmoredBase = subclassDef.unarmoredAC(dexMod, conMod, wisMod)
-    } else {
-      unarmoredBase = 10 + dexMod
-      if (classId === 'Barbarian') unarmoredBase = 10 + dexMod + conMod
-      else if (classId === 'Monk')  unarmoredBase = 10 + dexMod + wisMod
-    }
-  }
+  const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
+  const unarmoredFormulas: number[] = [10 + dexMod]
+  if (raceDef?.naturalAC) unarmoredFormulas.push(raceDef.naturalAC(abilityScores))
+  if (subclassDef?.unarmoredAC) unarmoredFormulas.push(subclassDef.unarmoredAC(dexMod, conMod, wisMod))
+  if (classId === 'Barbarian') unarmoredFormulas.push(10 + dexMod + conMod)
+  else if (classId === 'Monk')  unarmoredFormulas.push(10 + dexMod + wisMod)
+  const unarmoredBase = Math.max(...unarmoredFormulas)
   const unarmoredAC = unarmoredBase + shield
 
   const armorId = equipment.armorId ?? 'none'

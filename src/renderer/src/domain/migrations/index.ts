@@ -1,7 +1,7 @@
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 
-const CURRENT_SCHEMA_VERSION = 8
+const CURRENT_SCHEMA_VERSION = 9
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -89,6 +89,15 @@ function v7_to_v8(char: Partial<Character>): Partial<Character> {
   }
 }
 
+function v8_to_v9(char: Partial<Character>): Partial<Character> {
+  return {
+    ...char,
+    schemaVersion: 9,
+    artificerInfusions: (char as Record<string, unknown>).artificerInfusions as string[] ?? [],
+    activeArtificerInfusions: (char as Record<string, unknown>).activeArtificerInfusions as string[] ?? [],
+  }
+}
+
 function v6_to_v7(char: Partial<Character>): Partial<Character> {
   const eq = char.equipment ?? { armorId: null, hasShield: false, shieldId: null }
   return {
@@ -122,6 +131,7 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 6) data = v5_to_v6(data) as typeof data
   if (version < 7) data = v6_to_v7(data) as typeof data
   if (version < 8) data = v7_to_v8(data) as typeof data
+  if (version < 9) data = v8_to_v9(data) as typeof data
 
   return data as Character
 }

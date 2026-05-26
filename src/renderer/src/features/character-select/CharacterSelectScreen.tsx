@@ -118,6 +118,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   const [armorId, setArmorId] = useState<string>('none')
   const [shieldId, setShieldId] = useState<string | null>(null)
   const [chosenSkills, setChosenSkills] = useState<Skill[]>([])
+  const [chosenExpertise, setChosenExpertise] = useState<Skill[]>([])
   const [chosenWeapons, setChosenWeapons] = useState<WeaponDef[]>([])
 
   // Step 4 state
@@ -185,10 +186,27 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const skillProf: Partial<Record<Skill, 'proficient' | 'expert'>> = {}
     bgDef?.skills.forEach(s => { skillProf[s] = 'proficient' })
     chosenSkills.forEach(s => { skillProf[s] = 'proficient' })
+    // Only promote expertise for skills the character is actually proficient in
+    chosenExpertise.forEach(s => { if (skillProf[s]) skillProf[s] = 'expert' })
 
     const resources = getResourceDefaults(basics.classId, basics.level, scores)
 
-    const weapons = chosenWeapons.map(w => ({
+    // Sort chosen weapons by average damage so the highest-damage weapon
+    // lands at slot 0 (main hand). Parse "NdM" then NdM-style damage dice;
+    // average per die = (M+1)/2. Bonus dice contribute too.
+    function avgDamage(w: WeaponDef): number {
+      const parse = (expr?: string): number => {
+        if (!expr) return 0
+        const m = expr.match(/^(\d+)d(\d+)$/)
+        if (!m) return 0
+        const count = parseInt(m[1], 10)
+        const face = parseInt(m[2], 10)
+        return count * (face + 1) / 2
+      }
+      return parse(w.damageDie) + parse(w.bonusDamageDie) + (w.enchantmentBonus ?? 0)
+    }
+    const sortedWeapons = [...chosenWeapons].sort((a, b) => avgDamage(b) - avgDamage(a))
+    const weapons = sortedWeapons.map(w => ({
       id: w.id,
       name: w.name,
       atkBonus: 0,
@@ -209,7 +227,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
-      schemaVersion: 8,
+      schemaVersion: 9,
       createdAt: now,
       updatedAt: now,
       name: basics.name.trim(),
@@ -308,6 +326,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             armorId={armorId} setArmorId={setArmorId}
             shieldId={shieldId} setShieldId={setShieldId}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
+            chosenExpertise={chosenExpertise} setChosenExpertise={setChosenExpertise}
             chosenWeapons={chosenWeapons} setChosenWeapons={setChosenWeapons}
             chosenFightingStyle={chosenFightingStyle} setChosenFightingStyle={setChosenFightingStyle}
             onBack={() => setStep('scores')}
@@ -429,6 +448,34 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
               }} />
           </label>
         </div>
+        {/* Race preview */}
+        {RACE_BY_ID[value.race] && (() => {
+          const raceDef = RACE_BY_ID[value.race]
+          const bonusEntries = ABILITY_KEYS.filter(k => raceDef.abilityBonus[k])
+          return (
+            <div className={styles.infoBox}>
+              <span className={styles.infoLabel}>{raceDef.label}</span>
+              {bonusEntries.length > 0 && (
+                <span className={styles.infoValue}>
+                  Ability bonuses: {bonusEntries.map(k => `${ABILITY_LABELS[k]} +${raceDef.abilityBonus[k]}`).join(', ')}
+                </span>
+              )}
+              {raceDef.freeAbilityPoints && (
+                <span className={styles.infoValue}>
+                  + {raceDef.freeAbilityPoints} free ability point{raceDef.freeAbilityPoints > 1 ? 's' : ''} (chosen in Step 2)
+                </span>
+              )}
+              <span className={styles.infoValue} style={{ marginTop: 4 }}>
+                Speed {raceDef.speed} ft · Size {raceDef.size}
+              </span>
+              {raceDef.traits.length > 0 && (
+                <span className={styles.infoValue} style={{ marginTop: 4, fontStyle: 'italic' }}>
+                  {raceDef.traits.join(' · ')}
+                </span>
+              )}
+            </div>
+          )
+        })()}
         {/* Background preview */}
         {BACKGROUND_BY_ID[value.background] && (
           <div className={styles.infoBox}>
@@ -719,7 +766,8 @@ function StepScores({
 
 function StepEquipment({
   basics, scores, armorId, setArmorId, shieldId, setShieldId,
-  chosenSkills, setChosenSkills, chosenWeapons, setChosenWeapons,
+  chosenSkills, setChosenSkills, chosenExpertise, setChosenExpertise,
+  chosenWeapons, setChosenWeapons,
   chosenFightingStyle, setChosenFightingStyle,
   onBack, onNext, onCreate,
 }: {
@@ -727,6 +775,7 @@ function StepEquipment({
   armorId: string; setArmorId: (v: string) => void
   shieldId: string | null; setShieldId: (v: string | null) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
+  chosenExpertise: Skill[]; setChosenExpertise: (v: Skill[]) => void
   chosenWeapons: WeaponDef[]; setChosenWeapons: (v: WeaponDef[]) => void
   chosenFightingStyle: string | undefined; setChosenFightingStyle: (v: string | undefined) => void
   onBack: () => void; onNext?: () => void; onCreate?: () => void
@@ -755,12 +804,26 @@ function StepEquipment({
   const availableShields = canShield ? armorAndShields().filter(a => a.kind === 'shield' && !a.enchantmentBonus) : []
 
   const availableWeapons = weaponsForClass(classDef?.weaponProficiencies ?? []).filter(w => !w.enchantmentBonus)
+  const MELEE_CAP = 3
+  const RANGED_CAP = 2
+  const meleeChosenCount = chosenWeapons.filter(w => w.rangeType !== 'Ranged').length
+  const rangedChosenCount = chosenWeapons.filter(w => w.rangeType === 'Ranged').length
   function toggleWeapon(w: WeaponDef) {
-    if (chosenWeapons.find(cw => cw.id === w.id)) {
+    const exists = chosenWeapons.find(cw => cw.id === w.id)
+    if (exists) {
       setChosenWeapons(chosenWeapons.filter(cw => cw.id !== w.id))
     } else {
+      const isRanged = w.rangeType === 'Ranged'
+      if (isRanged && rangedChosenCount >= RANGED_CAP) return
+      if (!isRanged && meleeChosenCount >= MELEE_CAP) return
       setChosenWeapons([...chosenWeapons, w])
     }
+  }
+  function weaponCapped(w: WeaponDef): boolean {
+    const isChosen = !!chosenWeapons.find(cw => cw.id === w.id)
+    if (isChosen) return false
+    const isRanged = w.rangeType === 'Ranged'
+    return isRanged ? rangedChosenCount >= RANGED_CAP : meleeChosenCount >= MELEE_CAP
   }
 
   const bgSkills = new Set(bgDef?.skills ?? [])
@@ -784,7 +847,22 @@ function StepEquipment({
   const hasRanged = chosenWeapons.some(w => w.rangeType === 'Ranged')
   const needsMelee = availableMeleeWeapons.length > 0
   const needsRanged = availableRangedWeapons.length > 0
-  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle) && (!needsMelee || hasMelee) && (!needsRanged || hasRanged)
+
+  // Expertise: Rogue gets 2 at level 1, Bard gets 2 at level 3
+  const expertiseCount =
+    (basics.classId === 'Rogue' && basics.level >= 1) ? 2 :
+    (basics.classId === 'Bard'  && basics.level >= 3) ? 2 : 0
+  const proficientSkills: Skill[] = Array.from(new Set([...chosenSkills, ...(bgDef?.skills ?? [])])) as Skill[]
+  const validExpertise = chosenExpertise.filter(s => proficientSkills.includes(s))
+  function toggleExpertise(s: Skill) {
+    if (chosenExpertise.includes(s)) {
+      setChosenExpertise(chosenExpertise.filter(k => k !== s))
+    } else if (chosenExpertise.length < expertiseCount) {
+      setChosenExpertise([...chosenExpertise, s])
+    }
+  }
+
+  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle) && (!needsMelee || hasMelee) && (!needsRanged || hasRanged) && (expertiseCount === 0 || validExpertise.length === expertiseCount)
 
   return (
     <div className={styles.stepContent}>
@@ -862,6 +940,26 @@ function StepEquipment({
         </div>
       )}
 
+      {/* Expertise (Rogue lvl 1+, Bard lvl 3+) */}
+      {expertiseCount > 0 && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            Expertise — choose {expertiseCount - validExpertise.length > 0 ? `${expertiseCount - validExpertise.length} more` : '✓ done'} (double proficiency bonus)
+            {proficientSkills.length === 0 && <span className={styles.validationHint}> — pick class skills first</span>}
+          </div>
+          <div className={styles.skillChoices}>
+            {proficientSkills.map(s => (
+              <button key={s}
+                className={`${styles.skillChoice} ${validExpertise.includes(s) ? styles.skillChoiceSelected : ''} ${validExpertise.length >= expertiseCount && !validExpertise.includes(s) ? styles.skillChoiceDisabled : ''}`}
+                onClick={() => toggleExpertise(s)}
+              >
+                {SKILL_BY_KEY[s]?.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Fighting Style */}
       {needsFightingStyle && (
         <div className={styles.equipSection}>
@@ -901,10 +999,13 @@ function StepEquipment({
           const rangedWeapons = availableWeapons.filter(w => w.rangeType === 'Ranged')
           function WeaponBtn({ w }: { w: WeaponDef }) {
             const chosen = !!chosenWeapons.find(cw => cw.id === w.id)
+            const capped = weaponCapped(w)
             return (
               <button
-                className={`${styles.weaponOption} ${chosen ? styles.weaponOptionSelected : ''}`}
+                className={`${styles.weaponOption} ${chosen ? styles.weaponOptionSelected : ''} ${capped ? styles.skillChoiceDisabled : ''}`}
+                disabled={capped}
                 onClick={() => toggleWeapon(w)}
+                title={capped ? 'Reached the maximum for this weapon range' : undefined}
               >
                 <span className={styles.weaponName}>{w.name}</span>
                 <span className={styles.weaponDmg}>{w.damageDie} {w.damageType}</span>
@@ -916,7 +1017,9 @@ function StepEquipment({
             <>
               {meleeWeapons.length > 0 && (
                 <>
-                  <div className={styles.weaponRangeLabel}>Melee</div>
+                  <div className={styles.weaponRangeLabel}>
+                    Melee <span style={{ opacity: 0.6, fontWeight: 400, fontSize: 11 }}>({meleeChosenCount}/{MELEE_CAP})</span>
+                  </div>
                   <div className={styles.weaponGrid}>
                     {meleeWeapons.map(w => <WeaponBtn key={w.id} w={w} />)}
                   </div>
@@ -924,7 +1027,9 @@ function StepEquipment({
               )}
               {rangedWeapons.length > 0 && (
                 <>
-                  <div className={styles.weaponRangeLabel}>Ranged</div>
+                  <div className={styles.weaponRangeLabel}>
+                    Ranged <span style={{ opacity: 0.6, fontWeight: 400, fontSize: 11 }}>({rangedChosenCount}/{RANGED_CAP})</span>
+                  </div>
                   <div className={styles.weaponGrid}>
                     {rangedWeapons.map(w => <WeaponBtn key={w.id} w={w} />)}
                   </div>

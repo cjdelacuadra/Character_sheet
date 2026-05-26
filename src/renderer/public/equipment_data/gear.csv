@@ -80,5 +80,5 @@ avas-accumulator,Ava's Accumulator,quiver,0,uncommon,/assets/equipment/sprites/A
 avas-assembler,Ava's Assembler,quiver,0,rare,/assets/equipment/sprites/Ava%27s_assembler.png,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,perception,,,,,
 paladin-armor,Paladin Armor,armor,5,uncommon,/assets/equipment/sprites/armor/paladin armor.png,heavy,18,0,true,15,1,,2,ranged,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1d6,piercing,ranged
 demon-helmet,Demon Helmet,helmet,2,uncommon,/assets/equipment/sprites/armor/demon helmet.png,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-guardian-spellbook,Guardian Spellbook,shield,10,common,/assets/equipment/sprites/armor/guardian spellbook.png,none,0,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,
+guardian-spellbook,Guardian Spellbook,shield,10,common,/assets/equipment/sprites/armor/guardian spellbook.png,none,1,,,,,,,,,,,,2,,,,,,,,,,,1,,,,,,,,,,,,,,,,,,,,,,
 ,,,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,int,,,,,,

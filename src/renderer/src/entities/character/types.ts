@@ -125,5 +125,9 @@ export interface Character {
   superiorityDiceUsed?: number
   arcaneShots?: string[]
   activeArcaneShot?: string | null
+  /** Artificer infusion designs the character knows */
+  artificerInfusions?: string[]
+  /** Artificer infusions currently active on items */
+  activeArtificerInfusions?: string[]
   notes: string
 }

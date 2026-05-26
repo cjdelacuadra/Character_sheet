@@ -102,6 +102,20 @@ export const CLASS_FEATURES_DATA: Record<string, FeatureEntry[]> = {
     { level: 5, name: '3rd-level Pact Slots', desc: 'Pact magic slots are now 3rd level.' },
     { level: 10, name: 'Mystic Arcanum', desc: 'Choose a 6th-level spell. Cast it once per long rest without using a spell slot.' },
   ],
+  Artificer: [
+    { level: 1, name: 'Magical Tinkering', desc: 'Imbue a Tiny nonmagical object with one of several minor magical properties (light, message, recorded sound, image). Active objects = INT mod (min 1).' },
+    { level: 1, name: 'Spellcasting', desc: 'Cast Artificer spells using INT. You always have your tools available as a spellcasting focus.' },
+    { level: 2, name: 'Infuse Item', desc: 'Imbue mundane items with magical infusions. Known infusions and active infusions scale with level. Recharge on a long rest by replacing infusions.' },
+    { level: 3, name: 'The Right Tool for the Job', desc: 'Spend 1 hour with tinker’s tools to magically conjure a set of artisan’s tools you don’t possess. The tools last until you use this feature again or until your next long rest.' },
+    { level: 3, name: 'Artificer Specialty', desc: 'Choose your subclass: Alchemist, Armorer, Artillerist, or Battle Smith.' },
+    { level: 6, name: 'Tool Expertise', desc: 'Your proficiency bonus is doubled for any ability check you make that uses any of the tool proficiencies you have.' },
+    { level: 7, name: 'Flash of Genius', desc: 'When a creature you can see within 30 ft (including yourself) makes an ability check or saving throw, use your reaction to add your INT modifier to the roll. Uses = INT mod (min 1) per long rest.' },
+    { level: 10, name: 'Magic Item Adept', desc: 'You can attune to up to four magic items at once. Crafting common/uncommon magic items takes a quarter of the normal time and costs half the gold.' },
+    { level: 11, name: 'Spell-Storing Item', desc: 'After a long rest, store a 1st- or 2nd-level Artificer spell with a casting time of 1 action into an item. Any creature holding the item can cast that spell using your stats up to 2× INT mod times.' },
+    { level: 14, name: 'Magic Item Savant', desc: 'You can attune to up to five magic items at once. Ignore all class, race, spell, and level requirements on attuning to or using magic items.' },
+    { level: 18, name: 'Magic Item Master', desc: 'You can attune to up to six magic items at once.' },
+    { level: 20, name: 'Soul of Artifice', desc: '+1 to all saving throws per magic item you are attuned to. When reduced to 0 HP, you can use your reaction to end one infusion you’re benefitting from to drop to 1 HP instead.' },
+  ],
 }
 
 export function getClassFeatures(classId: string, level: number): FeatureEntry[] {

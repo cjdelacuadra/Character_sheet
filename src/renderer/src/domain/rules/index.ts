@@ -295,11 +295,18 @@ const CAST_A_SPELL: ActionDef = {
   full: "Cast any spell with a casting time of 1 action. Choose a spell you know or have prepared, expend the required spell slot (if any), and resolve its effects. Cantrips don't expend spell slots.",
 }
 
-const OFF_HAND_ACTION: ActionDef = {
-  name: 'Off-Hand Attack',
-  type: 'Bonus Action',
-  short: 'Attack with your off-hand light weapon (no ability mod to damage).',
-  full: "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative.",
+function makeOffHandAction(character: Character): ActionDef {
+  const hasTWF = character.fightingStyle === 'two-weapon-fighting'
+  return {
+    name: 'Off-Hand Attack',
+    type: 'Bonus Action',
+    short: hasTWF
+      ? 'Attack with your off-hand light weapon (Two-Weapon Fighting: ability mod added).'
+      : 'Attack with your off-hand light weapon (no ability mod to damage).',
+    full: hasTWF
+      ? "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. Thanks to your Two-Weapon Fighting style, you add your ability modifier to the off-hand damage roll."
+      : "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative.",
+  }
 }
 
 export function getAvailableActions(character: Character): ActionDef[] {
@@ -316,7 +323,7 @@ export function getAvailableActions(character: Character): ActionDef[] {
   const lightMelee = (character.weapons ?? []).filter(w =>
     w.rangeType !== 'Ranged' && (w.properties ?? []).some(p => p.toLowerCase() === 'light')
   )
-  const offHandActions = lightMelee.length >= 2 ? [OFF_HAND_ACTION] : []
+  const offHandActions = lightMelee.length >= 2 ? [makeOffHandAction(character)] : []
 
   const subclassActions: ActionDef[] = []
   if (character.subclass === 'Samurai' && character.level >= 3) {

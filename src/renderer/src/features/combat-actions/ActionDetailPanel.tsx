@@ -13,6 +13,7 @@ import { FEATS } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_BY_ID } from '@/shared/data/fightingStylesData'
 import { SUBCLASSES, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { INVOCATIONS, maxInvocations } from '@/shared/data/invocationsData'
+import { INFUSIONS, maxInfusionsKnown, maxInfusionsActive } from '@/shared/data/infusionsData'
 import { MANEUVERS, MANEUVER_BY_ID, MANEUVER_PROGRESSION, maneuversKnown } from '@/shared/data/maneuversData'
 import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION, arcaneShotsKnown } from '@/shared/data/arcaneShotsData'
 import { SKILLS } from '@/shared/data/skills'
@@ -307,7 +308,7 @@ interface Props {
 
 const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th',9:'9th' }
 
-export function ActionDetailPanel({ character: char, update, selectedAction, selectedFeature }: Props) {
+export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature }: Props) {
   const [armoryOpen, setArmoryOpen] = useState(false)
   const [armoryTab, setArmoryTab] = useState<'browse' | 'custom'>('browse')
   const [armorySearch, setArmorySearch] = useState('')
@@ -771,6 +772,86 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
                     </span>
                     <span className={styles.fightingStyleDesc}>{inv.description}</span>
                   </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )
+    }
+
+    // ── Artificer Infusions ───────────────────────────────────────────
+    const isInfuseItem = selectedFeature.name === 'Infuse Item'
+    if (isInfuseItem) {
+      const known = char.artificerInfusions ?? []
+      const active = char.activeArtificerInfusions ?? []
+      const maxKnown = maxInfusionsKnown(char.level)
+      const maxActive = maxInfusionsActive(char.level)
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Infuse Item</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            </div>
+            <div className={styles.detailResource}>
+              {known.length} / {maxKnown} infusions known · {active.length} / {maxActive} active
+            </div>
+            <p className={styles.detailFull}>{selectedFeature.desc}</p>
+            <div className={styles.fightingStyleList}>
+              {INFUSIONS.map(inf => {
+                const isKnown = known.includes(inf.id)
+                const isActive = active.includes(inf.id)
+                const levelOk = (inf.prerequisiteLevel ?? 2) <= char.level
+                const canLearn = !isKnown && known.length < maxKnown && levelOk
+                const canActivate = isKnown && !isActive && active.length < maxActive
+                return (
+                  <div
+                    key={inf.id}
+                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
+                    style={!isKnown && !levelOk ? { opacity: 0.4 } : undefined}
+                  >
+                    <span className={styles.fightingStyleName}>
+                      {inf.name}
+                      {inf.appliesTo && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {inf.appliesTo}</span>}
+                      {(inf.prerequisiteLevel ?? 2) > 2 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · Level {inf.prerequisiteLevel}+</span>}
+                    </span>
+                    <span className={styles.fightingStyleDesc}>{inf.description}</span>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      <button
+                        className={styles.detailChipBtn}
+                        disabled={!isKnown && !canLearn}
+                        onClick={() => {
+                          if (isKnown) {
+                            update({
+                              artificerInfusions: known.filter(id => id !== inf.id),
+                              activeArtificerInfusions: active.filter(id => id !== inf.id),
+                            })
+                          } else if (canLearn) {
+                            update({ artificerInfusions: [...known, inf.id] })
+                          }
+                        }}
+                      >
+                        {isKnown ? '− Forget' : '+ Learn'}
+                      </button>
+                      {isKnown && (
+                        <button
+                          className={styles.detailChipBtn}
+                          disabled={!isActive && !canActivate}
+                          onClick={() => {
+                            update({
+                              activeArtificerInfusions: isActive
+                                ? active.filter(id => id !== inf.id)
+                                : [...active, inf.id],
+                            })
+                          }}
+                        >
+                          {isActive ? '◉ Active' : '○ Activate'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>
@@ -2024,6 +2105,34 @@ export function ActionDetailPanel({ character: char, update, selectedAction, sel
           You gain extra movement for the current turn equal to your speed (after modifiers).
           With {speed}ft speed and Dash, you can move up to {speed * 2}ft this turn.
         </p>
+      </div>
+    )
+  }
+
+  // CUNNING ACTION — show sub-action chips that redirect to Dash/Disengage/Hide
+  if (selectedAction === 'Cunning Action') {
+    const subActions = ['Dash', 'Disengage', 'Hide']
+    const availableNames = new Set(availableActions.map(a => a.name))
+    return (
+      <div className={styles.detailPane}>
+        <div className={styles.detailHeader}>
+          <span className={styles.detailName}>{selectedActionDef.name}</span>
+          <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>Bonus</span>
+        </div>
+        <p className={styles.detailFull}>{selectedActionDef.full}</p>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          {subActions.map(name => (
+            <button
+              key={name}
+              className={styles.detailChipBtn}
+              disabled={!availableNames.has(name)}
+              onClick={() => onSelectAction(name)}
+              title={`Open ${name} details`}
+            >
+              {name} →
+            </button>
+          ))}
+        </div>
       </div>
     )
   }
