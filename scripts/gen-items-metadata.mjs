@@ -221,8 +221,13 @@ async function main() {
       await access(dest)
       skipped++
     } catch {
-      await cp(src, dest, { recursive: true })
-      copied++
+      try {
+        await cp(src, dest, { recursive: true })
+        copied++
+      } catch (err) {
+        console.warn(`Skipping ${id}: ${err.message}`)
+        continue
+      }
     }
 
     if (name !== `item_${id}`) {

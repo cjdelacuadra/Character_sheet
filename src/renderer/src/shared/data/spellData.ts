@@ -13,6 +13,10 @@ export interface SpellSprites {
   pass?: string
 }
 
+export type MultiTargetScaling =
+  | { kind: 'slot';      baseCount: number; perSlotAbove?: number; baseLevel: number }
+  | { kind: 'charLevel'; thresholds: { level: number; count: number }[] }
+
 export interface SpellEntry {
   id: string
   name: string
@@ -35,6 +39,7 @@ export interface SpellEntry {
   damageType?: string
   damageFormula?: string
   sprites?: SpellSprites
+  multiTargetScaling?: MultiTargetScaling
 }
 
 export interface SpellGridLayout {
@@ -57,7 +62,7 @@ export const SPELLS: SpellEntry[] = [
   { id: 'guidance',         name: 'Guidance',           level: 0, school: 'Divination',    castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Concentration, 1 minute', concentration: true, description: 'You touch one willing creature. Once before the spell ends, the target can roll a d4 and add the number rolled to one ability check of its choice. It can roll the die before or after making the ability check.', classes: ['Cleric', 'Druid', 'Artificer'] },
   { id: 'chill-touch',      name: 'Chill Touch',        level: 0, school: 'Necromancy',    castingTime: '1 action', range: '120ft', components: 'V, S', duration: '1 round', concentration: false, description: 'You create a ghostly skeletal hand that clutches at the target. Make a ranged spell attack. On a hit, deal 1d8 necrotic damage and the target cannot regain HP until the start of your next turn. Undead also have disadvantage on attacks against you until then.', classes: ['Sorcerer', 'Warlock', 'Wizard'] },
   { id: 'toll-the-dead',    saveAbility: 'wis', name: 'Toll the Dead',      level: 0, school: 'Necromancy',    castingTime: '1 action', range: '60ft',  components: 'V, S', duration: 'Instantaneous', concentration: false, description: "You point at one creature and the sound of a dolorous bell fills the air. The target must succeed on a Wisdom saving throw or take 1d8 necrotic damage. If the target is missing any hit points, it takes 1d12 instead. Scales at higher levels.", classes: ['Cleric', 'Warlock', 'Wizard'] },
-  { id: 'eldritch-blast',   name: 'Eldritch Blast',     level: 0, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'A beam of crackling energy streaks toward a creature. Make a ranged spell attack. On a hit, the target takes 1d10 force damage. The spell creates more than one beam when you reach higher levels: two beams at 5th level, three beams at 11th level, and four beams at 17th level.', classes: ['Warlock'] },
+  { id: 'eldritch-blast',   name: 'Eldritch Blast',     level: 0, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'A beam of crackling energy streaks toward a creature. Make a ranged spell attack. On a hit, the target takes 1d10 force damage. The spell creates more than one beam when you reach higher levels: two beams at 5th level, three beams at 11th level, and four beams at 17th level.', classes: ['Warlock'], aoeShape: 'single', attackType: 'attack-roll', damageType: 'force', damageFormula: '1d10', sprites: { hit: '/assets/spells/hit/Blood_Effect.gif', miss: '/assets/spells/miss/Poof_Effect.gif' }, multiTargetScaling: { kind: 'charLevel', thresholds: [{ level: 1, count: 1 }, { level: 5, count: 2 }, { level: 11, count: 3 }, { level: 17, count: 4 }] } },
   { id: 'shillelagh',       name: 'Shillelagh',         level: 0, school: 'Transmutation', castingTime: '1 bonus action', range: 'Touch', components: 'V, S, M (mistletoe, shamrock leaf, club/quarterstaff)', duration: 'Concentration, 1 minute', concentration: true, description: 'The wood of a club or quarterstaff you are holding is imbued with nature\'s power. For the duration, you can use your spellcasting ability instead of Strength for attack and damage rolls using that weapon, and the weapon\'s damage die becomes a d8. The weapon also becomes magical.', classes: ['Druid'] },
   { id: 'prestidigitation',  name: 'Prestidigitation',  level: 0, school: 'Transmutation', castingTime: '1 action', range: '10ft', components: 'V, S', duration: 'Up to 1 hour', concentration: false, description: 'Minor magical tricks: create a small sensory effect, light/snuff a small fire, clean/soil an object, chill/warm/flavor food, make a color or mark last 1 hour, produce a small trinket. Up to three non-instantaneous effects can be active simultaneously.', classes: ['Bard', 'Sorcerer', 'Warlock', 'Wizard', 'Artificer'] },
   { id: 'light',            name: 'Light',              level: 0, school: 'Evocation',     castingTime: '1 action', range: 'Touch', components: 'V, M (firefly/phosphorescent moss)', duration: '1 hour', concentration: false, description: 'You touch one object no larger than 10ft. It emits bright light in a 20ft radius and dim light for an additional 20ft. The light can be a color. Covering the object blocks the light. If you target an unwilling creature, it must succeed on a Dexterity saving throw.', classes: ['Bard', 'Cleric', 'Sorcerer', 'Wizard', 'Artificer'] },
@@ -67,7 +72,7 @@ export const SPELLS: SpellEntry[] = [
   { id: 'dancing-lights',   name: 'Dancing Lights',     level: 0, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S, M (bit of phosphorus or wychwood)', duration: 'Concentration, 1 minute', concentration: true, description: 'You create up to four torch-sized lights within range. You can combine them into one glowing Medium form. As a bonus action, you can move the lights up to 60ft to a new spot within range. Each light sheds dim light in a 10ft radius.', classes: ['Bard', 'Sorcerer', 'Wizard'] },
 
   // ── Level 1 ───────────────────────────────────────────────────────────────
-  { id: 'magic-missile',    name: 'Magic Missile',      level: 1, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You create three glowing darts of magical force. Each dart hits a creature of your choice within range automatically, dealing 1d4+1 force damage. The darts strike simultaneously, and you can direct them at the same or different targets. +1 dart per slot level above 1st.', classes: ['Sorcerer', 'Wizard'], aoeShape: 'single', attackType: 'auto-hit', damageType: 'force', sprites: { hit: '/assets/spells/hit/Blood_Effect.gif', pass: '/assets/spells/pass/Sparks_Effect.gif' } },
+  { id: 'magic-missile',    name: 'Magic Missile',      level: 1, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You create three glowing darts of magical force. Each dart hits a creature of your choice within range automatically, dealing 1d4+1 force damage. The darts strike simultaneously, and you can direct them at the same or different targets. +1 dart per slot level above 1st.', classes: ['Sorcerer', 'Wizard'], aoeShape: 'single', attackType: 'auto-hit', damageType: 'force', sprites: { hit: '/assets/spells/hit/Blood_Effect.gif', pass: '/assets/spells/pass/Sparks_Effect.gif' }, multiTargetScaling: { kind: 'slot', baseCount: 3, perSlotAbove: 1, baseLevel: 1 } },
   { id: 'shield',           name: 'Shield',             level: 1, school: 'Abjuration',    castingTime: '1 reaction', range: 'Self', components: 'V, S', duration: '1 round', concentration: false, description: 'When you are hit by an attack or targeted by Magic Missile, an invisible barrier of magical force appears. Until the start of your next turn, you have +5 AC (including against the triggering attack) and you take no damage from magic missile.', classes: ['Sorcerer', 'Wizard', 'Artificer'] },
   { id: 'sleep',            name: 'Sleep',              level: 1, school: 'Enchantment',   castingTime: '1 action', range: '90ft',  components: 'V, S, M (sand/rose petals/cricket)', duration: '1 minute', concentration: false, description: 'This spell sends creatures into a magical slumber. Roll 5d8; the total is how many HP of creatures this spell can affect. Creatures with the lowest current HP are affected first. Unconscious until the spell ends, they take damage, or a creature uses an action to wake them. +2d8 per slot level above 1st.', classes: ['Bard', 'Sorcerer', 'Wizard'], scalingDice: { baseDice: '5d8', addPerLevel: '2d8', baseLevel: 1 } },
   { id: 'thunderwave',      saveAbility: 'con', name: 'Thunderwave',        level: 1, school: 'Evocation',     castingTime: '1 action', range: 'Self (15ft cube)', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'A wave of thunderous force sweeps out from you. Each creature in a 15ft cube must succeed on a Constitution saving throw. On failure: take 2d8 thunder damage and be pushed 10ft away. On success: half damage, not pushed. Unsecured objects in the area are pushed. +1d8 per slot level above 1st.', classes: ['Bard', 'Cleric', 'Druid', 'Sorcerer', 'Wizard'], scalingDice: { baseDice: '2d8', addPerLevel: '1d8', baseLevel: 1 } },
@@ -100,7 +105,7 @@ export const SPELLS: SpellEntry[] = [
   { id: 'darkness',         name: 'Darkness',           level: 2, school: 'Evocation',     castingTime: '1 action', range: '60ft',  components: 'V, M (bat fur/drop of pitch)', duration: 'Concentration, 10 minutes', concentration: true, description: "Magical darkness spreads from a point you choose to fill a 15ft radius sphere for the duration. Darkvision can't see through it. If this darkness overlaps with an area of light created by a 2nd-level or lower spell, the light spell is dispelled.", classes: ['Sorcerer', 'Warlock', 'Wizard'] },
   { id: 'detect-thoughts',  saveAbility: 'wis' as const, name: 'Detect Thoughts',   level: 2, school: 'Divination',    castingTime: '1 action', range: 'Self',  components: 'V, S, M (copper piece)', duration: 'Concentration, 1 minute', concentration: true, description: "For the duration, you can read the thoughts of certain creatures. When you cast the spell, and as your action each turn, you can focus your mind on any creature within 30ft that you can see. You learn the surface thoughts of that creature. You can probe deeper; the creature makes a WIS saving throw against your spell save DC.", classes: ['Bard', 'Sorcerer', 'Wizard'] },
   { id: 'mirror-image',     name: 'Mirror Image',       level: 2, school: 'Illusion',      castingTime: '1 action', range: 'Self', components: 'V, S', duration: '1 minute', concentration: false, description: 'Three illusory duplicates of yourself appear in your space. Until the spell ends, whenever a creature targets you with an attack, roll a d20 to determine whether the attack targets you or one of your duplicates. Duplicates are destroyed when hit and disappear when the spell ends.', classes: ['Sorcerer', 'Warlock', 'Wizard'] },
-  { id: 'scorching-ray',    name: 'Scorching Ray',      level: 2, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You create three rays of fire and hurl them at targets within range. You can hurl them at one target or several. Make a ranged spell attack for each ray. On a hit, deal 2d6 fire damage. +1 ray per slot level above 2nd.', classes: ['Sorcerer', 'Wizard'] },
+  { id: 'scorching-ray',    name: 'Scorching Ray',      level: 2, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You create three rays of fire and hurl them at targets within range. You can hurl them at one target or several. Make a ranged spell attack for each ray. On a hit, deal 2d6 fire damage. +1 ray per slot level above 2nd.', classes: ['Sorcerer', 'Wizard'], aoeShape: 'single', attackType: 'attack-roll', damageType: 'fire', damageFormula: '2d6', sprites: { hit: '/assets/spells/hit/Blood_Effect.gif', miss: '/assets/spells/miss/Poof_Effect.gif' }, multiTargetScaling: { kind: 'slot', baseCount: 3, perSlotAbove: 1, baseLevel: 2 } },
   { id: 'shatter',          saveAbility: 'con', name: 'Shatter',            level: 2, school: 'Evocation',     castingTime: '1 action', range: '60ft',  components: 'V, S, M (chip of mica)', duration: 'Instantaneous', concentration: false, description: 'A sudden loud ringing noise causes a sphere of 10ft radius centered on a point you choose to erupt with shattering sound. Each creature there must make a Constitution saving throw. On failure: take 3d8 thunder damage. Half on success. Inorganic material takes an automatic failure. +1d8 per slot level above 2nd.', classes: ['Bard', 'Sorcerer', 'Warlock', 'Wizard'], scalingDice: { baseDice: '3d8', addPerLevel: '1d8', baseLevel: 2 }, aoeShape: 'sphere', aoeSize: 10, attackType: 'save', damageType: 'thunder', sprites: { hit: '/assets/spells/hit/Blood_Effect.gif', miss: '/assets/spells/miss/Poof_Effect.gif' } },
   { id: 'spiritual-weapon', name: 'Spiritual Weapon',   level: 2, school: 'Evocation',     castingTime: '1 bonus action', range: '60ft', components: 'V, S', duration: '1 minute', concentration: false, description: 'You create a floating spectral weapon within range that lasts for the duration. When you cast the spell, and as a bonus action on each of your turns thereafter, you can move the weapon up to 20ft and make a melee spell attack against a creature within 5ft. On a hit, deal 1d8 + spellcasting modifier force damage. +1d8 per 2 slot levels above 2nd.', classes: ['Cleric'] },
   { id: 'lesser-restoration', name: 'Lesser Restoration', level: 2, school: 'Abjuration', castingTime: '1 action', range: 'Touch', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You touch a creature and can end either one disease or one condition afflicting it. The condition can be blinded, deafened, paralyzed, or poisoned.', classes: ['Artificer', 'Bard', 'Cleric', 'Druid', 'Paladin', 'Ranger'] },
@@ -198,19 +203,46 @@ export function computeUpcastDice(scaling: SpellScaling, castLevel: number): str
  *
  * Tile = 5ft. Grid origin (0,0) is top-left.
  */
-export function computeSpellGrid(spell: SpellEntry): SpellGridLayout {
+export function computeSpellGrid(
+  spell: SpellEntry,
+  slotLevel?: number,
+  characterLevel?: number,
+): SpellGridLayout {
   const shape = spell.aoeShape ?? 'single'
   const size = spell.aoeSize ?? 0
 
   if (shape === 'single') {
-    const cols = 3
+    // Multi-target spells (Magic Missile, Scorching Ray, Eldritch Blast) place
+    // one enemy per ray/dart/beam at the current slot or character level.
+    let enemyCount = 1
+    if (spell.multiTargetScaling) {
+      const m = spell.multiTargetScaling
+      if (m.kind === 'slot') {
+        const lvl = slotLevel ?? m.baseLevel
+        enemyCount = m.baseCount + Math.max(0, lvl - m.baseLevel) * (m.perSlotAbove ?? 1)
+      } else {
+        const lvl = characterLevel ?? 1
+        const match = [...m.thresholds].reverse().find(t => lvl >= t.level)
+        enemyCount = match?.count ?? m.thresholds[0]?.count ?? 1
+      }
+    }
+
+    const cols = Math.max(3, Math.min(9, enemyCount + 2))
     const rows = 8
+    const enemyRowY = rows - 1
+    // Center the row of enemies in the grid
+    const startX = Math.max(0, Math.floor((cols - enemyCount) / 2))
+    const positions = Array.from({ length: enemyCount }, (_, i) => ({
+      x: Math.min(cols - 1, startX + i),
+      y: enemyRowY,
+    }))
+
     return {
       cols, rows,
-      playerPosA: { x: 1, y: 0 },
-      playerPosB: { x: 1, y: Math.floor(rows / 2) },
-      enemyHitPositions:  [{ x: 1, y: rows - 1 }],
-      enemyMissPositions: [{ x: 0, y: rows - 2 }, { x: 2, y: rows - 2 }],
+      playerPosA: { x: Math.floor(cols / 2), y: 0 },
+      playerPosB: { x: Math.floor(cols / 2), y: Math.floor(rows / 2) },
+      enemyHitPositions:  positions,
+      enemyMissPositions: positions,
       areaCells: [],
     }
   }

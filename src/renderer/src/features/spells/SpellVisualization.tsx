@@ -21,8 +21,8 @@ const DMG_TINT: Record<string, string> = {
   psychic:  'rgba(220, 100, 200, 0.35)',
 }
 
-export function SpellVisualization({ spell, character: _character, slotLevel: _slotLevel }: Props) {
-  const layout = computeSpellGrid(spell)
+export function SpellVisualization({ spell, character, slotLevel }: Props) {
+  const layout = computeSpellGrid(spell, slotLevel, character.level)
   const [position, setPosition] = useState<'A' | 'B'>('A')
   const [frame, setFrame] = useState<'hit' | 'miss'>('hit')
 
@@ -87,11 +87,30 @@ export function SpellVisualization({ spell, character: _character, slotLevel: _s
                 className={styles.cell}
                 style={isArea ? { background: tint } : undefined}
               >
-                {isEnemy && !isPlayer && <img className={styles.sprite} src="/assets/enemies/121866.png" alt="Enemy" />}
-                {isArea && spriteSrc && (
-                  <img className={styles.areaSprite} src={spriteSrc} alt={spell.damageType ?? 'spell'} />
+                {isEnemy && !isPlayer && (
+                  <img
+                    className={styles.sprite}
+                    src="/assets/enemies/121866.png"
+                    alt="Enemy"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
                 )}
-                {isPlayer && <img className={`${styles.sprite} ${styles.spritePlayer}`} src="/assets/outfit/character.png" alt="Player" />}
+                {isArea && spriteSrc && (
+                  <img
+                    className={styles.areaSprite}
+                    src={spriteSrc}
+                    alt={spell.damageType ?? 'spell'}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
+                {isPlayer && (
+                  <img
+                    className={`${styles.sprite} ${styles.spritePlayer}`}
+                    src="/assets/outfit/character.png"
+                    alt="Player"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
               </div>
             )
           })
