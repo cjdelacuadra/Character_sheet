@@ -425,18 +425,18 @@ Run `npm test` to see passing tests (green) and pending items (yellow todo).
 9. ✅ Caster prepared spells
 10. ✅ Attack display of spells (polish)
 11. ✅ Reaction display from feats (polish)
-12. Subclass feature audit (documentation prerequisite for deeper subclass work)
+12. ✅ Subclass feature audit (documentation prerequisite for deeper subclass work)
 13. ✅ Fix ability score selection — equal values block each other (bug, quick fix)
-14. Remove shields from armor → off-hand (data refactor, correctness)
+14. ✅ Remove shields from armor → off-hand (data refactor, correctness)
 15. ✅ Separation of melee/ranged weapons at creation (UX, creation flow)
 16. ✅ Feat ASI display in AbilitiesPanel (polish, readability)
 17. ✅ Equipment slot layout in header (visual feature)
 18. ✅ Battle Master maneuvers expandable list (subclass UX)
-19. Fighter: Indomitable ✅ + Samurai: Fighting Spirit (class/subclass features)
+19. ✅ Fighter: Indomitable + Samurai: Fighting Spirit (class/subclass features)
 20. ✅ Arcane Archer infused arrows / Arcane Shots (subclass feature)
 21. ✅ Tasha's Feats (content expansion)
 22. ✅ Tasha's Spells (content expansion)
 23. ✅ Tasha's Subclasses (content expansion)
-24. Versatile weapon two-handed damage display
-25. Barbarian Rage active — show resistance, advantage, and damage bonus in conditions
+24. ✅ Versatile weapon two-handed damage display
+25. ✅ Barbarian Rage active — show resistance, advantage, and damage bonus in conditions
 26. ✅ Prepared spells count in class Features panel

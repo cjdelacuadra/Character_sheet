@@ -45,12 +45,10 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const allowedArmors = armorAndShields().filter(a =>
     a.kind !== 'shield' && (a.type === 'none' || effectiveArmorProfs.includes(a.type as 'light' | 'medium' | 'heavy'))
   )
-  const canShield = effectiveArmorProfs.includes('shields')
-  const shieldOptions = canShield ? armorAndShields().filter(a => a.kind === 'shield') : []
   const currentShieldId = eq.shieldId ?? null
 
-  function setArmor(armorId: string | null, shieldId: string | null) {
-    const newEq = { ...char.equipment, armorId, hasShield: shieldId !== null, shieldId }
+  function setArmor(armorId: string | null) {
+    const newEq = { ...char.equipment, armorId, hasShield: currentShieldId !== null, shieldId: currentShieldId }
     const newAC = computeACFull({ ...char, equipment: newEq })
     update({ equipment: newEq, armorClass: newAC })
   }
@@ -169,31 +167,11 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
             <button
               key={a.id}
               className={`${styles.armorOpt} ${(eq.armorId ?? 'none') === a.id ? styles.armorOptSel : ''}`}
-              onClick={() => setArmor(a.id === 'none' ? null : a.id, currentShieldId)}
+              onClick={() => setArmor(a.id === 'none' ? null : a.id)}
             >
               {a.name}
             </button>
           ))}
-          {canShield && (
-            <>
-              <span className={styles.armorPickerGroup}>Shield</span>
-              <button
-                className={`${styles.armorOpt} ${currentShieldId === null ? styles.armorOptSel : ''}`}
-                onClick={() => setArmor(eq.armorId, null)}
-              >
-                None
-              </button>
-              {shieldOptions.map(s => (
-                <button
-                  key={s.id}
-                  className={`${styles.armorOpt} ${currentShieldId === s.id ? styles.armorOptSel : ''}`}
-                  onClick={() => setArmor(eq.armorId, s.id)}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </>
-          )}
           <button className={styles.armorOpt} onClick={() => setArmorOpen(false)}>Done</button>
         </div>
       )}

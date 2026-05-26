@@ -6,6 +6,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { RACE_BY_ID } from '@/shared/data/raceData'
+import { computeUpcastDice, type SpellEntry } from '@/shared/data/spellData'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
 
@@ -21,6 +22,68 @@ export function computeSpellSaveDC(character: Character): number {
 
 export function computeSpellAttackBonus(character: Character): number {
   return character.proficiencyBonus + spellcastingAbilityMod(character)
+}
+
+export interface SpellDamageResult {
+  hitFormula: string
+  missFormula: string
+  dmgType: string
+}
+
+/**
+ * Compute the damage formula for a damage spell at a given slot level for a
+ * given character, including equipment bonus damage rows that apply to all
+ * damage sources. Returns hit/miss formulas and the spell's damage type.
+ *
+ * MVP: per RAW none of the MVP spells (Fire Bolt, Fireball, Magic Missile,
+ * Cone of Cold, Shatter) add the spellcasting ability mod to direct damage,
+ * so it is not added here.
+ */
+export function computeSpellDamage(
+  spell: SpellEntry,
+  slotLevel: number,
+  character: Character,
+): SpellDamageResult {
+  let baseDice: string
+
+  if (spell.id === 'magic-missile') {
+    const darts = 3 + Math.max(0, slotLevel - 1)
+    baseDice = `${darts}d4 + ${darts}`
+  } else if (spell.id === 'fire-bolt') {
+    const lvl = character.level
+    const tier = lvl >= 17 ? 4 : lvl >= 11 ? 3 : lvl >= 5 ? 2 : 1
+    baseDice = `${tier}d10`
+  } else if (spell.damageFormula) {
+    baseDice = spell.damageFormula
+  } else if (spell.scalingDice) {
+    baseDice = computeUpcastDice(spell.scalingDice, slotLevel)
+  } else {
+    baseDice = '—'
+  }
+
+  const dmgType = spell.damageType ?? ''
+  const riders = computeEquipmentStats(character).bonusDamage.filter(b => b.appliesTo === 'all')
+  const sameType = riders.filter(b => b.dmgType === dmgType)
+  const otherType = riders.filter(b => b.dmgType !== dmgType)
+
+  const sameTypeParts = sameType.flatMap(b => [...b.dice, b.flat ? String(b.flat) : null]).filter(Boolean) as string[]
+  const combined = sameTypeParts.length
+    ? combineDiceExpr([baseDice, ...sameTypeParts].join('+'))
+    : baseDice
+
+  let hitFormula = dmgType ? `${combined} ${dmgType}` : combined
+  for (const rider of otherType) {
+    const parts = [...rider.dice, rider.flat ? String(rider.flat) : null].filter(Boolean) as string[]
+    if (!parts.length) continue
+    hitFormula += ` + ${combineDiceExpr(parts.join('+'))} ${rider.dmgType}`
+  }
+
+  let missFormula = ''
+  if (spell.attackType === 'attack-roll') missFormula = '—'
+  else if (spell.attackType === 'save')   missFormula = 'half'
+  else if (spell.attackType === 'auto-hit') missFormula = ''
+
+  return { hitFormula, missFormula, dmgType }
 }
 
 // ── Attack bonus ────────────────────────────────────────────────────────────

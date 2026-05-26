@@ -1,5 +1,4 @@
 id,name,kind,cost,rarity,sprite,damageDie,damageType,proficiencyCategory,rangeType,properties,enchantmentBonus,enchantment,enchantments,bonusDamageDie,bonusDamageType,isMonkWeapon,to_hit_count,to_hit_die,to_hit_flat,dmg_bonus_count,dmg_bonus_die,dmg_bonus_flat,dmg_bonus_type
-unarmed,Unarmed Strike,weapon,0,,,1,bludgeoning,Unarmed,Melee,,,,,,,true,,,,,,,
 club,Club,weapon,1,,/assets/equipment/sprites/weapons/club.png,1d4,bludgeoning,Simple,Melee,Light,,,fire|ice|thunder|earth|energy,,,true,,,,,,,
 dagger,Dagger,weapon,2,,/assets/equipment/sprites/weapons/dagger.png,1d4,piercing,Simple,Melee or Ranged,Finesse|Light|Thrown (range 20/60),,,,,,true,,,,,,,
 greatclub,Greatclub,weapon,2,,/assets/equipment/sprites/weapons/greatclub.png,1d8,bludgeoning,Simple,Melee,Two-Handed,,,,,,,,,,,,,
