@@ -68,6 +68,11 @@ Each entry describes the animation we'd want, why it can't ship with the current
 - **Why it isn't built**: needs "vine" sprite distinct from the magical-energy frames we have.
 - **Proposed implementation when picked up**: add `/assets/spells/animation/vines/` 8-frame loop; reuse the AOE wave template with `aoeShape: 'cube', aoeSize: 20, vizDamageType: 'earth'` and a vine sprite override.
 
+## fly
+- **What the animation should show**: the touched ally lifts off the ground and gains a flying speed of 60ft.
+- **Why it isn't built**: needs a vertical-offset sprite render (current sprites are all ground-tile bound).
+- **Proposed implementation when picked up**: add a `flying` modifier — render the ally sprite with a `transform: translateY(-8px)` plus a small wing/feather overlay; can pair with ally-tile work.
+
 ## fog-cloud
 - **What the animation should show**: a 20ft sphere of gray fog billowing over the chosen tiles.
 - **Why it isn't built**: no grey/fog sprite.
@@ -183,6 +188,11 @@ Each entry describes the animation we'd want, why it can't ship with the current
 - **Why it isn't built**: no ally tiles.
 - **Proposed implementation when picked up**: extend self-buff to optionally render on an ally tile rather than the player.
 
+## shillelagh
+- **What the animation should show**: a glowing nature-themed haze around the caster's weapon (club/quarterstaff) for the duration.
+- **Why it isn't built**: no weapon-icon overlay on the caster tile.
+- **Proposed implementation when picked up**: could be retagged as `self-buff` with `vizDamageType: 'earth'` — but a weapon-shape glow would read more clearly than a generic player aura.
+
 ## silence
 - **What the animation should show**: a grey shimmer dome (20ft sphere) over the chosen point.
 - **Why it isn't built**: no grey/shimmer sprite.
@@ -242,10 +252,8 @@ Each entry describes the animation we'd want, why it can't ship with the current
 
 ## Tracking
 
-Total spells in `SPELLS`: **72**
-- Auto-rendered today (Tier 0 + 1 — damage system): ~37
-- Self-buff template: 9
-- Debuff-aura template: 10
-- This document: **42 spells** (some counted in multiple tiers above when overlapping; the source of truth is each spell entry's data fields)
+Total spells in `SPELLS`: **99**
+- Auto-rendered in-app today (damage / self-buff / debuff-aura templates): **51**
+- Documented here for future implementation: **48**
 
-Re-run [SpellsPanel.tsx:168](src/renderer/src/features/spells/SpellsPanel.tsx) gate `hasVisualization = !!(spell.aoeShape && spell.damageType) || !!spell.vizCategory` against the SPELLS array to identify any spell that still has no visualization — those need either a new entry here or a tagging update.
+Re-run [SpellsPanel.tsx:168](src/renderer/src/features/spells/SpellsPanel.tsx) gate `hasVisualization = !!(spell.aoeShape && spell.damageType) || !!spell.vizCategory` against the `SPELLS` array to identify any spell that still has no visualization — those need either a new entry here or a tagging update.
