@@ -6,33 +6,42 @@
 
 :root {
   /* ─── Typefaces ───────────────────────────────────────────────────────── */
-  --font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
+  /* Dark mode: Uncial Antiqua (Norse/Celtic manuscript) for display text   */
+  --font-display: 'Uncial Antiqua', 'Cinzel', serif;
   --font-body:    'Crimson Pro', 'Georgia', 'Times New Roman', serif;
   --font-hand:    'Kalam', 'Segoe Print', cursive;
 
-  /* ─── Dark theme — aged leather tome ─────────────────────────────────── */
-  --bg-base:     #17100a;    /* dark mahogany / binding leather */
-  --bg-surface:  #231a0d;    /* aged vellum panel */
-  --bg-elevated: #2c2112;    /* raised inset surface */
-  --border:      #4e3c22;    /* worn leather stitching */
+  /* ─── Dark theme — Viking longhouse / aged oak ───────────────────────── */
+  --bg-base:     #080604;    /* charred heartwood floor between columns */
+  --bg-surface:  #111009;    /* dark aged oak plank */
+  --bg-elevated: #1c190f;    /* raised timber inset */
+  --border:      #382e1c;    /* iron-nail groove / carved wood edge */
 
-  --text-primary:   #e2cfA0; /* cream-vellum ink */
-  --text-secondary: #bf9f6e; /* warm amber ink */
-  --text-muted:     #8a6840; /* faded sepia */
+  --text-primary:   #d4c8a0; /* aged birch bark / bone ivory */
+  --text-secondary: #9a8460; /* weathered antler / tanned hide */
+  --text-muted:     #5e5038; /* dark soot / old ash */
 
-  --accent:      #c8a040;    /* antique gold foil */
-  --accent-dim:  #3a2908;    /* deep amber shadow */
-  --accent-rgb:  200, 160, 64;
+  --accent:      #4878a0;    /* Norse fjord blue — sea, shields, sky */
+  --accent-dim:  #142030;    /* deep fjord shadow */
+  --accent-rgb:  72, 120, 160;
 
-  --danger:      #b03030;    /* dried blood */
-  --success:     #3a7048;    /* forest green ink */
-  --warning:     #c47820;    /* burnt amber */
-  --gold:        #c8a040;    /* antique gold */
-  --text-on-accent: #17100a;
+  --danger:      #922020;    /* dried Norse blood */
+  --success:     #3a6030;    /* Nordic pine */
+  --warning:     #b86820;    /* forge fire amber */
+  --gold:        #b88c28;    /* knotwork gold */
+  --text-on-accent: #e0d4b0; /* bone-light on blue */
 
-  /* Card elevation shadows — dark mode */
-  --shadow-card:       0 2px 10px rgba(0,0,0,.55), 0 6px 24px rgba(0,0,0,.38);
-  --shadow-card-inner: inset 0 1px 0 rgba(200,160,64,.05);
+  /* Card shadows — deep longhouse darkness, inset carved-plank feel */
+  --shadow-card:       0 4px 16px rgba(0,0,0,.75), 0 8px 40px rgba(0,0,0,.55);
+  --shadow-card-inner: inset 0 1px 0 rgba(180,140,60,.08), inset 0 -2px 0 rgba(0,0,0,.4);
+
+  /* Column border — thick iron trim in dark mode */
+  --card-border: 2px solid var(--border);
+
+  /* Wood-grain texture: feTurbulence with asymmetric baseFrequency.      */
+  /* Low X (0.012) = long horizontal grain lines. High Y (0.75) = pores.  */
+  --texture-img:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.012 0.75' numOctaves='4' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23w)' opacity='0.25'/%3E%3C/svg%3E");
+  --texture-size: 400px 400px;
 
   /* Aliases used across feature modules */
   --text:      var(--text-primary);
@@ -50,6 +59,9 @@
 
 /* ─── Light theme — parchment sheets on a walnut gaming table ─────────── */
 :root[data-theme="light"] {
+  /* Light mode keeps Cinzel (Roman carved stone) — no Uncial Antiqua */
+  --font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
+
   --bg-base:     #b8956a;    /* warm walnut table surface */
   --bg-surface:  #f3e8cc;    /* aged parchment sheet */
   --bg-elevated: #f9f2e0;    /* lighter, fresher parchment highlight */
@@ -69,17 +81,23 @@
   --gold:        #9a7820;    /* antique gold */
   --text-on-accent: #f9f2e0;
 
-  /* Card elevation shadows — light mode (paper resting on wood) */
+  /* Card shadows — paper resting on walnut wood */
   --shadow-card:       0 2px 6px rgba(60,30,8,.28), 0 8px 28px rgba(60,30,8,.18);
   --shadow-card-inner: inset 0 1px 0 rgba(255,248,220,.9);
+
+  /* Column border — thin ink line in light mode */
+  --card-border: 1px solid var(--border);
+
+  /* Isotropic fractal noise — looks like pulped paper grain */
+  --texture-img:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+  --texture-size: 200px 200px;
 }
 
-/* ─── HTML root — paper-grain texture tiled over the table/binding ──────── */
+/* ─── HTML root — themed texture tiled over the table / longhouse floor ── */
 html {
   background-color: var(--bg-base);
-  /* SVG fractal noise at 18% opacity gives natural paper grain */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
-  background-size: 200px 200px;
+  background-image: var(--texture-img);
+  background-size: var(--texture-size);
 }
 
 body {

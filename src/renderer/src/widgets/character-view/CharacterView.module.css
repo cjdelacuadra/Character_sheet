@@ -130,7 +130,7 @@
   flex-shrink: 0;
   overflow-y: auto;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: var(--card-border);
   border-radius: 1px;
   padding: 8px 8px;
   display: flex;
@@ -149,7 +149,7 @@
   flex-direction: column;
   gap: 18px;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: var(--card-border);
   border-radius: 1px;
   min-width: 220px;
   box-shadow: var(--shadow-card), var(--shadow-card-inner);
@@ -162,7 +162,7 @@
   flex-direction: column;
   min-width: 280px;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: var(--card-border);
   border-radius: 1px;
   box-shadow: var(--shadow-card), var(--shadow-card-inner);
 }
@@ -380,7 +380,7 @@
 .topStatBoxWarn .topStatVal { color: var(--warning); }
 
 .topStatEditable { cursor: pointer; transition: background 0.15s; }
-.topStatEditable:hover { background: rgba(139,124,248,0.06); }
+.topStatEditable:hover { background: rgba(var(--accent-rgb),0.06); }
 
 .topStatVal {
   font-size: 22px;
@@ -515,7 +515,7 @@
 
 .statEditable:hover {
   border-color: var(--accent);
-  background: rgba(139, 124, 248, 0.05);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .statVal {
@@ -597,7 +597,7 @@
 .armorOpt:hover { border-color: var(--accent); color: var(--accent); }
 
 .armorOptSel {
-  background: rgba(139, 124, 248, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
@@ -744,7 +744,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.actionTabActive.tabAction    { background: rgba(139, 124, 248, 0.12); border-color: var(--accent);   color: var(--accent); }
+.actionTabActive.tabAction    { background: rgba(var(--accent-rgb), 0.12); border-color: var(--accent);   color: var(--accent); }
 .actionTabActive.tabBonus     { background: rgba(224, 168, 76, 0.12);  border-color: var(--warning);  color: var(--warning); }
 .actionTabActive.tabReaction  { background: rgba(76, 175, 125, 0.12);  border-color: var(--success);  color: var(--success); }
 
@@ -775,7 +775,7 @@
   margin-top: 2px;
 }
 
-.badgeAction      { background: rgba(139, 124, 248, 0.12); color: var(--accent); }
+.badgeAction      { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
 .badgeBonusAction { background: rgba(224, 168, 76, 0.12);  color: var(--warning); }
 .badgeReaction    { background: rgba(76, 175, 125, 0.12);  color: var(--success); }
 
@@ -957,7 +957,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--accent);
-  background: rgba(139, 124, 248, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   padding: 1px 4px;
   border-radius: 3px;
   flex-shrink: 0;
@@ -992,7 +992,7 @@
 .pipFull  { background: var(--accent); border-color: var(--accent); }
 .pipEmpty { background: transparent; border-color: var(--text-muted); }
 .pipFull:hover  { opacity: 0.7; }
-.pipEmpty:hover { border-color: var(--accent); background: rgba(139, 124, 248, 0.2); }
+.pipEmpty:hover { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.2); }
 
 .slotCount {
   font-size: 11px;
@@ -1129,7 +1129,7 @@
 
 .actionCompact:hover { background: var(--bg-elevated); border-color: var(--border); }
 
-.actionCompactSel.selAction   { background: rgba(139,124,248,0.1); border-color: var(--accent); }
+.actionCompactSel.selAction   { background: rgba(var(--accent-rgb),0.1); border-color: var(--accent); }
 .actionCompactSel.selBonus    { background: rgba(224,168,76,0.1);  border-color: var(--warning); }
 .actionCompactSel.selReaction { background: rgba(76,175,125,0.1);  border-color: var(--success); }
 
@@ -1332,7 +1332,7 @@
 .restTab:hover { border-color: var(--accent); color: var(--accent); }
 
 .restTabActive {
-  background: rgba(139, 124, 248, 0.12);
+  background: rgba(var(--accent-rgb), 0.12);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -1460,7 +1460,7 @@
   color: var(--accent);
   border-style: solid;
   border-color: var(--accent);
-  background: rgba(139, 124, 248, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 .tempHpInput {
@@ -1574,7 +1574,7 @@
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: rgba(139, 124, 248, 0.15);
+  background: rgba(var(--accent-rgb), 0.15);
   color: var(--accent);
   border-radius: 4px;
   padding: 1px 5px;
@@ -1674,10 +1674,10 @@
   font-weight: 600;
 }
 
-.labelFree { color: rgba(139, 124, 248, 0.6) !important; }
-.badgeFree { background: rgba(139, 124, 248, 0.08); color: rgba(139, 124, 248, 0.7); }
-.selFree   { background: rgba(139, 124, 248, 0.07); border-color: rgba(139, 124, 248, 0.4); }
-.actionCompactSel.selFree { background: rgba(139,124,248,0.07); border-color: rgba(139,124,248,0.4); }
+.labelFree { color: rgba(var(--accent-rgb), 0.6) !important; }
+.badgeFree { background: rgba(var(--accent-rgb), 0.08); color: rgba(var(--accent-rgb), 0.7); }
+.selFree   { background: rgba(var(--accent-rgb), 0.07); border-color: rgba(var(--accent-rgb), 0.4); }
+.actionCompactSel.selFree { background: rgba(var(--accent-rgb),0.07); border-color: rgba(var(--accent-rgb),0.4); }
 
 /* ── ACTION DETAIL RESOURCE ── */
 .detailResource {
@@ -1837,7 +1837,7 @@
   color: var(--accent);
   border-style: solid;
   border-color: var(--accent);
-  background: rgba(139, 124, 248, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   opacity: 1;
 }
 
