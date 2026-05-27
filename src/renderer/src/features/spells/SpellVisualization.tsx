@@ -36,6 +36,7 @@ const CAST_DELAY_MS = 5000
 // Missile (single-target) timings.
 const STAGGER_MS = 120
 const FLIGHT_MS = 700
+const MISSILE_CYCLE_HOLD_MS = 1500   // impact stays visible this long before the next missile cycle restarts
 // AOE wave timings.
 const PROPAGATION_MS_PER_TILE = 90
 const CELL_VISIBLE_MS = 700
@@ -176,6 +177,9 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const [landed, setLanded] = useState<boolean[]>([])
   const [frozen, setFrozen] = useState(false)
   const [clockMs, setClockMs] = useState(0)
+  // Bumped on each missile-cycle restart; used as a React key so missiles unmount/remount
+  // and their CSS keyframe animation re-runs from the start.
+  const [missileCycle, setMissileCycle] = useState(0)
   const timersRef = useRef<number[]>([])
   const rafRef = useRef<number | null>(null)
   const startedAtRef = useRef<number | null>(null)
@@ -265,25 +269,34 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
         timersRef.current.push(landTimer)
       })
     } else {
-      // Single-target: idle → 5s → casting (staggered missiles) → impact (steady).
-      const toCasting = window.setTimeout(() => setPhase('casting'), CAST_DELAY_MS)
+      // Single-target: idle → 5s → casting → recurring missile cycle (missiles fly,
+      // land, hold their impact, then the whole sequence restarts). Stop ends the loop.
+      const runCycle = () => {
+        setMissileCycle(c => c + 1)
+        setLanded(targets.map(() => false))
+
+        targets.forEach((_, i) => {
+          const landAt = i * STAGGER_MS + FLIGHT_MS
+          const landTimer = window.setTimeout(() => {
+            setLanded(prev => {
+              const next = prev.slice()
+              next[i] = true
+              return next
+            })
+          }, landAt)
+          timersRef.current.push(landTimer)
+        })
+
+        const lastLand = Math.max(targets.length - 1, 0) * STAGGER_MS + FLIGHT_MS
+        const nextCycle = window.setTimeout(runCycle, lastLand + MISSILE_CYCLE_HOLD_MS)
+        timersRef.current.push(nextCycle)
+      }
+
+      const toCasting = window.setTimeout(() => {
+        setPhase('casting')
+        runCycle()
+      }, CAST_DELAY_MS)
       timersRef.current.push(toCasting)
-
-      targets.forEach((_, i) => {
-        const landAt = CAST_DELAY_MS + i * STAGGER_MS + FLIGHT_MS
-        const landTimer = window.setTimeout(() => {
-          setLanded(prev => {
-            const next = prev.slice()
-            next[i] = true
-            return next
-          })
-        }, landAt)
-        timersRef.current.push(landTimer)
-      })
-
-      const lastLand = CAST_DELAY_MS + Math.max(targets.length - 1, 0) * STAGGER_MS + FLIGHT_MS
-      const toImpact = window.setTimeout(() => setPhase('impact'), lastLand)
-      timersRef.current.push(toImpact)
       // No auto-transition to 'final' — Stop is the only way out.
     }
 
@@ -394,7 +407,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
 
           {showMissiles && targets.map((t, i) => (
             <MissileSprite
-              key={`m-${i}`}
+              key={`m-${missileCycle}-${i}`}
               frames={missileFrames}
               from={playerPos}
               to={t.pos}
@@ -404,7 +417,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
 
           {showImpacts && targets.map((t, i) => landed[i] && (
             <ImpactGif
-              key={`i-${i}`}
+              key={`i-${missileCycle}-${i}`}
               pos={t.pos}
               result={t.result}
               damageType={spell.damageType}
@@ -414,10 +427,9 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
       </div>
 
       <div className={styles.frameLabel}>
-        {phase === 'idle'    && `Casting in ${Math.ceil(CAST_DELAY_MS / 1000)}s…`}
-        {phase === 'casting' && 'Casting…'}
-        {phase === 'impact'  && (isAoe ? 'Looping — press Stop to freeze' : 'Impact')}
-        {phase === 'final'   && 'Stopped'}
+        {phase === 'idle'                      && `Casting in ${Math.ceil(CAST_DELAY_MS / 1000)}s…`}
+        {(phase === 'casting' || phase === 'impact') && 'Looping — press Stop to freeze'}
+        {phase === 'final'                     && 'Stopped'}
       </div>
     </div>
   )
