@@ -185,40 +185,60 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const startedAtRef = useRef<number | null>(null)
 
   const playerPos = position === 'A' ? layout.playerPosA : layout.playerPosB
-  const tint = DMG_TINT[spell.damageType ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
   const isAoe = (spell.aoeShape ?? 'single') !== 'single'
+  const isSelfBuff = spell.vizCategory === 'self-buff'
+  const isDebuffAura = spell.vizCategory === 'debuff-aura'
+  // useWave = any spell that propagates a looping AOE sprite (vs missile-based single targets).
+  const useWave = isAoe || isSelfBuff || isDebuffAura
+  // Sprite/tint colour. Non-damage templates use vizDamageType; damage spells use damageType.
+  const auraColor = spell.vizDamageType ?? spell.damageType
+  const tint = DMG_TINT[auraColor ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
 
   const missileFrames = useMemo(() => resolveMissileFrames(spell.damageType), [spell.damageType])
-  const aoeFrames = useMemo(() => resolveAoeAnimationFrames(spell.damageType), [spell.damageType])
+  const aoeFrames = useMemo(() => resolveAoeAnimationFrames(auraColor), [auraColor])
 
   const targets = useMemo<TargetResult[]>(
-    () => rollTargets(spell, layout.enemyHitPositions),
+    // Self-buff has no enemy targets; everything else rolls per enemyHitPositions.
+    () => (isSelfBuff ? [] : rollTargets(spell, layout.enemyHitPositions)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spell.id, slotLevel, position],
+    [spell.id, slotLevel, position, isSelfBuff],
   )
 
-  const aoeOrigin = useMemo(
-    () => aoeOriginCell(spell, layout, playerPos),
+  // Wave origin: self-buff/debuff-aura always emanate from the player; AOE damage uses
+  // self-origin (player) or AOE centroid depending on the spell's range field.
+  const waveOrigin = useMemo<Cell>(() => {
+    if (isAoe) return aoeOriginCell(spell, layout, playerPos)
+    return playerPos
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spell.id, slotLevel, position],
-  )
+  }, [spell.id, slotLevel, position, isAoe])
+
+  // Cells that participate in the wave animation:
+  //   - AOE damage      → all area cells
+  //   - Self-buff       → the single player tile
+  //   - Debuff-aura     → only enemy tiles where the spell actually landed (result === 'hit')
+  const wavefrontCells = useMemo<Cell[]>(() => {
+    if (isAoe) return layout.areaCells
+    if (isSelfBuff) return [playerPos]
+    if (isDebuffAura) return targets.filter(t => t.result === 'hit').map(t => ({ x: t.pos.x, y: t.pos.y }))
+    return []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spell.id, slotLevel, position, isAoe, isSelfBuff, isDebuffAura, targets])
 
   // Per-cell delay-from-origin. Wave length is the slowest cell's full cycle plus a brief gap.
   const { cellTimings, waveLengthMs } = useMemo(() => {
-    if (!isAoe || layout.areaCells.length === 0) {
+    if (wavefrontCells.length === 0) {
       return { cellTimings: [] as { cell: Cell; appearAt: number }[], waveLengthMs: 1 }
     }
-    const timings = layout.areaCells.map(c => ({
+    const timings = wavefrontCells.map(c => ({
       cell: c,
-      appearAt: Math.hypot(c.x - aoeOrigin.x, c.y - aoeOrigin.y) * PROPAGATION_MS_PER_TILE,
+      appearAt: Math.hypot(c.x - waveOrigin.x, c.y - waveOrigin.y) * PROPAGATION_MS_PER_TILE,
     }))
     const maxAppear = timings.reduce((m, t) => Math.max(m, t.appearAt), 0)
     return {
       cellTimings: timings,
       waveLengthMs: maxAppear + CELL_FADE_MS + CELL_VISIBLE_MS + CELL_FADE_MS + WAVE_GAP_MS,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spell.id, slotLevel, position, isAoe, aoeOrigin.x, aoeOrigin.y])
+  }, [wavefrontCells, waveOrigin.x, waveOrigin.y])
 
   function clearTimers() {
     for (const id of timersRef.current) clearTimeout(id)
@@ -249,15 +269,16 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
     setFrozen(false)
     setClockMs(0)
 
-    if (isAoe) {
-      // AOE: idle → 5s → impact (loops forever via the shared clock until Stop).
-      // Impact GIFs mount per-target as the wave reaches each enemy, so the result
-      // doesn't pop in before the sprite arrives.
+    if (useWave) {
+      // Wave-based spells (AOE damage, self-buff, debuff-aura): idle → 5s → impact (loops
+      // forever via the shared clock until Stop). Impact GIFs mount per-target as the wave
+      // reaches each enemy so results don't pop in before the sprite arrives. Self-buff has
+      // no targets to schedule.
       const toImpact = window.setTimeout(() => setPhase('impact'), CAST_DELAY_MS)
       timersRef.current.push(toImpact)
 
       targets.forEach((t, i) => {
-        const dist = Math.hypot(t.pos.x - aoeOrigin.x, t.pos.y - aoeOrigin.y)
+        const dist = Math.hypot(t.pos.x - waveOrigin.x, t.pos.y - waveOrigin.y)
         const landAt = CAST_DELAY_MS + dist * PROPAGATION_MS_PER_TILE + CELL_FADE_MS
         const landTimer = window.setTimeout(() => {
           setLanded(prev => {
@@ -311,13 +332,24 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
     setPhase('final')
   }
 
-  const bystanderSet = new Set(layout.enemyMissPositions.map(p => `${p.x},${p.y}`))
+  // Bystanders (enemies outside the AOE) only make sense for AOE damage spells.
+  const bystanderSet = new Set(
+    (isAoe ? layout.enemyMissPositions : []).map(p => `${p.x},${p.y}`),
+  )
   const targetSet = new Set(targets.map(t => `${t.pos.x},${t.pos.y}`))
-  const areaSet = new Set(layout.areaCells.map(c => `${c.x},${c.y}`))
+  const areaSet = new Set((isAoe ? layout.areaCells : []).map(c => `${c.x},${c.y}`))
 
-  const showMissiles = !isAoe && phase === 'casting'
+  const showMissiles = !useWave && phase === 'casting'
   const showImpacts  = phase !== 'idle'
-  const showAoeLayer = isAoe && phase !== 'idle'
+  const showAoeLayer = useWave && phase !== 'idle'
+
+  // For debuff-aura, 'hit' is conveyed by the aura sprite on the target tile, so suppress
+  // the duplicate Blood_Effect impact GIF — only 'pass'/'miss' GIFs render (passed save /
+  // missed attack roll).
+  function shouldRenderImpact(result: SpellResult): boolean {
+    if (isDebuffAura) return result !== 'hit'
+    return true
+  }
 
   const sharedFrameIdx = aoeFrames.length > 0
     ? Math.floor(clockMs / FRAME_INTERVAL_MS) % aoeFrames.length
@@ -415,12 +447,12 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
             />
           ))}
 
-          {showImpacts && targets.map((t, i) => landed[i] && (
+          {showImpacts && targets.map((t, i) => landed[i] && shouldRenderImpact(t.result) && (
             <ImpactGif
               key={`i-${missileCycle}-${i}`}
               pos={t.pos}
               result={t.result}
-              damageType={spell.damageType}
+              damageType={auraColor}
             />
           ))}
         </div>

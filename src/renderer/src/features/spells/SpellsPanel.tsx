@@ -165,7 +165,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           .filter(([lvl, slot]) => Number(lvl) >= spell.level && slot.used < slot.total)
           .sort(([a], [b]) => Number(a) - Number(b))
     const notPrepared = isPreparedCaster && spell.level > 0 && !preparedSet.has(id)
-    const hasVisualization = !!(spell.aoeShape && spell.damageType)
+    const hasVisualization = !!(spell.aoeShape && spell.damageType) || !!spell.vizCategory
 
     const defaultSlotLevel = spell.level === 0 ? 0 : (castable[0] ? Number(castable[0][0]) : spell.level)
     const activeSlotLevel = selectedSlotLevel ?? defaultSlotLevel
