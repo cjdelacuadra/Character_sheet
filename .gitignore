@@ -7,4 +7,4 @@ characters/
 .xlsx
 
 # OSRS item sprite dumps (raw dump + organised copy — run gen-items-metadata.mjs)
-src/renderer/public/assets/*
+# src/renderer/public/assets/*

@@ -12,8 +12,8 @@ export function isArmorKind(kind: string): boolean {
   return kind === 'armor' || kind === 'shield'
 }
 
-const S = '/assets/equipment/sprites/'
-const A = '/assets/equipment/sprites/armor/'
+const S = '/assets/'
+const A = '/assets/armor/'
 
 // ── Gear: armor, shields, and worn accessories ────────────────────────────────
 

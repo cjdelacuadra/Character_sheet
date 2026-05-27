@@ -24,3 +24,8 @@ contextBridge.exposeInMainWorld('equipmentStore', {
   fileExists: (filename: string) =>
     ipcRenderer.invoke('equipment:fileExists', filename),
 })
+
+contextBridge.exposeInMainWorld('assetStore', {
+  listFiles: (folderPath: string) =>
+    ipcRenderer.invoke('assets:listFiles', folderPath),
+})

@@ -67,6 +67,21 @@ function registerIpc(): void {
   ipcMain.handle('equipment:fileExists', (_e, filename: string) => {
     return existsSync(equipmentPath(filename))
   })
+
+  ipcMain.handle('assets:listFiles', (_e, folderPath: string) => {
+    const assetsDir = !app.isPackaged
+      ? join(__dirname, '../../src/renderer/public/assets')
+      : join(app.getPath('userData'), 'assets')
+    const fullPath = join(assetsDir, folderPath)
+    if (!existsSync(fullPath)) return []
+    try {
+      return readdirSync(fullPath)
+        .filter(f => /\.(png|gif)$/i.test(f))
+        .sort()
+    } catch {
+      return []
+    }
+  })
 }
 
 function createWindow(): void {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { GearEquipmentItem, AccessoryStats, ShopItemKind, WeaponEquipmentItem } from '@/shared/data/equipment/types'
 import type { AbilityScore } from '@/entities/character/types'
 import type { Skill } from '@/shared/data/skills'
@@ -137,13 +137,26 @@ function enchantToRarity(bonus: number): string {
 
 // ── Sprite helper ────────────────────────────────────────────────────────────
 
-const SPRITE_PREFIX = '/assets/equipment/sprites/'
-const SPRITE_FOLDERS = ['', 'weapons/', 'armor/', 'accessories/', 'equipment/', 'missiles/', 'outfits/']
+const SPRITE_PREFIX = '/assets/'
+const SPRITE_FOLDERS = [
+  // Weapons (including subfolders)
+  'weapons/', 'weapons/swords/', 'weapons/axes/', 'weapons/clubs/',
+  'weapons/throwables/', 'weapons/wands and rods/',
+  // Armor and accessories
+  'armors/', 'helmets/', 'shields/', 'boots/', 'legs/',
+  'rings/', 'amulets/', 'none/', 'arrows/', 'backpacks/'
+]
 
 function spriteDir(kind: string): string {
   if (kind === 'weapon') return `${SPRITE_PREFIX}weapons/`
-  if (['armor', 'shield', 'legs', 'boots'].includes(kind)) return `${SPRITE_PREFIX}armor/`
-  return SPRITE_PREFIX
+  if (kind === 'helmet') return `${SPRITE_PREFIX}helmets/`
+  if (kind === 'shield') return `${SPRITE_PREFIX}shields/`
+  if (kind === 'boots') return `${SPRITE_PREFIX}boots/`
+  if (kind === 'legs') return `${SPRITE_PREFIX}legs/`
+  if (kind === 'armor') return `${SPRITE_PREFIX}armors/`
+  if (kind === 'ring') return `${SPRITE_PREFIX}rings/`
+  if (kind === 'amulet') return `${SPRITE_PREFIX}amulets/`
+  return `${SPRITE_PREFIX}none/`
 }
 
 /** Splits an existing sprite URL into a folder (relative to the sprites root) and filename. */
@@ -206,6 +219,26 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const initSprite = parseSprite(fullDef?.sprite, kind, fullDef?.name ?? shopItem?.name ?? nameFromId(itemId))
   const [spriteFolder, setSpriteFolder] = useState(initSprite.folder)
   const [spriteFile,   setSpriteFile]   = useState(initSprite.file)
+  const [spriteFiles,  setSpriteFiles]  = useState<string[]>([])
+
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        const files = await (window as any).assetStore?.listFiles(spriteFolder.slice(0, -1))
+        const validFiles = files ?? []
+        setSpriteFiles(validFiles)
+        // Reset file if it doesn't exist in the loaded files
+        if (!spriteFile || !validFiles.includes(spriteFile)) {
+          setSpriteFile(validFiles[0] ?? '')
+        }
+      } catch (err) {
+        console.warn('[ItemEditor] Failed to load sprite files:', err)
+        setSpriteFiles([])
+        setSpriteFile('')
+      }
+    }
+    loadFiles()
+  }, [spriteFolder])
 
   // ── Weapon edit state ────────────────────────────────────────────────────
   const initDmg   = parseDie(weapDef?.damageDie     ?? '1d8')
@@ -322,6 +355,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   }
 
   async function handleSave() {
+    if (!spriteFile.trim()) {
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
     setSaveStatus('saving')
     try {
       if (isWeapon) {
@@ -342,6 +380,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   }
 
   async function handleSaveAs() {
+    if (!spriteFile.trim()) {
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
     const baseId = editId.trim() || itemId
     const newId  = baseId !== itemId ? baseId : `${baseId}-copy`
     setSaveStatus('saving')
@@ -459,10 +502,17 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
             <div className={styles.diceRow}>
               <select className={styles.diceSelect} value={spriteFolder}
                 onChange={e => setSpriteFolder(e.target.value)}>
-                {SPRITE_FOLDERS.map(f => <option key={f} value={f}>{f || '(root)'}</option>)}
+                {SPRITE_FOLDERS.map(f => {
+                  const label = f.endsWith('/') ? f.slice(0, -1) : f
+                  const display = label.replace('weapons/', 'weapons → ') || '(root)'
+                  return <option key={f} value={f}>{display}</option>
+                })}
               </select>
-              <input className={styles.input} value={spriteFile} placeholder="file.png"
-                onChange={e => setSpriteFile(e.target.value)} />
+              <select className={styles.input} value={spriteFile}
+                onChange={e => setSpriteFile(e.target.value)}>
+                <option value="">{spriteFiles.length > 0 ? '— Select file —' : '(no files)'}</option>
+                {spriteFiles.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
             </div>
           ) : (
             <span className={styles.spriteHint} title={computedSprite}>
