@@ -14,38 +14,40 @@ export function resolveImpactGif(result: SpellResult, damageType?: string): { pr
   return { primary, fallback }
 }
 
-const MISSILE_FRAME_IDS: Record<string, string[]> = {
-  earth:     ['191971','191972','191973','191974','191975','191976','191977','191978'],
-  fire:      ['191789','191790','191791','191792','191793','191794','191795','191796'],
-  lightning: ['191915','191916','191917','191918','191919','191920','191921','191922'],
-  poison:    ['191781','191782','191783','191784','191785','191786','191787','191788'],
-  psychic:   ['191843','191844','191845','191846','191847','191848','191849','191850'],
-  thunder:   ['191843','191844','191845','191846','191847','191848','191849','191850'],
+const aoeModules = import.meta.glob<string>(
+  '/public/assets/spells/animation/**/*.png',
+  { eager: true, query: '?url', import: 'default' }
+)
+
+const missileModules = import.meta.glob<string>(
+  '/public/assets/spells/missiles/magic/**/*.png',
+  { eager: true, query: '?url', import: 'default' }
+)
+
+function buildFrameMap(modules: Record<string, string>): Record<string, string[]> {
+  const map: Record<string, string[]> = {}
+  Object.entries(modules)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([path, url]) => {
+      const match = path.match(/\/assets\/spells\/(animation|missiles)\/([^/]+)\//)
+      if (match) {
+        const damageType = match[2]
+        if (!map[damageType]) map[damageType] = []
+        map[damageType].push(url)
+      }
+    })
+  return map
 }
 
-const FRAME_FALLBACK: Record<string, string> = {
-  cold:     'lightning',
-  radiant:  'fire',
-  necrotic: 'psychic',
-  acid:     'poison',
-  force:    'psychic',
-}
-
-const DEFAULT_FRAME_TYPE = 'psychic'
-
-function framesFor(base: string, damageType?: string): string[] {
-  const key = damageType ?? ''
-  const folder =
-    MISSILE_FRAME_IDS[key]
-      ? key
-      : FRAME_FALLBACK[key] ?? DEFAULT_FRAME_TYPE
-  return MISSILE_FRAME_IDS[folder].map(id => `${base}/${folder}/${id}.png`)
-}
+const aoeFrameMap = buildFrameMap(aoeModules)
+const missileFrameMap = buildFrameMap(missileModules)
 
 export function resolveMissileFrames(damageType?: string): string[] {
-  return framesFor('/assets/spells/missiles/magic', damageType)
+  const type = damageType ?? 'psychic'
+  return missileFrameMap[type] ?? missileFrameMap.psychic ?? []
 }
 
 export function resolveAoeAnimationFrames(damageType?: string): string[] {
-  return framesFor('/assets/spells/animation', damageType)
+  const type = damageType ?? 'psychic'
+  return aoeFrameMap[type] ?? aoeFrameMap.psychic ?? []
 }

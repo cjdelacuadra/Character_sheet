@@ -194,8 +194,14 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const auraColor = spell.vizDamageType ?? spell.damageType
   const tint = DMG_TINT[auraColor ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
 
-  const missileFrames = useMemo(() => resolveMissileFrames(spell.damageType), [spell.damageType])
-  const aoeFrames = useMemo(() => resolveAoeAnimationFrames(auraColor), [auraColor])
+  const missileFrames = useMemo(
+    () => resolveMissileFrames(spell.damageType),
+    [spell.damageType]
+  )
+  const aoeFrames = useMemo(
+    () => resolveAoeAnimationFrames(auraColor),
+    [auraColor]
+  )
 
   const targets = useMemo<TargetResult[]>(
     // Self-buff has no enemy targets; everything else rolls per enemyHitPositions.
