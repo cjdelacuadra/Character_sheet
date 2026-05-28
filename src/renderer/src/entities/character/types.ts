@@ -1,4 +1,5 @@
 import type { Skill } from '@/shared/data/skills'
+import type { ActiveSummon } from '@/entities/summon/types'
 
 export type { Skill }
 export type AbilityScore = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
@@ -129,5 +130,7 @@ export interface Character {
   artificerInfusions?: string[]
   /** Artificer infusions currently active on items */
   activeArtificerInfusions?: string[]
+  /** Live summoned creatures/structures owned by this character */
+  activeSummons: ActiveSummon[]
   notes: string
 }

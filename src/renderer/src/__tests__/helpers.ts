@@ -41,6 +41,7 @@ export function makeChar(overrides: Partial<Character> = {}): Character {
     ownedItemIds: [],
     feats: [],
     completedAsiLevels: [],
+    activeSummons: [],
     notes: '',
     ...overrides,
   }

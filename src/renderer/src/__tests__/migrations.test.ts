@@ -21,10 +21,14 @@ const BASE_V1 = {
 }
 
 describe('migrateCharacter', () => {
-  describe('v1 → v8', () => {
-    it('assigns schemaVersion 8', () => {
+  describe('v1 → current', () => {
+    it('assigns the current schemaVersion', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(8)
+      expect(result.schemaVersion).toBe(10)
+    })
+    it('fills missing activeSummons with empty array', () => {
+      const result = migrateCharacter(BASE_V1)
+      expect(result.activeSummons).toEqual([])
     })
     it('fills missing notes with empty string', () => {
       const result = migrateCharacter(BASE_V1)
@@ -87,16 +91,16 @@ describe('migrateCharacter', () => {
     })
   })
 
-  describe('v3 → v8', () => {
-    it('v3 character migrates to schemaVersion 8', () => {
+  describe('v3 → current', () => {
+    it('v3 character migrates to the current schemaVersion', () => {
       const raw = { ...BASE_V1, schemaVersion: 3, completedAsiLevels: [4] }
       const result = migrateCharacter(raw)
-      expect(result.schemaVersion).toBe(8)
+      expect(result.schemaVersion).toBe(10)
     })
 
-    it('v1 character also ends up at schemaVersion 8', () => {
+    it('v1 character also ends up at the current schemaVersion', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(8)
+      expect(result.schemaVersion).toBe(10)
     })
 
     it('existing character without fightingStyle gets fightingStyle: undefined', () => {

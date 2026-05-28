@@ -227,7 +227,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
-      schemaVersion: 9,
+      schemaVersion: 10,
       createdAt: now,
       updatedAt: now,
       name: basics.name.trim(),
@@ -273,6 +273,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       completedAsiLevels: [],
       gold: Math.max(100 - equipCost, 10),
       ownedItemIds: [],
+      activeSummons: [],
       notes: '',
     }
   }

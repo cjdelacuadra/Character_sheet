@@ -17,9 +17,11 @@ interface Props {
   update: (patch: Partial<Character>) => void
   castingTimeFilter?: string
   onLearnSpell?: (id: string) => void
+  onSummon?: (templateId: string, count?: number, source?: { spellId?: string }) => void
+  onConcentrationBroken?: () => void
 }
 
-export function SpellsPanel({ character: char, update, castingTimeFilter, onLearnSpell }: Props) {
+export function SpellsPanel({ character: char, update, castingTimeFilter, onLearnSpell, onSummon, onConcentrationBroken }: Props) {
   const [search, setSearch] = useState('')
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
   const [learnOpen, setLearnOpen] = useState(false)
@@ -74,12 +76,24 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
 
   function setConcentration(spellId: string) {
     const dropping = char.concentrationSpellId === spellId
+    // Starting/switching/dropping concentration ends any prior concentration —
+    // dismiss summons tied to it.
+    onConcentrationBroken?.()
     update({
       concentrationSpellId: dropping ? null : spellId,
       conditionIds: dropping
         ? char.conditionIds.filter(c => c.conditionId !== 'concentration')
         : [...char.conditionIds.filter(c => c.conditionId !== 'concentration'), { conditionId: 'concentration' }],
     })
+  }
+
+  // Cast a spell at a given slot level: spend the slot, handle concentration,
+  // and create any summon the spell defines.
+  function castSpell(spell: typeof SPELLS[number], castLevel: number) {
+    if (castLevel > 0) useSlot(castLevel)
+    if (spell.concentration) setConcentration(spell.id)
+    if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
+    setExpandedSpell(null)
   }
 
   function toggleExpand(id: string) {
@@ -242,7 +256,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 ⚠ Will drop concentration on <strong>{existingConc.name}</strong>
               </span>
             )}
-            <button className={styles.spellExpandCastBtn} onClick={() => { if (spell.concentration) setConcentration(spell.id); setExpandedSpell(null) }}>Cast</button>
+            <button className={styles.spellExpandCastBtn} onClick={() => castSpell(spell, 0)}>Cast</button>
           </div>
         ) : castable.length > 0 ? (
           <div className={styles.spellExpandActions}>
@@ -256,7 +270,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               const remaining = slot.total - slot.used
               const diceLabel = spell.scalingDice ? computeUpcastDice(spell.scalingDice, castLevel) : null
               return (
-                <button key={lvl} className={styles.spellExpandCastBtn} onClick={() => { useSlot(castLevel); if (spell.concentration) setConcentration(spell.id); setExpandedSpell(null) }}>
+                <button key={lvl} className={styles.spellExpandCastBtn} onClick={() => castSpell(spell, castLevel)}>
                   {ORDINAL[castLevel] ?? `${lvl}th`}
                   {diceLabel && <span className={styles.spellExpandCastDice}>{diceLabel}</span>}
                   <span style={{ opacity: 0.6, fontSize: 9 }}>{remaining} left</span>
@@ -517,7 +531,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           {activeConcentration && (
             <div className={styles.concentrationBanner}>
               <span className={styles.concLabel}>Concentrating: <strong>{activeConcentration.name}</strong></span>
-              <button className={styles.concDrop} onClick={() => update({ concentrationSpellId: null, conditionIds: char.conditionIds.filter(c => c.conditionId !== 'concentration') })}>Drop</button>
+              <button className={styles.concDrop} onClick={() => { onConcentrationBroken?.(); update({ concentrationSpellId: null, conditionIds: char.conditionIds.filter(c => c.conditionId !== 'concentration') }) }}>Drop</button>
             </div>
           )}
 

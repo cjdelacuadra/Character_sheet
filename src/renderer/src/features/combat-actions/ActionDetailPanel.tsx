@@ -304,11 +304,13 @@ interface Props {
   selectedAction: string | null
   onSelectAction: (name: string | null) => void
   selectedFeature: FeatureEntry | null
+  onSummon?: (templateId: string, count?: number, source?: { spellId?: string }) => void
+  onConcentrationBroken?: () => void
 }
 
 const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th',9:'9th' }
 
-export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature }: Props) {
+export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature, onSummon, onConcentrationBroken }: Props) {
   const [armoryOpen, setArmoryOpen] = useState(false)
   const [armoryTab, setArmoryTab] = useState<'browse' | 'custom'>('browse')
   const [armorySearch, setArmorySearch] = useState('')
@@ -571,6 +573,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               character={char}
               update={update}
               onLearnSpell={(id) => update({ spellIds: [...new Set([...char.spellIds, id])] })}
+              onSummon={onSummon}
+              onConcentrationBroken={onConcentrationBroken}
             />
           </div>
         </>
@@ -1304,6 +1308,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             update={update}
             castingTimeFilter={castingTimeFilter}
             onLearnSpell={(char.classId === 'Wizard' || !!SUBCLASS_BY_ID[char.subclass ?? '']?.spellListClassId) ? (id) => update({ spellIds: [...new Set([...char.spellIds, id])] }) : undefined}
+            onSummon={onSummon}
+            onConcentrationBroken={onConcentrationBroken}
           />
         </div>
       </>
@@ -1779,6 +1785,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               ? (id) => update({ spellIds: [...new Set([...char.spellIds, id])] })
               : undefined
             }
+            onSummon={onSummon}
+            onConcentrationBroken={onConcentrationBroken}
           />
         </div>
 

@@ -1,0 +1,186 @@
+[
+  {
+    "id": "skeleton",
+    "name": "Skeleton",
+    "type": "creature",
+    "source": "builtin",
+    "maxHp": 13,
+    "ac": 13,
+    "speed": "30 ft",
+    "initiativeMod": 2,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "attacks": [
+      {
+        "id": "shortsword",
+        "name": "Shortsword",
+        "toHit": "+4",
+        "damage": "1d6+2",
+        "damageType": "piercing"
+      },
+      {
+        "id": "shortbow",
+        "name": "Shortbow",
+        "toHit": "+4",
+        "damage": "1d6+2",
+        "damageType": "piercing",
+        "notes": "range 80/320"
+      }
+    ],
+    "defaultNotes": "Vulnerable to bludgeoning. Obeys verbal commands."
+  },
+  {
+    "id": "zombie",
+    "name": "Zombie",
+    "type": "creature",
+    "source": "builtin",
+    "maxHp": 22,
+    "ac": 8,
+    "speed": "20 ft",
+    "initiativeMod": -2,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "attacks": [
+      {
+        "id": "slam",
+        "name": "Slam",
+        "toHit": "+3",
+        "damage": "1d6+1",
+        "damageType": "bludgeoning"
+      }
+    ],
+    "defaultNotes": "Undead Fortitude: drops to 1 HP on a CON save (DC 5 + damage) unless radiant/crit."
+  },
+  {
+    "id": "eldritch-cannon-flamethrower",
+    "name": "Eldritch Cannon (Flamethrower)",
+    "type": "structure",
+    "source": "builtin",
+    "maxHp": 5,
+    "maxHpFormula": "5 × artificer level",
+    "ac": 18,
+    "speed": "15 ft (walking variant)",
+    "initiativeMod": 0,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 0,
+      "reactions": 0
+    },
+    "attacks": [
+      {
+        "id": "flame",
+        "name": "Flamethrower",
+        "toHit": "DC = spell save",
+        "damage": "2d8",
+        "damageType": "fire",
+        "notes": "15-ft cone, Dex save for half"
+      }
+    ],
+    "defaultNotes": "Activated as a bonus action by its creator."
+  },
+  {
+    "id": "eldritch-cannon-force-ballista",
+    "name": "Eldritch Cannon (Force Ballista)",
+    "type": "structure",
+    "source": "builtin",
+    "maxHp": 5,
+    "maxHpFormula": "5 × artificer level",
+    "ac": 18,
+    "speed": "15 ft (walking variant)",
+    "initiativeMod": 0,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 0,
+      "reactions": 0
+    },
+    "attacks": [
+      {
+        "id": "ballista",
+        "name": "Force Ballista",
+        "toHit": "spell attack",
+        "damage": "2d8",
+        "damageType": "force",
+        "notes": "range 120 ft, push 5 ft"
+      }
+    ],
+    "defaultNotes": "Activated as a bonus action by its creator."
+  },
+  {
+    "id": "eldritch-cannon-protector",
+    "name": "Eldritch Cannon (Protector)",
+    "type": "structure",
+    "source": "builtin",
+    "maxHp": 5,
+    "maxHpFormula": "5 × artificer level",
+    "ac": 18,
+    "speed": "15 ft (walking variant)",
+    "initiativeMod": 0,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 0,
+      "reactions": 0
+    },
+    "attacks": [],
+    "defaultNotes": "Emits a protective aura granting temp HP (1d8 + INT mod) to creatures within 10 ft."
+  },
+  {
+    "id": "beast-spirit",
+    "name": "Beast Spirit (Land)",
+    "type": "creature",
+    "source": "builtin",
+    "maxHp": 30,
+    "maxHpFormula": "30 + 5 per slot above 3rd",
+    "ac": 13,
+    "speed": "40 ft",
+    "initiativeMod": 2,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "attacks": [
+      {
+        "id": "maul",
+        "name": "Maul",
+        "toHit": "spell atk",
+        "damage": "1d8 + spell mod",
+        "damageType": "piercing",
+        "notes": "+1d8 per slot above 3rd"
+      }
+    ],
+    "defaultNotes": "Summon Beast (concentration). Acts on your turn after you command it (no action)."
+  },
+  {
+    "id": "fey-spirit",
+    "name": "Fey Spirit",
+    "type": "creature",
+    "source": "builtin",
+    "maxHp": 30,
+    "maxHpFormula": "30 + 10 per slot above 3rd",
+    "ac": 13,
+    "speed": "40 ft, fly 30 ft",
+    "initiativeMod": 3,
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "attacks": [
+      {
+        "id": "fey-strike",
+        "name": "Fey Strike",
+        "toHit": "spell atk",
+        "damage": "2d6 + 3 + spell mod",
+        "damageType": "force",
+        "notes": "+1d6 per slot above 3rd"
+      }
+    ],
+    "defaultNotes": "Summon Fey (concentration). Mood (Fuming/Mirthful/Tricksy) grants a rider effect."
+  }
+]

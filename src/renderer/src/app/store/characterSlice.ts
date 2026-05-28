@@ -1,7 +1,11 @@
 import type { StateCreator } from 'zustand'
 import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
+import type { ActiveSummon, ActiveSummonRuntime, SummonBase } from '@/entities/summon/types'
 import type { GearEquipmentItem } from '@/shared/data/equipment/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
+import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
+import { loadSummonTemplatesFromDisk } from '@/shared/data/summons/summonLoader'
+import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { profBonus, computeMaxHP, computeSpeed, computeInitiativeFull, mod, computeACFull, computeDerivedStats } from '@/shared/data/charCalculations'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
@@ -45,6 +49,12 @@ export interface CharacterSlice {
   unequipSlot: (charId: string, slot: keyof Equipment) => void
   unequipWeapon: (charId: string, slotIndex: 0 | 1) => void
   equipWeaponFromId: (charId: string, defId: string, slotIndex: 0 | 1) => void
+
+  summonFromTemplate: (charId: string, templateId: string, count?: number, source?: { spellId?: string }) => void
+  removeSummon: (charId: string, summonId: string) => void
+  updateSummonState: (charId: string, summonId: string, patch: Partial<ActiveSummonRuntime>) => void
+  newSummonTurn: (charId: string, summonId: string) => void
+  clearAllSummons: (charId: string, filter?: { concentrationOnly?: boolean; spellId?: string }) => void
 
   customItems: Record<string, GearEquipmentItem>
   addCustomItem: (def: GearEquipmentItem) => void
@@ -96,6 +106,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
     if (get().loaded) return
     try {
       await loadEquipmentFromCsv()
+      await loadSummonTemplatesFromDisk()
 
       const allIds = await ipcService.list()
       const charIds = allIds.filter(id => id !== '__customItems__')
@@ -193,6 +204,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         concentrationSpellId: null,
         conditionIds: char.conditionIds.filter(c => c.conditionId === 'exhaustion'),
         superiorityDiceUsed: 0,
+        activeSummons: [],
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
@@ -477,6 +489,130 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         ...withWeapons,
         updatedAt: new Date().toISOString(),
         ...computeDerivedStats(withWeapons),
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  summonFromTemplate: (charId, templateId, count = 1, source) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const tpl = SUMMON_TEMPLATE_BY_ID[templateId]
+      if (!tpl) return state
+
+      const base: SummonBase = {
+        name: tpl.name,
+        type: tpl.type,
+        maxHp: tpl.maxHp,
+        ac: tpl.ac,
+        speed: tpl.speed,
+        initiativeMod: tpl.initiativeMod,
+        attacks: tpl.attacks.map(a => ({ ...a })),
+        actionEconomy: { ...tpl.actionEconomy },
+        spells: tpl.spells ? [...tpl.spells] : undefined,
+        resources: tpl.resources ? tpl.resources.map(r => ({ ...r })) : undefined,
+      }
+
+      const concentration = source?.spellId
+        ? SPELL_BY_ID[source.spellId]?.concentration
+        : undefined
+
+      // Continue #N numbering per template name across existing summons.
+      const existingOfName = char.activeSummons.filter(s => s.base.name === tpl.name).length
+      const now = new Date().toISOString()
+      const newSummons: ActiveSummon[] = []
+      for (let i = 0; i < Math.max(1, count); i++) {
+        newSummons.push({
+          id: crypto.randomUUID(),
+          templateId,
+          label: `${tpl.name} #${existingOfName + i + 1}`,
+          createdAt: now,
+          sourceSpellId: source?.spellId,
+          concentration,
+          base,
+          hp: { current: tpl.maxHp, max: tpl.maxHp, temp: 0 },
+          conditionIds: [],
+          economyUsed: { actions: 0, bonusActions: 0, reactions: 0 },
+          resourcesUsed: {},
+          initiativeRoll: null,
+          notes: tpl.defaultNotes ?? '',
+        })
+      }
+
+      const updated: Character = {
+        ...char,
+        updatedAt: now,
+        activeSummons: [...char.activeSummons, ...newSummons],
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  removeSummon: (charId, summonId) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        activeSummons: char.activeSummons.filter(s => s.id !== summonId),
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  updateSummonState: (charId, summonId, patch) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        activeSummons: char.activeSummons.map(s =>
+          s.id === summonId ? { ...s, ...patch } : s
+        ),
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  newSummonTurn: (charId, summonId) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        activeSummons: char.activeSummons.map(s =>
+          s.id === summonId
+            ? { ...s, economyUsed: { actions: 0, bonusActions: 0, reactions: 0 } }
+            : s
+        ),
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  clearAllSummons: (charId, filter) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      let next: ActiveSummon[] = []
+      if (filter?.concentrationOnly) {
+        next = char.activeSummons.filter(s => !s.concentration)
+      } else if (filter?.spellId) {
+        next = char.activeSummons.filter(s => s.sourceSpellId !== filter.spellId)
+      }
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        activeSummons: next,
       }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }

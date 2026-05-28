@@ -11,6 +11,8 @@ import { RestPanel } from '@/features/rest/RestPanel'
 import { VitalsPanel } from '@/features/vitals/VitalsPanel'
 import { AbilitiesPanel } from '@/features/abilities/AbilitiesPanel'
 import { ConditionsPanel } from '@/features/conditions/ConditionsPanel'
+import { SummonsPanel } from '@/features/summons/SummonsPanel'
+import { SummonDetailPanel } from '@/features/summons/SummonDetailPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
@@ -27,7 +29,7 @@ import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 import styles from './CharacterView.module.css'
 
 export function CharacterView() {
-  const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, shortRest, longRest, levelUp, applyPendingAsi, setTempHp } = useAppStore()
+  const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, shortRest, longRest, levelUp, applyPendingAsi, setTempHp, summonFromTemplate, removeSummon, updateSummonState, newSummonTurn, clearAllSummons } = useAppStore()
 
   const [restOpen, setRestOpen] = useState(false)
   const [equipOpen, setEquipOpen] = useState(false)
@@ -37,6 +39,7 @@ export function CharacterView() {
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
   const [selectedFeature, setSelectedFeature] = useState<FeatureEntry | null>(null)
   const [selectedDetail, setSelectedDetail] = useState<{ type: 'save' | 'skill'; key: string } | null>(null)
+  const [selectedSummonId, setSelectedSummonId] = useState<string | null>(null)
   const [pendingAsiQueue, setPendingAsiQueue] = useState<number[]>([])
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
@@ -132,7 +135,7 @@ export function CharacterView() {
         }}
         onRestToggle={() => setRestOpen(v => !v)}
         onBack={exitCharacter}
-        onEquipToggle={() => { setEquipOpen(p => !p); setSelectedAction(null); setShopOpen(false) }}
+        onEquipToggle={() => { setEquipOpen(p => !p); setSelectedAction(null); setShopOpen(false); setSelectedSummonId(null) }}
         equipOpen={equipOpen}
       />
 
@@ -149,16 +152,26 @@ export function CharacterView() {
         <aside className={styles.leftCol}>
           <VitalsPanel character={char} update={update} onTempHp={(amt) => setTempHp(char.id, amt)} onDelete={() => { deleteCharacter(char.id); exitCharacter() }} />
           <ConditionsPanel character={char} update={update} />
+          <SummonsPanel
+            character={char}
+            selectedSummonId={selectedSummonId}
+            onSelectSummon={(id) => {
+              setSelectedSummonId(id)
+              if (id) { setSelectedAction(null); setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) }
+            }}
+            onSummon={(templateId, count, source) => summonFromTemplate(char.id, templateId, count, source)}
+            onClearAll={() => { clearAllSummons(char.id); setSelectedSummonId(null) }}
+          />
           <AbilitiesPanel
             character={char}
             update={update}
             selectedDetail={selectedDetail}
-            onSelectDetail={(d) => { setSelectedDetail(d); if (d) { setSelectedAction(null); setSelectedFeature(null); setEquipOpen(false); setShopOpen(false) } }}
+            onSelectDetail={(d) => { setSelectedDetail(d); if (d) { setSelectedAction(null); setSelectedFeature(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
           />
           <FeaturesPanel
             character={char}
             selectedFeature={selectedFeature}
-            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) }}
+            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) }}
           />
         </aside>
 
@@ -166,7 +179,7 @@ export function CharacterView() {
           <ActionListPanel
             character={char}
             selectedAction={selectedAction}
-            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) } }}
+            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
             update={update}
           />
         </div>
@@ -245,8 +258,10 @@ export function CharacterView() {
               character={char}
               update={update}
               selectedAction={selectedAction}
-              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) } }}
+              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
               selectedFeature={selectedFeature}
+              onSummon={(templateId, count, source) => summonFromTemplate(char.id, templateId, count, source)}
+              onConcentrationBroken={() => clearAllSummons(char.id, { concentrationOnly: true })}
             />
           )}
           {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
@@ -264,6 +279,18 @@ export function CharacterView() {
               onClose={() => setSelectedDetail(null)}
             />
           )}
+          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && !selectedDetail && selectedSummonId && (() => {
+            const summon = char.activeSummons.find(s => s.id === selectedSummonId)
+            return summon ? (
+              <SummonDetailPanel
+                summon={summon}
+                onUpdate={(patch) => updateSummonState(char.id, summon.id, patch)}
+                onRemove={() => { removeSummon(char.id, summon.id); setSelectedSummonId(null) }}
+                onNewTurn={() => newSummonTurn(char.id, summon.id)}
+                onClose={() => setSelectedSummonId(null)}
+              />
+            ) : null
+          })()}
         </div>
       </div>
 
