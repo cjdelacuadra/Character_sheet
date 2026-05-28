@@ -42,6 +42,6 @@ All files target **22×22 px**, image-rendering: pixelated.
 
 ## Reuse rules
 
-- New condition-type debuffs **map to the closest existing aura**. The resolver routes `vizDamageType` to a sprite here when the value matches a filename stem (e.g., `'paralyzed'`, `'charmed'`); otherwise it falls back to `/assets/spells/animation/[damage_type]/`.
+- New condition-type debuffs **map to the closest existing aura**. The resolver routes `vizDamageType` to a sprite here when the value matches a filename stem (e.g., `'paralyzed'`, `'charmed'`); otherwise it falls back to `/assets/equipment/sprites/missiles/magic/[damage_type]/`.
 - Don't add a new aura unless the existing ten can't reasonably represent the condition.
 - Save-passed targets do **not** get an aura — the render template suppresses it and shows the existing `pass/Sparks_Effect.gif` instead.

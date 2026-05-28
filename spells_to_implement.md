@@ -4,7 +4,7 @@ Spells from [src/renderer/src/shared/data/spellData.ts](src/renderer/src/shared/
 
 Each entry describes the animation we'd want, why it can't ship with the current asset/template set, and a concrete proposal for when someone picks it up.
 
-> Templates available today: `damage` (aoeShape + damageType), `self-buff` (looping aura on player tile), `debuff-aura` (looping aura on each rolled-hit enemy tile). Sprite folders today: `earth, fire, lightning, poison, psychic, thunder` under `/assets/spells/animation/[type]/` and `/assets/spells/missiles/magic/[type]/`. Impact GIFs: `Blood_Effect.gif`, `Poof_Effect.gif`, `Sparks_Effect.gif`.
+> Templates available today: `damage` (aoeShape + damageType), `self-buff` (looping aura on player tile), `debuff-aura` (looping aura on each rolled-hit enemy tile). Magic frame sprites (`earth, fire, lightning, poison, psychic, thunder`) live under `/assets/equipment/sprites/missiles/magic/[type]/` — the canonical source for both missiles and AOE waves. Impact GIFs (`Blood_Effect.gif`, `Poof_Effect.gif`, `Sparks_Effect.gif`) live under `/assets/spells/{hit,pass,miss}/`.
 
 ---
 

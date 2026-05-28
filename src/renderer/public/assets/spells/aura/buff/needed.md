@@ -47,5 +47,5 @@ All files target **22×22 px** to match the existing tile size; image-rendering:
 ## Reuse rules
 
 - When a self-buff doesn't have a perfectly matching sprite, fall back through **`defense → holy → damage`** based on which the spell description emphasizes.
-- Many self-buff spells already resolve through the existing `vizDamageType` palette (`force`, `radiant`, `cold`, etc.) via `/assets/spells/animation/[damage_type]/*.png` — those don't need a new file here. This folder only holds **effect-themed** auras for spells whose damage type doesn't match their visual flavour.
+- Many self-buff spells already resolve through the existing `vizDamageType` palette (`force`, `radiant`, `cold`, etc.) via `/assets/equipment/sprites/missiles/magic/[damage_type]/*.png` — those don't need a new file here. This folder only holds **effect-themed** auras for spells whose damage type doesn't match their visual flavour.
 - Do **not** add per-spell files. If a new spell needs an aura, pick the closest existing one.
