@@ -36,3 +36,17 @@
 .editBtn:hover { border-color: var(--accent); color: var(--accent); }
 .delBtn:hover { border-color: var(--danger); color: var(--danger); }
 .empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; }
+
+.group { display: flex; flex-direction: column; gap: 4px; }
+.groupHeader {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 5px 8px; border-radius: 5px; border: none;
+  background: var(--surface-3, color-mix(in srgb, var(--surface-2) 60%, transparent));
+  color: var(--text-muted); cursor: pointer;
+  font-size: 11px; font-weight: 600; text-transform: capitalize; letter-spacing: 0.04em;
+  text-align: left;
+}
+.groupHeader:hover { color: var(--text); }
+.groupArrow { font-size: 8px; width: 10px; flex-shrink: 0; }
+.groupName { flex: 1; }
+.groupCount { font-size: 10px; opacity: 0.7; }

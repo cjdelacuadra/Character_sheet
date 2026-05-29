@@ -1,4 +1,4 @@
-export type SummonType = 'creature' | 'structure' | 'object'
+export type SummonType = 'creature' | 'spectral' | 'undead' | 'spirit' | 'celestial' | 'homebrew' | 'structure' | 'object' | 'construct' | 'monstrosity' | 'fey' | 'aberration' | "elemental"  | "beast"  | "void" | "dragon" | 'other'
 
 export interface SummonAttack {
   id: string
@@ -21,7 +21,7 @@ export interface SummonTemplate {
   id: string             // crypto.randomUUID() (custom) or stable slug (built-in)
   name: string
   type: SummonType
-  source?: 'builtin' | 'custom'
+  source?: "builtin" | "custom" | "spell" | "class-feature" | "infusion" | "homebrew" | "celestial" | "conjured" | "other"
   maxHp: number
   maxHpFormula?: string  // display-only, not auto-evaluated
   ac: number

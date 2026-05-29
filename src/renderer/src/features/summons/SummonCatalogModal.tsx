@@ -11,16 +11,40 @@ interface Props {
   onClose: () => void
 }
 
+function groupByType<T>(items: T[], key: (item: T) => string): [string, T[]][] {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const k = key(item)
+    const list = map.get(k)
+    if (list) list.push(item)
+    else map.set(k, [item])
+  }
+  return [...map.entries()]
+}
+
 export function SummonCatalogModal({ mode, onPick, onClose }: Props) {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<SummonTemplate | null>(null)
   const [creating, setCreating] = useState(false)
   // Bumped after catalog mutations to re-read the module array.
   const [version, setVersion] = useState(0)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   const templates = SUMMON_TEMPLATES
     .filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
   void version
+
+  // Group by type only when not searching
+  const groups = search ? null : groupByType(templates, t => t.type)
+
+  function toggleGroup(type: string) {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }
 
   async function handleSave(t: SummonTemplate) {
     if (editing) await updateSummonTemplate(t)
@@ -36,6 +60,28 @@ export function SummonCatalogModal({ mode, onPick, onClose }: Props) {
   }
 
   const showEditor = creating || editing !== null
+
+  function renderEntry(t: SummonTemplate) {
+    return (
+      <div key={t.id} className={styles.entry}>
+        <button
+          className={styles.entryMain}
+          disabled={mode === 'manage'}
+          onClick={() => { if (mode === 'pick') { onPick?.(t.id); onClose() } }}
+          title={mode === 'pick' ? 'Summon this' : undefined}
+        >
+          <span className={styles.entryName}>{t.name}</span>
+          <span className={styles.entryMeta}>{t.maxHp} HP · AC {t.ac}</span>
+        </button>
+        {mode === 'manage' && (
+          <div className={styles.entryActions}>
+            <button className={styles.editBtn} onClick={() => setEditing(t)}>Edit</button>
+            <button className={styles.delBtn} onClick={() => handleDelete(t.id)}>Delete</button>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -71,25 +117,20 @@ export function SummonCatalogModal({ mode, onPick, onClose }: Props) {
               )}
             </div>
             <div className={styles.list}>
-              {templates.map(t => (
-                <div key={t.id} className={styles.entry}>
-                  <button
-                    className={styles.entryMain}
-                    disabled={mode === 'manage'}
-                    onClick={() => { if (mode === 'pick') { onPick?.(t.id); onClose() } }}
-                    title={mode === 'pick' ? 'Summon this' : undefined}
-                  >
-                    <span className={styles.entryName}>{t.name}</span>
-                    <span className={styles.entryMeta}>{t.type} · {t.maxHp} HP · AC {t.ac}</span>
-                  </button>
-                  {mode === 'manage' && (
-                    <div className={styles.entryActions}>
-                      <button className={styles.editBtn} onClick={() => setEditing(t)}>Edit</button>
-                      <button className={styles.delBtn} onClick={() => handleDelete(t.id)}>Delete</button>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {groups ? (
+                groups.map(([type, items]) => (
+                  <div key={type} className={styles.group}>
+                    <button className={styles.groupHeader} onClick={() => toggleGroup(type)}>
+                      <span className={styles.groupArrow}>{collapsed.has(type) ? '▶' : '▼'}</span>
+                      <span className={styles.groupName}>{type}</span>
+                      <span className={styles.groupCount}>{items.length}</span>
+                    </button>
+                    {!collapsed.has(type) && items.map(renderEntry)}
+                  </div>
+                ))
+              ) : (
+                templates.map(renderEntry)
+              )}
               {templates.length === 0 && (
                 <div className={styles.empty}>No templates{search ? ' match your search' : ''}.</div>
               )}

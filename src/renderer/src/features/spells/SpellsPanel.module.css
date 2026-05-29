@@ -110,7 +110,7 @@
 .spellScalingLeft { color: var(--text-muted); font-size: 10px; min-width: 40px; text-align: right; }
 
 /* Spell modal */
-.modalOverlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .spellModal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; width: 480px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .spellModalHeader { display: flex; align-items: flex-start; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
 .spellModalName { font-size: 18px; font-weight: 700; color: var(--text); }
