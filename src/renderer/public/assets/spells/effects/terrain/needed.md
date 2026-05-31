@@ -3,20 +3,6 @@
 8-frame looped sprites for persistent ground-affecting zones whose visual doesn't map to a damage type.
 The renderer treats this folder the same as `/animation/[damage_type]/` (per-tile looped frames) but routes via `vizCategory: 'terrain'` + a `vizDamageType` key matching the filename stem.
 
-## Files
-
-| Filename | Format | Frames | Style notes |
-|---|---|---|---|
-| `vines_grasping.gif` | gif | 8 looped | Green/brown vines emerging and writhing on each tile. |
-| `spikes_thorns.gif` | gif | 8 looped | Brown/grey thorns growing upward, settling, swaying. |
-| `fog_cloud.gif` | gif | 8 looped | Grey wispy fog billowing slowly. |
-| `darkness_sphere.gif` | gif | 8 looped | Near-black void with subtle shimmer at the edges. |
-| `silence_dome.gif` | gif | 8 looped | Faint grey/silver shimmer; very low opacity. |
-| `hypnotic_swirl.gif` | gif | 8 looped | Rainbow spiral pattern; mesmerizing. |
-| `illusion_shimmer.gif` | gif | 8 looped | Translucent, slightly distorted shimmer (heat-haze look). |
-
-All files target **22×22 px**, image-rendering: pixelated.
-
 ## Spell coverage
 
 | Spell | File used | Render template |

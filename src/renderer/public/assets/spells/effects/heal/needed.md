@@ -3,17 +3,6 @@
 Sprites for HP restoration, condition cleanse, and resurrection spells.
 All files share a unified green/gold palette.
 
-## Files
-
-| Filename | Format | Frames | Style notes |
-|---|---|---|---|
-| `heal_pulse.gif` | gif | 6 one-shot, ~500ms | Green/gold sparkle blooming on a single tile; gentle upward particles. |
-| `heal_wave.gif` | gif | 8 looped | Green/gold wave radiating outward; same palette as pulse. Per-tile loop for AOE heal. |
-| `restoration_cleanse.gif` | gif | 6 one-shot | White/gold flash with falling condition icons (suggesting "afflictions removed"). |
-| `revive_beam.gif` | gif | 8 one-shot, ~700ms | Vertical golden beam coming down from off-grid, lifting silhouette. |
-
-All files target **22×22 px** (revive_beam may be **22×44 px tall** to read as a vertical beam), image-rendering: pixelated.
-
 ## Spell coverage
 
 | Spell | File used | Render template |

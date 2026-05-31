@@ -6,7 +6,7 @@ Multi-tile barriers. Unlike `aura/` and `effects/terrain/`, walls render as a **
 
 | Filename | Format | Frames | Style notes |
 |---|---|---|---|
-| `wall_force.svg` | svg | n/a | Translucent rectangular panel; faint blue/white edge highlight; meant to be stretched/tiled across the wall length. |
+| `wall_force.gif` | svg | n/a | Translucent rectangular panel; faint blue/white edge highlight; meant to be stretched/tiled across the wall length. |
 
 SVG preferred so the wall can stretch cleanly to any panel count without pixelation.
 

@@ -188,8 +188,12 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const isAoe = (spell.aoeShape ?? 'single') !== 'single'
   const isSelfBuff = spell.vizCategory === 'self-buff'
   const isDebuffAura = spell.vizCategory === 'debuff-aura'
+  // Terrain zones loop a sprite on their tiles like an AOE, but never deal damage —
+  // AOE-shaped terrain fills its area cells; a shapeless terrain spell (e.g. Minor
+  // Illusion) animates on the player's tile.
+  const isTerrain = spell.vizCategory === 'terrain'
   // useWave = any spell that propagates a looping AOE sprite (vs missile-based single targets).
-  const useWave = isAoe || isSelfBuff || isDebuffAura
+  const useWave = isAoe || isSelfBuff || isDebuffAura || isTerrain
   // Sprite/tint colour. Non-damage templates use vizDamageType; damage spells use damageType.
   const auraColor = spell.vizDamageType ?? spell.damageType
   const tint = DMG_TINT[auraColor ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
@@ -204,10 +208,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   )
 
   const targets = useMemo<TargetResult[]>(
-    // Self-buff has no enemy targets; everything else rolls per enemyHitPositions.
-    () => (isSelfBuff ? [] : rollTargets(spell, layout.enemyHitPositions)),
+    // Self-buff and terrain zones have no enemy targets; everything else rolls per enemyHitPositions.
+    () => (isSelfBuff || isTerrain ? [] : rollTargets(spell, layout.enemyHitPositions)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spell.id, slotLevel, position, isSelfBuff],
+    [spell.id, slotLevel, position, isSelfBuff, isTerrain],
   )
 
   // Wave origin: self-buff/debuff-aura always emanate from the player; AOE damage uses
@@ -226,9 +230,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
     if (isAoe) return layout.areaCells
     if (isSelfBuff) return [playerPos]
     if (isDebuffAura) return targets.filter(t => t.result === 'hit').map(t => ({ x: t.pos.x, y: t.pos.y }))
+    if (isTerrain) return [playerPos] // shapeless terrain (e.g. Minor Illusion) sits on the caster tile
     return []
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spell.id, slotLevel, position, isAoe, isSelfBuff, isDebuffAura, targets])
+  }, [spell.id, slotLevel, position, isAoe, isSelfBuff, isDebuffAura, isTerrain, targets])
 
   // Per-cell delay-from-origin. Wave length is the slowest cell's full cycle plus a brief gap.
   const { cellTimings, waveLengthMs } = useMemo(() => {
@@ -404,18 +409,26 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
                 >
                   {isEnemy && !isPlayer && (
                     <img
-                      className={styles.sprite}
-                      src="/assets/enemies/121866.png"
+                      src="/assets/enemies/enemy_basic.png"
                       alt="Enemy"
+                      style={{
+                        position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+                        width: TILE, height: Math.round(TILE * 32 / 24),
+                        imageRendering: 'pixelated', zIndex: 3, pointerEvents: 'none',
+                      }}
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     />
                   )}
                   {isPlayer && (
-                    <img
-                      className={`${styles.sprite} ${styles.spritePlayer}`}
-                      src="/assets/outfit/character.png"
-                      alt="Player"
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                    <div
+                      style={{
+                        position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                        width: Math.round(TILE * 0.62), height: Math.round(TILE * 0.62),
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 35% 30%, #6aa6ff, #2b5bbf 70%, #16306e)',
+                        border: '2px solid #0e1f44', boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                        zIndex: 4, pointerEvents: 'none',
+                      }}
                     />
                   )}
                 </div>

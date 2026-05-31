@@ -3,20 +3,6 @@
 Static UI overlays anchored to a tile or character. Single-tile, non-looping (or 4-frame tiny loops).
 Use this folder for **decorative or informational** overlays that don't represent damage/area/condition mechanics.
 
-## Files
-
-| Filename | Format | Frames | Style notes |
-|---|---|---|---|
-| `d4_floating.svg` | svg | static | A d4 die floating above the tile; small (≤ 14×14 px effective render). |
-| `thought_bubble.svg` | svg | static | Small comic-style thought bubble; positioned above the tile. |
-| `magic_scan.svg` | svg | static | 30ft-equivalent ring (≈ 6-tile radius outline); used as a single SVG circle over the grid. |
-| `light_glow.svg` | svg | static | Soft radial-gradient glow; semi-transparent yellow/white. |
-| `mote_warm.gif` | gif | 4 looped | Tiny ≤ 6×6 px warm-coloured mote (yellow/orange) bobbing. |
-| `mote_cool.gif` | gif | 4 looped | Tiny ≤ 6×6 px cool-coloured mote (cyan/violet) bobbing. |
-| `flourish_sparkle.gif` | gif | 6 one-shot, ~400ms | Small magical sparkle burst; for minor cantrip cosmetic effects. |
-
-Prefer **SVG** for crisp scaling; use GIF for the tiny animated motes/flourishes.
-
 ## Spell coverage
 
 | Spell | File used | Render template |

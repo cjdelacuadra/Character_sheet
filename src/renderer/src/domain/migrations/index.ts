@@ -142,5 +142,10 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 9) data = v8_to_v9(data) as typeof data
   if (version < 10) data = v9_to_v10(data) as typeof data
 
+  // Safety net: the version-gated backfills above don't re-run for characters already at a
+  // newer schema version, so one that somehow lacks ownedItemIds keeps it undefined and crashes
+  // every unguarded reader (InventoryGrid/ShopPanel/store actions). Guarantee it's an array.
+  data.ownedItemIds = data.ownedItemIds ?? []
+
   return data as Character
 }

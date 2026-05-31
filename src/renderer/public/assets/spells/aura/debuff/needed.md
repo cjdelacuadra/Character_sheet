@@ -7,16 +7,10 @@ Maps to render template `vizCategory: 'debuff-aura'`.
 
 | Filename | Format | Frames | Style notes |
 |---|---|---|---|
-| `marked_aura.gif` | gif | 8 looped | Bullseye / crosshair overlay; red or arcane. |
-| `paralyzed_aura.gif` | gif | 8 looped | Frozen-in-place shimmer; faint ice crystals on the tile. |
-| `slowed_aura.gif` | gif | 8 looped | Slow-motion ripple; concentric rings expanding outward at half speed. |
-| `frightened_aura.gif` | gif | 8 looped | Shaky black tendrils + fear lines around the tile. |
-| `charmed_aura.gif` | gif | 8 looped | Pink/violet heart particles or hypnotic spirals. |
-| `illuminated_aura.gif` | gif | 8 looped | Soft outline glow (Faerie Fire colours: blue/green/violet, pick one). |
-| `transformed_aura.gif` | gif | 8 looped | Bubbling/morphing distortion; suggests shape change. |
-| `blinded_aura.gif` | gif | 8 looped | Closed-eyes overlay + grayscale shimmer. |
-| `asleep_aura.gif` | gif | 8 looped | Floating "Z" letters above the tile. |
-| `banished_aura.gif` | gif | 8 looped | Fading-portal ring; the target's silhouette ghosting out. |
+| `restrain_aura.gif` | gif | 8 looped | Shaky black tendrils wraping around. |
+| `illuminated_aura.gif` | gif | 8 looped | Soft outline glow (Faerie Fire colours: light (blue/green/violet), pick one). |
+| `transformed_aura.gif` | gif | 8 looped | multiple Bubbling/morphing distortion; suggests shape change. |
+| `blinded_aura.gif` | gif | 8 looped | Closed-eyes overlay (at head position) + grayscale shimmer. |
 
 All files target **22×22 px**, image-rendering: pixelated.
 

@@ -7,14 +7,8 @@ Maps to render template `vizCategory: 'self-buff'` (or the future ally-tile equi
 
 | Filename | Format | Frames | Style notes |
 |---|---|---|---|
-| `defense_aura.gif` | gif | 8 looped | Soft blue/silver shield bubble around the tile; subtle pulse. |
-| `damage_aura.gif` | gif | 8 looped | Red/orange weapon-edge glow; angular, aggressive. |
-| `speed_aura.gif` | gif | 8 looped | Trailing wind lines (white/light blue) flowing rearward. |
-| `heal_aura.gif` | gif | 8 looped | Green/gold soft pulse; gentle bloom. |
-| `holy_aura.gif` | gif | 8 looped | Golden upward-light particles; bright at top, fading down. |
+| `damage_aura.gif` | gif | 8 looped | Red/orange bubble around the tile; angular, aggressive. |
 | `frost_aura.gif` | gif | 8 looped | Frost crystals forming and dissolving; cyan/white. |
-| `mirror_aura.gif` | gif | 8 looped | Three ghosted duplicates rotating slowly around the tile. |
-| `weapon_glow_aura.gif` | gif | 8 looped | Magical sheen anchored where a weapon would be — works for player or ally. |
 
 All files target **22×22 px** to match the existing tile size; image-rendering: pixelated.
 

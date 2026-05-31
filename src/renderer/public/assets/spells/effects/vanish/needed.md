@@ -3,17 +3,6 @@
 One-shot or short-loop sprites for fade-out, fade-in, and teleport effects on a tile.
 Used by spells where a creature disappears, reappears, or teleports.
 
-## Files
-
-| Filename | Format | Frames | Style notes |
-|---|---|---|---|
-| `fade_out.gif` | gif | 6 frames, ~300ms total | Character silhouette dissolves into particles; non-looping. |
-| `fade_in.gif` | gif | 6 frames reverse | Particles coalesce back into a silhouette; non-looping. |
-| `silver_mist.gif` | gif | 8 looped, brief | Silvery wispy mist; ambient between fade-out and fade-in. |
-| `purple_warp.gif` | gif | 8 looped | Purple swirl forming a vortex; for forced enemy teleport. |
-
-All files target **22×22 px**, image-rendering: pixelated.
-
 ## Spell coverage
 
 | Spell | File used | Render template |

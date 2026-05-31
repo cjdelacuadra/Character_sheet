@@ -104,7 +104,7 @@ export function InventoryGrid({ character: char, filterKind, onFilterChange, sha
 
   const unequippedOwned = useMemo(
     () =>
-      char.ownedItemIds
+      (char.ownedItemIds ?? [])
         .map(id => getShopItemById(id, customItems))
         .filter((i): i is ShopItem => !!i && !equippedIds.has(i.id))
         .filter(item => !filterKind || item.kind === filterKind),
