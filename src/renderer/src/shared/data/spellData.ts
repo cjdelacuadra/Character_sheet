@@ -366,12 +366,13 @@ export function computeSpellGrid(
 
   if (shape === 'cone') {
     const lenTiles = Math.ceil(size / 5)
-    // Rectangular grid: wide enough for diagonal swing but only as tall as needed.
-    // Aiming is restricted to the lower half in the UI, so we waste no rows above
-    // the player. Player sits at row 1 (1-row visual buffer at top).
-    const cols = Math.max(9, lenTiles + 7)
+    // Cap at 19 cols. Spells over 14 tiles shift the player 4 left so the
+    // right/forward portion of the shape isn't clipped.
+    const cols = Math.min(Math.max(9, lenTiles + 7), 19)
     const rows = Math.max(7, lenTiles + 4)
-    const apexX = Math.floor(cols / 2)
+    const apexX = lenTiles > 14
+      ? Math.floor(cols / 2) - 4
+      : Math.floor(cols / 2)
     const apexY = 1
     // θ = atan2(dy, dx) in screen coords (+y = down).  Default: straight down (π/2).
     const θ = config?.aimTarget
@@ -423,40 +424,65 @@ export function computeSpellGrid(
   }
 
   if (shape === 'cube') {
-    const isSelf = spell.range.toLowerCase().startsWith('self')
     const sideTiles = Math.ceil(size / 5)
-    const total = Math.max(7, sideTiles + 3)
-    const startX = Math.floor((total - sideTiles) / 2)
-    const startY = 1
+    // Same layout rules as cone/line: cap at 19, shift left for large shapes.
+    const cols = Math.min(Math.max(7, sideTiles * 2 + 3), 19)
+    const rows = Math.max(7, sideTiles + 3)
+    const apexX = sideTiles > 14
+      ? Math.floor(cols / 2) - 4
+      : Math.floor(cols / 2)
+    const apexY = 1
+    const θ = config?.aimTarget
+      ? Math.atan2(config.aimTarget.y - apexY, config.aimTarget.x - apexX)
+      : Math.PI / 2
+    const cosθ = Math.cos(θ), sinθ = Math.sin(θ)
+    // Place a sideTiles×sideTiles block starting 1 tile in front of the player.
+    // lat = perpendicular offset centred on the axis; fwd = forward distance.
     const areaCells: { x: number; y: number }[] = []
-    for (let y = startY; y < startY + sideTiles; y++) {
-      for (let x = startX; x < startX + sideTiles; x++) {
-        areaCells.push({ x, y })
+    for (let i = 0; i < sideTiles; i++) {
+      for (let j = 0; j < sideTiles; j++) {
+        const fwd = i + 1
+        const lat = j - (sideTiles - 1) / 2
+        const cx = Math.round(apexX + sinθ * lat + cosθ * fwd)
+        const cy = Math.round(apexY - cosθ * lat + sinθ * fwd)
+        if (cx >= 0 && cx < cols && cy >= 0 && cy < rows) {
+          if (!areaCells.some(c => c.x === cx && c.y === cy))
+            areaCells.push({ x: cx, y: cy })
+        }
       }
     }
+    const toGridC = (fwd: number, lat: number) => ({
+      x: Math.max(0, Math.min(cols - 1, Math.round(apexX + sinθ * lat + cosθ * fwd))),
+      y: Math.max(0, Math.min(rows - 1, Math.round(apexY - cosθ * lat + sinθ * fwd))),
+    })
+    const mid = Math.round(sideTiles / 2)
+    const hitCandidates = [toGridC(mid, 0), toGridC(sideTiles - 1, 0)]
+      .filter(p => areaCells.some(c => c.x === p.x && c.y === p.y))
     return {
-      cols: total, rows: total,
-      playerPosA: { x: Math.floor(total / 2), y: 0 },
-      playerPosB: isSelf ? { x: Math.floor(total / 2), y: startY } : { x: 1, y: 0 },
-      enemyHitPositions:  areaCells.slice(0, 3),
-      enemyMissPositions: [{ x: 0, y: total - 1 }, { x: total - 1, y: total - 1 }],
+      cols, rows,
+      playerPosA: { x: apexX, y: apexY },
+      playerPosB: { x: apexX, y: apexY },
+      enemyHitPositions:  hitCandidates.slice(0, 2),
+      enemyMissPositions: [toGridC(mid, sideTiles), toGridC(mid, -sideTiles)],
       areaCells,
     }
   }
 
   // line / wall
   const lenTiles = Math.ceil(size / 5)
-  // Width: same as the old lineSide (enough for moderate diagonal aim).
-  // Height: shorter since the player sits at row 1 and we only show the forward half.
-  const lineCols = Math.max(9, lenTiles + 6)
+  // A line is 1 cell wide; at 45° the spine shifts ~0.7×lenTiles laterally,
+  // so lenTiles/2 + margin on each side is enough. Cap at 19, shift for large spells.
+  const lineCols = Math.min(Math.max(7, lenTiles + 3), 19)
   const lineRows = Math.max(9, lenTiles + 4)
-  const lineApexX = Math.floor(lineCols / 2)
+  const lineApexX = lenTiles > 14
+    ? Math.floor(lineCols / 2) - 4
+    : Math.floor(lineCols / 2)
   const lineApexY = 1  // player near top; aiming restricted to y > lineApexY in UI
 
   if (config?.wallPoints) {
     // Two-point wall: Bresenham spine between start and end.
     // Use a square grid so the user can reach all cells.
-    const wallSide = Math.max(9, lenTiles + 6)
+    const wallSide = Math.min(Math.max(9, lenTiles + 6), 19)
     const clampW = (v: number) => Math.max(0, Math.min(wallSide - 1, v))
     const spine = bresenhamLine(
       clampW(config.wallPoints.start.x), clampW(config.wallPoints.start.y),

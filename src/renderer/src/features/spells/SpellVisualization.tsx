@@ -162,13 +162,23 @@ function computeShapeOverlay(
   }
 
   if (shape === 'cube') {
-    const xs = layout.areaCells.map(c => c.x)
-    const ys = layout.areaCells.map(c => c.y)
-    const x1 = GRID_PADDING + Math.min(...xs) * (TILE + GRID_GAP)
-    const y1 = GRID_PADDING + Math.min(...ys) * (TILE + GRID_GAP)
-    const x2 = GRID_PADDING + (Math.max(...xs) + 1) * (TILE + GRID_GAP) - GRID_GAP
-    const y2 = GRID_PADDING + (Math.max(...ys) + 1) * (TILE + GRID_GAP) - GRID_GAP
-    return { kind: 'path', d: `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2} L ${x1} ${y2} Z` }
+    // Estimate cube side from cell count (sideTiles² cells, adjusted for boundary clips)
+    const sideTiles = Math.max(1, Math.round(Math.sqrt(layout.areaCells.length)))
+    const cellSize = TILE + GRID_GAP
+    const depth = sideTiles * cellSize
+    const hw = depth / 2
+    const apex = cellPx(playerPos)
+    const ex = apex.x + Math.cos(aimAngle) * depth
+    const ey = apex.y + Math.sin(aimAngle) * depth
+    const dx = ex - apex.x, dy = ey - apex.y
+    const len = Math.hypot(dx, dy)
+    if (len < 1) return null
+    const ux = dx / len, uy = dy / len
+    const px = -uy, py = ux
+    return {
+      kind: 'path',
+      d: `M ${f(apex.x - hw*px)} ${f(apex.y - hw*py)} L ${f(apex.x + hw*px)} ${f(apex.y + hw*py)} L ${f(ex + hw*px)} ${f(ey + hw*py)} L ${f(ex - hw*px)} ${f(ey - hw*py)} Z`,
+    }
   }
 
   return null
@@ -331,6 +341,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const isConeOrLine = spell.aoeShape === 'cone' || spell.aoeShape === 'line'
   const isWallSpell = spell.aoeShape === 'line' && spell.name.toLowerCase().includes('wall')
   const isConeOrDirectionalLine = isConeOrLine && !isWallSpell
+  const isCubeAoe = spell.aoeShape === 'cube'
   const isSphereAoe = spell.aoeShape === 'sphere'
 
   // Targeting state — reset whenever the selected spell changes
@@ -596,7 +607,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
         </div>
       )}
 
-      {isConeOrDirectionalLine && (
+      {(isConeOrDirectionalLine || isCubeAoe) && (
         <div className={styles.frameLabel}>
           {aimTarget ? 'Click to re-aim' : 'Click a cell to aim'}
         </div>
@@ -628,7 +639,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
               const isEnemy = targetSet.has(key) || bystanderSet.has(key)
               const isArea = areaSet.has(key)
               // Only allow aiming into the lower half — enemies are always below the caster
-              const isAimableCell = isConeOrDirectionalLine && !isPlayer && y > playerPos.y
+              const isAimableCell = (isConeOrDirectionalLine || isCubeAoe) && !isPlayer && y > playerPos.y
               const isWallClickable = isWallSpell
               const isAimTarget = aimTarget?.x === x && aimTarget?.y === y
               const isWallStartCell = wallStart?.x === x && wallStart?.y === y
