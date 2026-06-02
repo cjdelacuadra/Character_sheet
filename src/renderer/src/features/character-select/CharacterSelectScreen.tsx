@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/app/store'
 import { useTheme } from '@/app/ThemeContext'
 import type { Character, AbilityScores, AbilityScore } from '@/entities/character/types'
@@ -6,7 +6,7 @@ import type { Skill } from '@/shared/data/skills'
 import { SKILLS, SKILL_BY_KEY } from '@/shared/data/skills'
 import { RACE_LABELS, RACE_BY_ID } from '@/shared/data/raceData'
 import { CLASS_LABELS, CLASS_BY_ID } from '@/shared/data/classData'
-import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID, LAND_CIRCLE_TERRAINS, type LandCircleTerrain } from '@/shared/data/subclassData'
 import { weaponsForClass, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_CLASSES } from '@/shared/data/fightingStylesData'
@@ -119,6 +119,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   const [shieldId, setShieldId] = useState<string | null>(null)
   const [chosenSkills, setChosenSkills] = useState<Skill[]>([])
   const [chosenExpertise, setChosenExpertise] = useState<Skill[]>([])
+  const [chosenSubclassSkills, setChosenSubclassSkills] = useState<Skill[]>([])
+  const [chosenLandTerrain, setChosenLandTerrain] = useState<LandCircleTerrain | undefined>(undefined)
   const [chosenWeapons, setChosenWeapons] = useState<WeaponDef[]>([])
 
   // Step 4 state
@@ -186,6 +188,10 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const skillProf: Partial<Record<Skill, 'proficient' | 'expert'>> = {}
     bgDef?.skills.forEach(s => { skillProf[s] = 'proficient' })
     chosenSkills.forEach(s => { skillProf[s] = 'proficient' })
+    // Subclass-granted skill proficiencies (fixed grants + player choice picks).
+    const subclassDefForBuild = basics.subclass ? SUBCLASS_BY_ID[basics.subclass] : undefined
+    subclassDefForBuild?.extraSkillProficiencies?.forEach(s => { skillProf[s] = 'proficient' })
+    chosenSubclassSkills.forEach(s => { skillProf[s] = 'proficient' })
     // Only promote expertise for skills the character is actually proficient in
     chosenExpertise.forEach(s => { if (skillProf[s]) skillProf[s] = 'expert' })
 
@@ -274,6 +280,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       gold: Math.max(100 - equipCost, 10),
       ownedItemIds: [],
       activeSummons: [],
+      circleOfLandTerrain: basics.subclass === 'CircleOfTheLand' && basics.level >= 3 ? chosenLandTerrain : undefined,
       notes: '',
     }
   }
@@ -328,6 +335,8 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             shieldId={shieldId} setShieldId={setShieldId}
             chosenSkills={chosenSkills} setChosenSkills={setChosenSkills}
             chosenExpertise={chosenExpertise} setChosenExpertise={setChosenExpertise}
+            chosenSubclassSkills={chosenSubclassSkills} setChosenSubclassSkills={setChosenSubclassSkills}
+            chosenLandTerrain={chosenLandTerrain} setChosenLandTerrain={setChosenLandTerrain}
             chosenWeapons={chosenWeapons} setChosenWeapons={setChosenWeapons}
             chosenFightingStyle={chosenFightingStyle} setChosenFightingStyle={setChosenFightingStyle}
             onBack={() => setStep('scores')}
@@ -768,6 +777,8 @@ function StepScores({
 function StepEquipment({
   basics, scores, armorId, setArmorId, shieldId, setShieldId,
   chosenSkills, setChosenSkills, chosenExpertise, setChosenExpertise,
+  chosenSubclassSkills, setChosenSubclassSkills,
+  chosenLandTerrain, setChosenLandTerrain,
   chosenWeapons, setChosenWeapons,
   chosenFightingStyle, setChosenFightingStyle,
   onBack, onNext, onCreate,
@@ -777,6 +788,8 @@ function StepEquipment({
   shieldId: string | null; setShieldId: (v: string | null) => void
   chosenSkills: Skill[]; setChosenSkills: (v: Skill[]) => void
   chosenExpertise: Skill[]; setChosenExpertise: (v: Skill[]) => void
+  chosenSubclassSkills: Skill[]; setChosenSubclassSkills: (v: Skill[]) => void
+  chosenLandTerrain: LandCircleTerrain | undefined; setChosenLandTerrain: (v: LandCircleTerrain | undefined) => void
   chosenWeapons: WeaponDef[]; setChosenWeapons: (v: WeaponDef[]) => void
   chosenFightingStyle: string | undefined; setChosenFightingStyle: (v: string | undefined) => void
   onBack: () => void; onNext?: () => void; onCreate?: () => void
@@ -840,6 +853,25 @@ function StepEquipment({
     }
   }
 
+  // Subclass skill grants: fixed (extraSkillProficiencies) auto-applied at build time;
+  // choice (extraSkillChoice) requires a picker. Skills already covered by background
+  // or class picks are excluded from the choice options to avoid double-counting.
+  // Reset picks when the subclass changes so stale options don't carry over.
+  useEffect(() => { setChosenSubclassSkills([]) }, [basics.subclass]) // eslint-disable-line react-hooks/exhaustive-deps
+  const subclassSkillChoice = subclassDef?.extraSkillChoice
+  const alreadyProficient = new Set<Skill>([...bgSkills, ...chosenSkills])
+  const subclassSkillOptions: Skill[] = subclassSkillChoice
+    ? subclassSkillChoice.options.filter(s => !alreadyProficient.has(s))
+    : []
+  const subclassSkillsNeeded = subclassSkillChoice?.count ?? 0
+  function toggleSubclassSkill(s: Skill) {
+    if (chosenSubclassSkills.includes(s)) {
+      setChosenSubclassSkills(chosenSubclassSkills.filter(k => k !== s))
+    } else if (chosenSubclassSkills.length < subclassSkillsNeeded) {
+      setChosenSubclassSkills([...chosenSubclassSkills, s])
+    }
+  }
+
   const fightingStyleLevel = FIGHTING_STYLE_CLASSES[basics.classId]
   const needsFightingStyle = fightingStyleLevel !== undefined && basics.level >= fightingStyleLevel
   const availableMeleeWeapons = availableWeapons.filter(w => w.rangeType !== 'Ranged')
@@ -863,7 +895,10 @@ function StepEquipment({
     }
   }
 
-  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (!needsFightingStyle || !!chosenFightingStyle) && (!needsMelee || hasMelee) && (!needsRanged || hasRanged) && (expertiseCount === 0 || validExpertise.length === expertiseCount)
+  const needsLandTerrain = basics.subclass === 'CircleOfTheLand' && basics.level >= 3
+  // Reset terrain when subclass changes so a previous Land Druid's terrain doesn't leak.
+  useEffect(() => { if (!needsLandTerrain) setChosenLandTerrain(undefined) }, [needsLandTerrain]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ready = (chosenSkills.length === skillsNeeded || skillsNeeded === 0) && (subclassSkillsNeeded === 0 || chosenSubclassSkills.length === subclassSkillsNeeded) && (!needsFightingStyle || !!chosenFightingStyle) && (!needsMelee || hasMelee) && (!needsRanged || hasRanged) && (expertiseCount === 0 || validExpertise.length === expertiseCount) && (!needsLandTerrain || !!chosenLandTerrain)
 
   return (
     <div className={styles.stepContent}>
@@ -938,6 +973,50 @@ function StepEquipment({
               <span className={styles.infoValue}>{bgDef.skills.map(s => SKILL_BY_KEY[s]?.label).join(', ')}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Subclass skill choice (Order Cleric, Knowledge Cleric, College of Lore, etc.) */}
+      {subclassSkillChoice && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            {subclassDef?.label ?? 'Subclass'} Skills — choose {subclassSkillsNeeded - chosenSubclassSkills.length > 0 ? `${subclassSkillsNeeded - chosenSubclassSkills.length} more` : '✓ done'}
+          </div>
+          <div className={styles.skillChoices}>
+            {subclassSkillOptions.map(s => (
+              <button key={s}
+                className={`${styles.skillChoice} ${chosenSubclassSkills.includes(s) ? styles.skillChoiceSelected : ''} ${chosenSubclassSkills.length >= subclassSkillsNeeded && !chosenSubclassSkills.includes(s) ? styles.skillChoiceDisabled : ''}`}
+                onClick={() => toggleSubclassSkill(s)}
+              >
+                {SKILL_BY_KEY[s]?.label}
+              </button>
+            ))}
+          </div>
+          {subclassDef?.extraSkillProficiencies && subclassDef.extraSkillProficiencies.length > 0 && (
+            <div className={styles.infoBox}>
+              <span className={styles.infoLabel}>Granted by {subclassDef.label}:</span>
+              <span className={styles.infoValue}>{subclassDef.extraSkillProficiencies.map(s => SKILL_BY_KEY[s]?.label).join(', ')}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Circle of the Land Druid: pick a terrain to determine Circle Spells */}
+      {needsLandTerrain && (
+        <div className={styles.equipSection}>
+          <div className={styles.equipLabel}>
+            Circle Terrain — {chosenLandTerrain ? `✓ ${chosenLandTerrain}` : 'choose one'}
+          </div>
+          <div className={styles.skillChoices}>
+            {LAND_CIRCLE_TERRAINS.map(t => (
+              <button key={t}
+                className={`${styles.skillChoice} ${chosenLandTerrain === t ? styles.skillChoiceSelected : ''}`}
+                onClick={() => setChosenLandTerrain(chosenLandTerrain === t ? undefined : t)}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

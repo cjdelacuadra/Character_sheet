@@ -205,6 +205,8 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         conditionIds: char.conditionIds.filter(c => c.conditionId === 'exhaustion'),
         superiorityDiceUsed: 0,
         activeSummons: [],
+        isRaging: false,
+        isBladesinging: false,
       }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }

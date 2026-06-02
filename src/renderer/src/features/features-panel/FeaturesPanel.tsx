@@ -134,6 +134,9 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
                     {f.name === 'Rage' && char.isRaging && (
                       <span className={styles.featureSubRaging}>Raging</span>
                     )}
+                    {f.name === 'Bladesong' && char.isBladesinging && (
+                      <span className={styles.featureSubRaging}>Singing</span>
+                    )}
                   </span>
                   <span className={styles.featureLevel}>
                     <span className={f.source === 'race' ? styles.badgeRace : styles.badgeClass}>

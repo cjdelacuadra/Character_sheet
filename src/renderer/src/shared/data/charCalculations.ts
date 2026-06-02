@@ -33,12 +33,14 @@ export function computeAC(char: {
   race: string
   subclass?: string
   fightingStyle?: string
+  isBladesinging?: boolean
 }, abilityBonus?: Partial<Record<AbilityScore, number>>): number {
   const { abilityScores, equipment, classId, race, subclass } = char
   const ab = abilityBonus ?? {}
   const dexMod = mod(abilityScores.dex + (ab.dex ?? 0))
   const conMod = mod(abilityScores.con + (ab.con ?? 0))
   const wisMod = mod(abilityScores.wis + (ab.wis ?? 0))
+  const intMod = mod(abilityScores.int + (ab.int ?? 0))
   // Shield adds +2 + enchantment (additive on top of armor, never replaces it)
   const shieldDef = equipment.shieldId ? GEAR_BY_ID[equipment.shieldId] : null
   const shield = shieldDef
@@ -62,7 +64,16 @@ export function computeAC(char: {
   const armorId = equipment.armorId ?? 'none'
   const armor = GEAR_BY_ID[armorId]
 
-  if (!armor || armorId === 'none' || armor.baseAC === undefined) return unarmoredAC
+  // Bladesong (Wizard Bladesinger): +INT mod (min +1) to AC while active. Conditions: no
+  // medium/heavy armor and no shield. Light armor and one-handed melee are allowed.
+  const armorType = armor?.type
+  const isLightOrNoArmor = armorId === 'none' || !armor || armorType === 'light'
+  const bladesongBonus =
+    char.isBladesinging && subclass === 'Bladesinging' && isLightOrNoArmor && shield === 0
+      ? Math.max(1, intMod)
+      : 0
+
+  if (!armor || armorId === 'none' || armor.baseAC === undefined) return unarmoredAC + bladesongBonus
 
   // Compute armored AC and return whichever is higher
   const effectiveDex =
@@ -72,7 +83,7 @@ export function computeAC(char: {
 
   const defenseBonus = char.fightingStyle === 'defense' ? 1 : 0
   const armoredAC = armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield + defenseBonus
-  return Math.max(unarmoredAC, armoredAC)
+  return Math.max(unarmoredAC, armoredAC) + bladesongBonus
 }
 
 /** Computes race-adjusted speed (class modifications applied separately). */
@@ -81,9 +92,11 @@ export function computeSpeed(race: string): number {
   return raceDef?.speed ?? 30
 }
 
-/** Base speed + equipment speed bonuses. */
-export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment'>): number {
-  return char.speed + computeEquipmentStats(char).speedBonus
+/** Base speed + equipment speed bonuses + active subclass buffs (Bladesong). */
+export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass'>): number {
+  const base = char.speed + computeEquipmentStats(char).speedBonus
+  const bladesongBonus = char.isBladesinging && char.subclass === 'Bladesinging' ? 10 : 0
+  return base + bladesongBonus
 }
 
 /** Computes skill check bonus. */

@@ -7,10 +7,10 @@
  */
 
 import { describe, it, test, expect } from 'vitest'
-import { SUBCLASSES_BY_CLASS } from '@/shared/data/subclassData'
+import { SUBCLASSES_BY_CLASS, SUBCLASSES, LAND_CIRCLE_SPELLS } from '@/shared/data/subclassData'
 import { getAvailableActions, computeSpellAttackBonus, computeAttackBonus, computePreparedSpellCount, computeSpellLevelUpConfig } from '@/domain/rules'
 import { computeAC } from '@/shared/data/charCalculations'
-import { getSelectableSpells } from '@/shared/data/spellData'
+import { getSelectableSpells, SPELL_BY_ID } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { makeChar } from './helpers'
 import type { Weapon } from '@/entities/character/types'
@@ -144,6 +144,37 @@ describe('Subclass unlock levels (data assertions)', () => {
       expect(sc.label).toBeTruthy()
       expect(sc.unlocksAtLevel).toBeGreaterThanOrEqual(1)
     }
+  })
+
+  it('every subclass spell-id resolves in SPELL_BY_ID (no broken references)', () => {
+    const offenders: string[] = []
+    for (const sc of SUBCLASSES) {
+      if (!sc.subclassSpells) continue
+      for (const [lvl, ids] of Object.entries(sc.subclassSpells)) {
+        for (const id of ids ?? []) {
+          if (!SPELL_BY_ID[id]) offenders.push(`${sc.id}@${lvl}:${id}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('every Cleric subclass has a channelDivinityDesc (PHB-style domain CD requirement)', () => {
+    const clerics = SUBCLASSES_BY_CLASS['Cleric'] ?? []
+    const missing = clerics.filter(d => !d.channelDivinityDesc).map(d => d.id)
+    expect(missing).toEqual([])
+  })
+
+  it('every Land Druid terrain spell-id resolves in SPELL_BY_ID', () => {
+    const offenders: string[] = []
+    for (const [terrain, table] of Object.entries(LAND_CIRCLE_SPELLS)) {
+      for (const [lvl, ids] of Object.entries(table)) {
+        for (const id of ids ?? []) {
+          if (!SPELL_BY_ID[id]) offenders.push(`${terrain}@${lvl}:${id}`)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
   })
 })
 

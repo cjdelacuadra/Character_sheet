@@ -1014,6 +1014,72 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       )
     }
 
+    // ── Bladesong ─────────────────────────────────────────────────────
+    const isBladesongFeature = selectedFeature.name === 'Bladesong'
+    if (isBladesongFeature) {
+      const bsRes = char.resources['Bladesong']
+      const total = 2
+      const used = bsRes?.used ?? 0
+      const canActivate = used < total
+      const hasShield = !!(char.equipment.shieldId || char.equipment.hasShield)
+      const hasTwoHanded = char.weapons.some(w => w.twoHanded)
+      const armorId = char.equipment.armorId
+      const armorDef = armorId ? GEAR_BY_ID[armorId] : null
+      const isMedHeavy = armorDef?.type === 'medium' || armorDef?.type === 'heavy'
+      const blocked = hasShield || hasTwoHanded || isMedHeavy
+      const intMod = mod(char.abilityScores.int)
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Bladesong</span>
+              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+            </div>
+            {char.isBladesinging ? (
+              <div className={styles.detailResource} style={{ color: 'var(--accent)' }}>Bladesong Active</div>
+            ) : (
+              <div className={styles.detailResource}>{total - used} / {total} uses · Long rest recharge</div>
+            )}
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>While active (1 minute):</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +{Math.max(1, intMod)} to AC (INT modifier, min +1)</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +10 ft movement speed</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on Acrobatics checks</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +{Math.max(1, intMod)} to Constitution saves (concentration)</p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Requires: light or no armor, no shield, no two-handed weapon. Ends if you don armor or a shield, wield a two-handed weapon, or are incapacitated.</p>
+            {blocked && !char.isBladesinging && (
+              <p className={styles.detailFull} style={{ color: 'var(--danger, #ef4444)', fontSize: 11, marginTop: 4 }}>
+                {isMedHeavy ? 'Remove medium/heavy armor first.' : hasShield ? 'Unequip shield first.' : 'Unequip two-handed weapon first.'}
+              </p>
+            )}
+            {char.isBladesinging ? (
+              <button
+                className={styles.armoryAddBtn}
+                style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
+                onClick={() => update({ isBladesinging: false })}
+              >
+                End Bladesong
+              </button>
+            ) : (
+              <button
+                className={styles.armoryAddBtn}
+                style={{ marginTop: 8 }}
+                disabled={!canActivate || blocked}
+                onClick={() => {
+                  if (!canActivate || blocked) return
+                  const newResources = { ...char.resources }
+                  newResources['Bladesong'] = { total, used: used + 1 }
+                  update({ isBladesinging: true, resources: newResources })
+                }}
+              >
+                Activate Bladesong
+              </button>
+            )}
+          </div>
+        </>
+      )
+    }
+
     // ── Unarmored Defense ─────────────────────────────────────────────
     const isUnarmoredDefense = selectedFeature.name === 'Unarmored Defense'
     if (isUnarmoredDefense) {

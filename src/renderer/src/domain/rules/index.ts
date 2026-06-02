@@ -24,6 +24,21 @@ export function computeSpellAttackBonus(character: Character): number {
   return character.proficiencyBonus + spellcastingAbilityMod(character)
 }
 
+/**
+ * DC for the Arcane Archer's Arcane Shot effects (XGtE).
+ * Returns null if the character isn't an Arcane Archer (or the subclass field is absent),
+ * so callers can hide the DC display unless it applies.
+ *
+ * Arcane Archer is NOT a spellcaster — its DC uses INT but is computed separately from
+ * `computeSpellSaveDC` so the action list and Vitals don't treat AA as a caster.
+ */
+export function computeArcaneShotDC(character: Character): number | null {
+  const subclassDef = character.subclass ? SUBCLASS_BY_ID[character.subclass] : undefined
+  const ability = subclassDef?.arcaneShotAbility
+  if (!ability) return null
+  return 8 + character.proficiencyBonus + mod(effectiveAbilityScore(character, ability))
+}
+
 export interface SpellDamageResult {
   hitFormula: string
   missFormula: string
@@ -91,9 +106,11 @@ export function computeSpellDamage(
 export function isProficientWithWeapon(character: Character, weapon: Weapon): boolean {
   const classDef = CLASS_BY_ID[character.classId]
   const raceDef = RACE_BY_ID[character.race]
+  const subclassDef = character.subclass ? SUBCLASS_BY_ID[character.subclass] : undefined
   const effectiveProfs = [
     ...(classDef?.weaponProficiencies ?? []),
     ...(raceDef?.bonusWeaponProficiencies ?? []),
+    ...(subclassDef?.extraWeaponProficiencies ?? []),
   ]
   const weaponDef = WEAPONS.find(wd => wd.name === weapon.name)
   if (!weaponDef) return true  // custom weapon: assume proficient
@@ -111,12 +128,17 @@ export function isProficientWithWeapon(character: Character, weapon: Weapon): bo
 export function computeAttackBonus(character: Character, weapon: Weapon, opts?: { forceRanged?: boolean }): number {
   const strMod = mod(effectiveAbilityScore(character, 'str'))
   const dexMod = mod(effectiveAbilityScore(character, 'dex'))
+  const chaMod = mod(effectiveAbilityScore(character, 'cha'))
   const props = weapon.properties ?? []
   const isFinesse = props.some(p => p.toLowerCase() === 'finesse')
   const isActuallyRanged = weapon.rangeType === 'Ranged'
   // thrown weapons count as ranged for archery, but still use STR for ability mod
   const isRangedForArchery = isActuallyRanged || opts?.forceRanged === true
-  const abilityMod = isFinesse ? Math.max(strMod, dexMod) : isActuallyRanged ? dexMod : strMod
+  // Hexblade Hex Warrior: bonded weapon uses CHA for attack rolls
+  const isHexWarriorWeapon = !!character.hexWarriorWeaponId && character.hexWarriorWeaponId === weapon.id
+  const abilityMod = isHexWarriorWeapon
+    ? Math.max(strMod, dexMod, chaMod)
+    : isFinesse ? Math.max(strMod, dexMod) : isActuallyRanged ? dexMod : strMod
   const proficient = isProficientWithWeapon(character, weapon)
   const hasArchery = character.fightingStyle === 'archery' || character.feats.includes('archery')
   const archeryBonus = hasArchery && isRangedForArchery ? 2 : 0
@@ -134,10 +156,15 @@ export function computeAttackBonus(character: Character, weapon: Weapon, opts?: 
 export function computeWeaponDamage(character: Character, weapon: Weapon): string {
   const strMod = mod(effectiveAbilityScore(character, 'str'))
   const dexMod = mod(effectiveAbilityScore(character, 'dex'))
+  const chaMod = mod(effectiveAbilityScore(character, 'cha'))
   const props = (weapon.properties ?? []).map(p => p.toLowerCase())
   const isFinesse = props.some(p => p === 'finesse')
   const isRanged = weapon.rangeType === 'Ranged'
-  const dmgMod = isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
+  // Hexblade Hex Warrior: bonded weapon uses CHA for damage rolls
+  const isHexWarriorWeapon = !!character.hexWarriorWeaponId && character.hexWarriorWeaponId === weapon.id
+  const dmgMod = isHexWarriorWeapon
+    ? Math.max(strMod, dexMod, chaMod)
+    : isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
 
   const versatileDie = props.find(p => p.startsWith('versatile ('))?.match(/versatile \((\d+d\d+)\)/)?.[1]
   const baseDie = (versatileDie && weapon.twoHanded) ? versatileDie : weapon.damage

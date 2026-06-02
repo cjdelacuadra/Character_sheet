@@ -116,6 +116,13 @@ export interface Character {
   pactBoon?: string
   pactBoonLocked?: boolean
   isRaging?: boolean
+  /** Bladesinger (Wizard) — Bladesong active toggle. While active: +INT to AC, +10 ft speed,
+   *  advantage on Acrobatics, +INT to Constitution saves for concentration. Only valid while
+   *  not in medium/heavy armor, no shield, no two-handed weapon. */
+  isBladesinging?: boolean
+  /** Hexblade (Warlock) — id of the bonded "pact weapon" for Hex Warrior CHA-for-attacks.
+   *  When this matches a weapon in `weapons[]`, attack/damage rolls for that weapon use CHA. */
+  hexWarriorWeaponId?: string
   fightingStyle?: string
   fightingStyleLocked?: boolean
   completedAsiLevels: number[]
@@ -132,5 +139,7 @@ export interface Character {
   activeArtificerInfusions?: string[]
   /** Live summoned creatures/structures owned by this character */
   activeSummons: ActiveSummon[]
+  /** Circle of the Land Druid's chosen terrain at level 3 (Circle Spells). */
+  circleOfLandTerrain?: 'arctic' | 'coast' | 'desert' | 'forest' | 'grassland' | 'mountain' | 'swamp' | 'underdark'
   notes: string
 }

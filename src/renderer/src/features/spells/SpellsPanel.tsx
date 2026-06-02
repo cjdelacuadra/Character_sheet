@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, SPELLS, computeUpcastDice } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { SUBCLASS_BY_ID, LAND_CIRCLE_SPELLS } from '@/shared/data/subclassData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { SpellVisualization } from './SpellVisualization'
@@ -382,6 +382,13 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const subclassGrantedIds: string[] = []
   if (subclassDef?.subclassSpells) {
     for (const [lvlStr, ids] of Object.entries(subclassDef.subclassSpells)) {
+      if (Number(lvlStr) <= char.level) subclassGrantedIds.push(...(ids ?? []))
+    }
+  }
+  // Circle of the Land Druid: terrain-keyed circle spells (PHB).
+  if (char.subclass === 'CircleOfTheLand' && char.circleOfLandTerrain) {
+    const terrainTable = LAND_CIRCLE_SPELLS[char.circleOfLandTerrain]
+    for (const [lvlStr, ids] of Object.entries(terrainTable)) {
       if (Number(lvlStr) <= char.level) subclassGrantedIds.push(...(ids ?? []))
     }
   }
