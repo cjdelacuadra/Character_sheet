@@ -125,10 +125,8 @@
 }
 
 .stopBtn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 10;
+  display: block;
+  margin: 6px auto 0;
   font-family: var(--font-display, 'Cinzel', serif);
   font-size: 10px;
   text-transform: uppercase;

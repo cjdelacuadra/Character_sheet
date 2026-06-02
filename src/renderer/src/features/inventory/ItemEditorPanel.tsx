@@ -256,6 +256,8 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [dmgBonusType2,  setDmgBonusType2]  = useState(weapDef?.dmgBonusType ?? '')
   const [hasDmgBonus2,   setHasDmgBonus2]   = useState(!!weapDef?.dmgBonusCount || !!weapDef?.dmgBonusFlat || !!weapDef?.dmgBonusType)
 
+  const [requiresAttunement, setRequiresAttunement] = useState(fullDef?.requiresAttunement ?? false)
+
   // ── Defense edit state (base AC + bonus AC) ──────────────────────────────
   const [baseAC,  setBaseAC]  = useState(gearDef?.baseAC ?? 10)
   const [acBonus, setAcBonus] = useState(gearDef?.stats?.acBonus ?? 0)
@@ -311,14 +313,15 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       }
     }
     const gear: GearEquipmentItem = {
-      id:               overrideId ?? editId,
-      name:             editName,
-      kind:             kind as ShopItemKind,
-      cost:             editCost,
-      rarity:           editRarity as GearEquipmentItem['rarity'],
-      sprite:           computedSprite,
-      enchantmentBonus: enchant || undefined,
-      stats:            Object.keys(stats).length > 0 ? stats : undefined,
+      id:                 overrideId ?? editId,
+      name:               editName,
+      kind:               kind as ShopItemKind,
+      cost:               editCost,
+      rarity:             editRarity as GearEquipmentItem['rarity'],
+      sprite:             computedSprite,
+      requiresAttunement: requiresAttunement || undefined,
+      enchantmentBonus:   enchant || undefined,
+      stats:              Object.keys(stats).length > 0 ? stats : undefined,
     }
     if (isArmorKind(kind)) {
       gear.type                = gearDef?.type
@@ -333,11 +336,12 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
     return {
       ...weapDef!,
-      id:               overrideId ?? weapDef!.id,
-      name:             editName,
-      cost:             editCost,
-      rarity:           editRarity as WeaponEquipmentItem['rarity'],
-      sprite:           computedSprite,
+      id:                 overrideId ?? weapDef!.id,
+      name:               editName,
+      cost:               editCost,
+      rarity:             editRarity as WeaponEquipmentItem['rarity'],
+      sprite:             computedSprite,
+      requiresAttunement: requiresAttunement || undefined,
       damageDie:        `${dmgCount}d${dmgSides}`,
       damageType:       dmgType,
       properties:       propsText.split(',').map(s => s.trim()).filter(Boolean),
@@ -493,6 +497,21 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
             : <span className={styles.value} style={{ color: enchant > 0 ? 'var(--accent)' : undefined }}>
                 {enchant > 0 ? `+${enchant}` : '—'}
               </span>
+          }
+        </div>
+
+        <div className={styles.fieldRow}>
+          <label className={styles.label}>Attunement</label>
+          {editMode
+            ? <label className={styles.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={requiresAttunement}
+                  onChange={e => setRequiresAttunement(e.target.checked)}
+                />
+                <span>Requires attunement</span>
+              </label>
+            : <span className={styles.value}>{requiresAttunement ? 'Required' : '—'}</span>
           }
         </div>
 

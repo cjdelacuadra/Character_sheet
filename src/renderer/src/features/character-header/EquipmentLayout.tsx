@@ -82,6 +82,10 @@ function SlotButton({
 
   const isHighlighted = !isDragging && !!draggingKind && draggingKind === kind
 
+  const gear = itemId ? GEAR_BY_ID[itemId] : null
+  const requiresAttunement = gear?.requiresAttunement ?? false
+  const isAttuned = requiresAttunement && !!(char.attunedItemIds ?? []).includes(itemId!)
+
   return (
     <div
       ref={setDropRef}
@@ -106,6 +110,15 @@ function SlotButton({
           className={styles.slotIcon}
           data-empty={isEmpty || undefined}
         />
+        {requiresAttunement && !isEmpty && (
+          <span
+            className={styles.attuneDot}
+            title={isAttuned ? 'Attuned' : 'Not attuned'}
+            data-attuned={isAttuned || undefined}
+          >
+            {isAttuned ? '●' : '○'}
+          </span>
+        )}
       </button>
       <span className={styles.slotLabel}>{label}</span>
       {!isEmpty && (
@@ -121,10 +134,11 @@ function SlotButton({
 
 // ─── Per-slot stat breakdown ─────────────────────────────────────────────────
 
-function SlotBreakdownPanel({ slot, char, onClose }: {
+function SlotBreakdownPanel({ slot, char, onClose, onToggleAttune }: {
   slot: keyof Equipment
   char: Character
   onClose: () => void
+  onToggleAttune: (itemId: string) => void
 }) {
   const itemId = char.equipment[slot] as string | null
   if (!itemId) return null
@@ -155,6 +169,11 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
     else if (gear.type && gear.type !== 'none') subtitle = `${gear.type.charAt(0).toUpperCase() + gear.type.slice(1)} armor · Base AC ${gear.baseAC ?? 0}`
   }
 
+  const attunedIds = char.attunedItemIds ?? []
+  const isAttuned = attunedIds.includes(itemId)
+  const attunedCount = attunedIds.length
+  const atCap = attunedCount >= 3
+
   return (
     <div className={styles.breakdown}>
       <div className={styles.breakdownHead}>
@@ -183,6 +202,16 @@ function SlotBreakdownPanel({ slot, char, onClose }: {
         </div>
       ) : (
         <span className={styles.breakdownEmpty}>{subtitle || 'No bonus stats.'}</span>
+      )}
+      {gear?.requiresAttunement && (
+        <button
+          className={`${styles.attuneBtn}${isAttuned ? ` ${styles.attuneBtnActive}` : ''}`}
+          disabled={!isAttuned && atCap}
+          onClick={() => onToggleAttune(itemId)}
+          title={!isAttuned && atCap ? 'Attunement cap reached (max 3)' : undefined}
+        >
+          {isAttuned ? 'Unattune' : atCap ? 'Attune (cap reached)' : 'Attune'}
+        </button>
       )}
     </div>
   )
@@ -338,6 +367,20 @@ function ReadSlot({ label, value, kind, itemId: itemIdProp, spriteOverride, onCl
 
 function Empty() { return <div /> }
 
+const ALL_FILTER_KINDS: { label: string; kind: ShopItemKind }[] = [
+  { label: 'Weapon',   kind: 'weapon'   },
+  { label: 'Armor',    kind: 'armor'    },
+  { label: 'Shield',   kind: 'shield'   },
+  { label: 'Helmet',   kind: 'helmet'   },
+  { label: 'Necklace', kind: 'necklace' },
+  { label: 'Cape',     kind: 'cape'     },
+  { label: 'Gloves',   kind: 'gloves'   },
+  { label: 'Legs',     kind: 'legs'     },
+  { label: 'Boots',    kind: 'boots'    },
+  { label: 'Ring',     kind: 'ring'     },
+  { label: 'Amulet',   kind: 'amulet'   },
+]
+
 // ─── Stat rows ───────────────────────────────────────────────────────────────
 
 function StatRow({ label, value, unit = '' }: { label: string; value: number; unit?: string }) {
@@ -353,7 +396,7 @@ function StatRow({ label, value, unit = '' }: { label: string; value: number; un
   )
 }
 
-function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
+function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Character }) {
   const saveEntries   = Object.entries(stats.savingThrowBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
   const skillEntries  = Object.entries(stats.skillBonus).filter(([, v]) => v !== 0) as [Skill, number][]
   const abilityEntries = Object.entries(stats.abilityBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
@@ -363,11 +406,8 @@ function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
     saveEntries.length || skillEntries.length || advSaves.length ||
     advSkills.length || stats.advantage.deathSaves || stats.bonusDamage.length
 
-  if (!hasAny) return (
-    <div className={styles.statsPanel}>
-      <span className={styles.statEmpty}>No accessory bonuses</span>
-    </div>
-  )
+  const attunedIds = char.attunedItemIds ?? []
+  const attunedCount = attunedIds.length
 
   const AdVCell = ({ label }: { label: string }) => (
     <div className={styles.statRow}>
@@ -378,6 +418,22 @@ function DndEquipStatsPanel({ stats }: { stats: EquipmentStats }) {
 
   return (
     <div className={styles.statsPanel}>
+      {/* Attunement count — always shown */}
+      <div className={styles.statRow}>
+        <span className={styles.statLabel}>Attuned</span>
+        <span className={styles.statValue} style={{ color: attunedCount > 0 ? '#f0c040' : 'var(--text-muted)', fontWeight: attunedCount > 0 ? 600 : 400 }}>
+          {attunedCount}/3
+        </span>
+      </div>
+      {attunedIds.map(id => {
+        const name = GEAR_BY_ID[id]?.name ?? id
+        return (
+          <div key={id} className={styles.attunedItem}>
+            <span>⟁ {name}</span>
+          </div>
+        )
+      })}
+      {hasAny && <div className={styles.statDivider} />}
       {stats.acBonus !== 0 && <StatRow label="AC Bonus" value={stats.acBonus} />}
       {stats.toHitBonus !== 0 && <StatRow label="To-Hit" value={stats.toHitBonus} />}
       {stats.speedBonus !== 0 && <StatRow label="Speed" value={stats.speedBonus} unit=" ft" />}
@@ -425,6 +481,7 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
   const _unequipWeapon    = useAppStore(s => s.unequipWeapon)
   const updateCharacter   = useAppStore(s => s.updateCharacter)
   const customItems       = useAppStore(s => s.customItems)
+  const toggleAttune      = useAppStore(s => s.toggleAttune)
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -630,20 +687,12 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
           <div className={styles.columnWrap}>
             {/* Equipment slot grid */}
             <div className={styles.grid}>
-              <Empty />
-              <SlotButton slotKey="helmetId"   label="Helmet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-helmetId'} />
-              <Empty />
-
+              {/* Row 1 */}
               <SlotButton slotKey="necklaceId" label="Necklace" char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-necklaceId'} />
-              <ReadSlot   label="Chest"    value={armorName}   kind="armor"
-                itemId={char.equipment.armorId}
-                onClick={() => openSlot('armorId')}
-                onUnequip={char.equipment.armorId ? () => handleUnequip('armorId') : undefined}
-                isShaking={shakingId === 'equipped-armorId'}
-                draggable={char.equipment.armorId ? { id: 'equipped-armorId', itemId: char.equipment.armorId, kind: 'armor', fromSlot: 'armorId' } : undefined}
-                droppableSlot="armorId" />
+              <SlotButton slotKey="helmetId"   label="Helmet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-helmetId'} />
               <SlotButton slotKey="capeId"     label="Cape"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-capeId'} />
 
+              {/* Row 2 */}
               <ReadSlot   label="Weapon"   value={mainHand}    kind="weapon"
                 itemId={char.weapons[0]?.id}
                 spriteOverride={resolveWeaponSprite(getShopItemById(char.weapons[0]?.id, customItems)?.sprite, char.weapons[0]?.enchantment)}
@@ -651,7 +700,13 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
                 onClick={char.weapons[0] ? () => openWeaponBreakdown(0) : () => openKindInInventory('weapon')}
                 onUnequip={char.weapons[0] ? () => { _unequipWeapon(char.id, 0); if (weaponBreakdown === 0) setWeaponBreakdown(null) } : undefined}
                 draggable={char.weapons[0] ? { id: 'read-weapon0', itemId: char.weapons[0].id, kind: 'weapon', fromSlot: 'armorId' as keyof Equipment, fromWeaponSlot: 0 } : undefined} />
-              <SlotButton slotKey="legsId"     label="Legs"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-legsId'} />
+              <ReadSlot   label="Chest"    value={armorName}   kind="armor"
+                itemId={char.equipment.armorId}
+                onClick={() => openSlot('armorId')}
+                onUnequip={char.equipment.armorId ? () => handleUnequip('armorId') : undefined}
+                isShaking={shakingId === 'equipped-armorId'}
+                draggable={char.equipment.armorId ? { id: 'equipped-armorId', itemId: char.equipment.armorId, kind: 'armor', fromSlot: 'armorId' } : undefined}
+                droppableSlot="armorId" />
               <ReadSlot   label="Off-Hand" value={offHandName} kind="shield"
                 itemId={char.weapons[1]?.id ?? char.equipment.shieldId}
                 spriteOverride={char.weapons[1] ? resolveWeaponSprite(getShopItemById(char.weapons[1].id, customItems)?.sprite, char.weapons[1].enchantment) : undefined}
@@ -673,24 +728,25 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
                       : undefined
                 } />
 
+              {/* Row 3 */}
               <SlotButton slotKey="glovesId"   label="Gloves"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-glovesId'} />
+              <SlotButton slotKey="legsId"     label="Legs"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-legsId'} />
               <SlotButton slotKey="bootsId"    label="Boots"    char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-bootsId'} />
-              <SlotButton slotKey="quiverId"   label="Quiver"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-quiverId'} />
 
+              {/* Row 4 */}
               <SlotButton slotKey="ring1Id"    label="Ring 1"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring1Id'} />
-              <SlotButton slotKey="ring2Id"    label="Ring 2"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring2Id'} />
               <SlotButton slotKey="amuletId"   label="Amulet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-amuletId'} />
+              <SlotButton slotKey="ring2Id"    label="Ring 2"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring2Id'} />
             </div>
 
             {/* Stats panel */}
-            <DndEquipStatsPanel stats={equipStats} />
+            <DndEquipStatsPanel stats={equipStats} char={char} />
           </div>
 
           <div className={styles.inventoryCol}>
             <InventoryGrid
               character={char}
               filterKind={inventoryFilter}
-              onFilterChange={setInventoryFilter}
               shakingId={shakingId}
               selectedItemId={inventorySelectedId}
               onSelectItem={handleInventorySelect}
@@ -698,7 +754,7 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
           </div>
         </div>
 
-        {/* Inventory + shop bar */}
+        {/* Unified filter bar */}
         <div className={styles.inventoryBar}>
           {(() => {
             const externalOpen = isShopOpen ?? false
@@ -715,15 +771,22 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
               </button>
             )
           })()}
-          {inventoryEntries.map(([kind, count]) => (
-            <button
-              key={kind}
-              className={`${styles.inventoryChip}${inventoryFilter === kind ? ` ${styles.inventoryChipActive}` : ''}`}
-              onClick={() => openKindInInventory(kind)}
-            >
-              {kind.charAt(0).toUpperCase() + kind.slice(1)}: {count}
-            </button>
-          ))}
+          <button
+            className={`${styles.inventoryChip}${!inventoryFilter ? ` ${styles.inventoryChipActive}` : ''}`}
+            onClick={() => setInventoryFilter(null)}
+          >All</button>
+          {ALL_FILTER_KINDS.map(({ label, kind }) => {
+            const count = unequippedByKind[kind] ?? 0
+            return (
+              <button
+                key={kind}
+                className={`${styles.inventoryChip}${inventoryFilter === kind ? ` ${styles.inventoryChipActive}` : ''}`}
+                onClick={() => openKindInInventory(kind)}
+              >
+                {label}{count > 0 ? ` (${count})` : ''}
+              </button>
+            )
+          })}
           <span className={styles.inventoryBarGold}>💰 {char.gold} gp</span>
         </div>
 
@@ -738,7 +801,12 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
 
         {/* Slot/weapon breakdowns — mutually exclusive with item editor */}
         {!inventorySelectedId && slotBreakdown && (
-          <SlotBreakdownPanel slot={slotBreakdown} char={char} onClose={() => setSlotBreakdown(null)} />
+          <SlotBreakdownPanel
+            slot={slotBreakdown}
+            char={char}
+            onClose={() => setSlotBreakdown(null)}
+            onToggleAttune={(itemId) => toggleAttune(char.id, itemId)}
+          />
         )}
         {!inventorySelectedId && weaponBreakdown !== null && char.weapons[weaponBreakdown] && (
           <WeaponBreakdownPanel
@@ -769,7 +837,7 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
 
       {/* Shop modal */}
       {shopOpen && (
-        <ShopModal character={char} onClose={() => setShopOpen(false)} />
+        <ShopModal character={char} onClose={() => setShopOpen(false)} filterKind={inventoryFilter} />
       )}
     </DndContext>
   )

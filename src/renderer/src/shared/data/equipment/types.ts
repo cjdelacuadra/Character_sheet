@@ -40,6 +40,7 @@ export interface BaseEquipmentItem {
   cost: number
   rarity?: ItemRarity
   sprite?: string
+  requiresAttunement?: boolean
 }
 
 export interface GearEquipmentItem extends BaseEquipmentItem {

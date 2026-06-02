@@ -10,23 +10,19 @@ import styles from './ShopModal.module.css'
 interface Props {
   character: Character
   onClose: () => void
+  filterKind?: ShopItemKind | null
 }
 
-type Tab    = 'all' | 'armor' | 'weapon' | 'accessory'
 type SortBy = 'name' | 'cost' | 'rarity'
-
-const ARMOR_KINDS  = new Set<ShopItemKind>(['armor', 'shield'])
-const WEAPON_KINDS = new Set<ShopItemKind>(['weapon'])
 
 const RARITY_ORDER: Record<string, number> = {
   common: 0, uncommon: 1, rare: 2, 'very rare': 3, legendary: 4,
 }
 
-export function ShopModal({ character: char, onClose }: Props) {
+export function ShopModal({ character: char, onClose, filterKind }: Props) {
   const buyItem     = useAppStore(s => s.buyItem)
   const customItems = useAppStore(s => s.customItems)
 
-  const [tab,       setTab]       = useState<Tab>('all')
   const [sortBy,    setSortBy]    = useState<SortBy>('cost')
   const [search,    setSearch]    = useState('')
   const [previewId, setPreviewId] = useState<string | null>(null)
@@ -39,9 +35,7 @@ export function ShopModal({ character: char, onClose }: Props) {
   const displayed = useMemo(() => {
     let items = catalogue
 
-    if (tab === 'armor')     items = items.filter(i => ARMOR_KINDS.has(i.kind))
-    if (tab === 'weapon')    items = items.filter(i => WEAPON_KINDS.has(i.kind))
-    if (tab === 'accessory') items = items.filter(i => !ARMOR_KINDS.has(i.kind) && !WEAPON_KINDS.has(i.kind))
+    if (filterKind) items = items.filter(i => i.kind === filterKind)
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -53,7 +47,7 @@ export function ShopModal({ character: char, onClose }: Props) {
       if (sortBy === 'cost') return a.cost - b.cost
       return (RARITY_ORDER[a.rarity ?? 'common'] ?? 0) - (RARITY_ORDER[b.rarity ?? 'common'] ?? 0)
     })
-  }, [catalogue, tab, sortBy, search])
+  }, [catalogue, filterKind, sortBy, search])
 
   function handleBuy(itemId: string, cost: number) {
     buyItem(char.id, itemId, cost)
@@ -70,36 +64,26 @@ export function ShopModal({ character: char, onClose }: Props) {
         </div>
 
         <div className={styles.controls}>
-          <div className={styles.tabs}>
-            {(['all', 'armor', 'weapon', 'accessory'] as Tab[]).map(t => (
-              <button
-                key={t}
-                className={styles.tab}
-                data-active={tab === t || undefined}
-                onClick={() => setTab(t)}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.rightControls}>
-            <input
-              className={styles.search}
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            <select
-              className={styles.sort}
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortBy)}
-            >
-              <option value="cost">Sort: Cost</option>
-              <option value="name">Sort: Name</option>
-              <option value="rarity">Sort: Rarity</option>
-            </select>
-          </div>
+          <input
+            className={styles.search}
+            placeholder="Search…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <select
+            className={styles.sort}
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as SortBy)}
+          >
+            <option value="cost">Sort: Cost</option>
+            <option value="name">Sort: Name</option>
+            <option value="rarity">Sort: Rarity</option>
+          </select>
+          {filterKind && (
+            <span className={styles.activeFilter}>
+              {filterKind.charAt(0).toUpperCase() + filterKind.slice(1)}
+            </span>
+          )}
         </div>
 
         <div className={styles.grid}>

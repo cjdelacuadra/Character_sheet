@@ -16,15 +16,19 @@ interface Props {
 }
 
 const DMG_TINT: Record<string, string> = {
-  fire:     'rgba(255, 120, 40, 0.35)',
-  cold:     'rgba(80, 200, 240, 0.35)',
-  thunder:  'rgba(240, 220, 80, 0.35)',
-  force:    'rgba(220, 80, 240, 0.35)',
-  lightning:'rgba(200, 230, 255, 0.4)',
-  necrotic: 'rgba(80, 40, 80, 0.4)',
-  radiant:  'rgba(255, 245, 200, 0.35)',
-  acid:     'rgba(140, 220, 80, 0.35)',
-  psychic:  'rgba(220, 100, 200, 0.35)',
+  fire:        'rgba(255, 120, 40, 0.35)',
+  cold:        'rgba(80, 200, 240, 0.35)',
+  thunder:     'rgba(240, 220, 80, 0.35)',
+  force:       'rgba(220, 80, 240, 0.35)',
+  lightning:   'rgba(200, 230, 255, 0.4)',
+  necrotic:    'rgba(80, 40, 80, 0.4)',
+  radiant:     'rgba(255, 245, 200, 0.35)',
+  acid:        'rgba(140, 220, 80, 0.35)',
+  psychic:     'rgba(220, 100, 200, 0.35)',
+  poison:      'rgba(90, 200, 90, 0.25)',
+  bludgeoning: 'rgba(180, 160, 120, 0.25)',
+  piercing:    'rgba(200, 200, 200, 0.25)',
+  heal:        'rgba(80, 220, 120, 0.3)',
 }
 
 const TILE = 22
@@ -66,15 +70,19 @@ function rollTargets(spell: SpellEntry, candidates: Cell[]): TargetResult[] {
 }
 
 const DMG_SOLID: Record<string, string> = {
-  fire:     'rgb(255, 100, 20)',
-  cold:     'rgb(60, 190, 230)',
-  thunder:  'rgb(230, 210, 50)',
-  force:    'rgb(200, 60, 230)',
-  lightning:'rgb(180, 220, 255)',
-  necrotic: 'rgb(100, 60, 110)',
-  radiant:  'rgb(255, 240, 160)',
-  acid:     'rgb(120, 210, 60)',
-  psychic:  'rgb(210, 80, 190)',
+  fire:        'rgb(255, 100, 20)',
+  cold:        'rgb(60, 190, 230)',
+  thunder:     'rgb(230, 210, 50)',
+  force:       'rgb(200, 60, 230)',
+  lightning:   'rgb(180, 220, 255)',
+  necrotic:    'rgb(100, 60, 110)',
+  radiant:     'rgb(255, 240, 160)',
+  acid:        'rgb(120, 210, 60)',
+  psychic:     'rgb(210, 80, 190)',
+  poison:      'rgb(90, 200, 90)',
+  bludgeoning: 'rgb(180, 160, 120)',
+  piercing:    'rgb(200, 200, 200)',
+  heal:        'rgb(60, 200, 100)',
 }
 
 type ShapeOverlay =
@@ -384,8 +392,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   // AOE-shaped terrain fills its area cells; a shapeless terrain spell (e.g. Minor
   // Illusion) animates on the player's tile.
   const isTerrain = spell.vizCategory === 'terrain'
+  // Heal spells play the heal aura on the player/caster tile.
+  const isHeal = spell.vizCategory === 'heal'
   // useWave = any spell that propagates a looping AOE sprite (vs missile-based single targets).
-  const useWave = isAoe || isSelfBuff || isDebuffAura || isTerrain
+  const useWave = isAoe || isSelfBuff || isDebuffAura || isTerrain || isHeal
   // Sprite/tint colour. Non-damage templates use vizDamageType; damage spells use damageType.
   const auraColor = spell.vizDamageType ?? spell.damageType
   const tint = DMG_TINT[auraColor ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
@@ -400,10 +410,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   )
 
   const targets = useMemo<TargetResult[]>(
-    // Self-buff and terrain zones have no enemy targets; everything else rolls per enemyHitPositions.
-    () => (isSelfBuff || isTerrain ? [] : rollTargets(spell, layout.enemyHitPositions)),
+    // Self-buff, terrain zones, and heals have no enemy targets; everything else rolls per enemyHitPositions.
+    () => (isSelfBuff || isTerrain || isHeal ? [] : rollTargets(spell, layout.enemyHitPositions)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spell.id, slotLevel, isSelfBuff, isTerrain, layout],
+    [spell.id, slotLevel, isSelfBuff, isTerrain, isHeal, layout],
   )
 
   // Wave origin: self-buff/debuff-aura always emanate from the player; AOE damage uses
@@ -418,14 +428,16 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   //   - AOE damage      → all area cells
   //   - Self-buff       → the single player tile
   //   - Debuff-aura     → only enemy tiles where the spell actually landed (result === 'hit')
+  //   - Heal            → the single player/caster tile
   const wavefrontCells = useMemo<Cell[]>(() => {
     if (isAoe) return layout.areaCells
     if (isSelfBuff) return [playerPos]
     if (isDebuffAura) return targets.filter(t => t.result === 'hit').map(t => ({ x: t.pos.x, y: t.pos.y }))
     if (isTerrain) return [playerPos] // shapeless terrain (e.g. Minor Illusion) sits on the caster tile
+    if (isHeal) return [playerPos]
     return []
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spell.id, slotLevel, isAoe, isSelfBuff, isDebuffAura, isTerrain, targets, layout])
+  }, [spell.id, slotLevel, isAoe, isSelfBuff, isDebuffAura, isTerrain, isHeal, targets, layout])
 
   // Per-cell delay-from-origin. Wave length is the slowest cell's full cycle plus a brief gap.
   const { cellTimings, waveLengthMs } = useMemo(() => {
@@ -619,12 +631,6 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
       )}
 
       <div className={styles.gridWrap}>
-        {phase !== 'idle' && phase !== 'final' && (
-          <button className={styles.stopBtn} onClick={onStopClick} type="button">
-            Stop
-          </button>
-        )}
-
         <div
           className={styles.grid}
           style={{
@@ -781,6 +787,12 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
           })()}
         </div>
       </div>
+
+      {phase !== 'idle' && phase !== 'final' && (
+        <button className={styles.stopBtn} onClick={onStopClick} type="button">
+          Stop
+        </button>
+      )}
 
       <div className={styles.frameLabel}>
         {phase === 'idle'                      && `Casting in ${Math.ceil(CAST_DELAY_MS / 1000)}s…`}

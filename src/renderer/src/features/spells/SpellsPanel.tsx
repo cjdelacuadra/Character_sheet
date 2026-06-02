@@ -34,6 +34,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const raceDef = RACE_BY_ID[char.race]
   const isSpellcaster = !!classDef?.isSpellcaster || !!subclassDef?.spellcastingAbility
+  const hasSpellSlots = Object.keys(char.spellSlots).length > 0
 
   // Aggregate racial spells available at the character's current level
   const racialSpellIds: string[] = []
@@ -44,7 +45,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   }
   const hasRacialSpells = racialSpellIds.length > 0
 
-  if (!isSpellcaster && !hasRacialSpells) return null
+  if (!isSpellcaster && !hasRacialSpells && !hasSpellSlots) return null
 
   const spellSaveDC = computeSpellSaveDC(char)
   const spellAtkBonus = computeSpellAttackBonus(char)
@@ -266,18 +267,14 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 ⚠ Will drop concentration on <strong>{existingConc.name}</strong>
               </span>
             )}
-            {castable.map(([lvl, slot]) => {
-              const castLevel = Number(lvl)
-              const remaining = slot.total - slot.used
-              const diceLabel = spell.scalingDice ? computeUpcastDice(spell.scalingDice, castLevel) : null
-              return (
-                <button key={lvl} className={styles.spellExpandCastBtn} onClick={() => castSpell(spell, castLevel)}>
-                  {ORDINAL[castLevel] ?? `${lvl}th`}
-                  {diceLabel && <span className={styles.spellExpandCastDice}>{diceLabel}</span>}
-                  <span style={{ opacity: 0.6, fontSize: 9 }}>{remaining} left</span>
-                </button>
-              )
-            })}
+            <button className={styles.spellExpandCastBtn} onClick={() => castSpell(spell, activeSlotLevel)}>
+              Cast — {ORDINAL[activeSlotLevel] ?? `${activeSlotLevel}th`}
+              {spell.scalingDice && activeSlotLevel > 0 && (
+                <span className={styles.spellExpandCastDice}>
+                  {' '}{computeUpcastDice(spell.scalingDice, activeSlotLevel)}
+                </span>
+              )}
+            </button>
           </div>
         ) : (
           <span className={styles.spellDisabledTip}>No spell slots available.</span>
@@ -351,6 +348,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                   {spell.level === 0 ? 'C' : spell.level}
                 </span>
                 <span className={styles.spellName}>{spell.name}</span>
+                {spell.ritual && <span className={styles.ritualBadge} title="Can be cast as a ritual">R</span>}
                 <span className={styles.spellSchool}>{spell.school}</span>
               </>
             ) : (
@@ -583,7 +581,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 onDrop={e => onSectionDrop(e, 'prepared')}
               >
                 {preparedIds.map(id => <SpellRow key={id} id={id} fromSection="prepared" />)}
-                {preparedIds.length === 0 && <div className={styles.emptyNote}>No spells prepared. Drag from Spellbook to prepare.</div>}
+                {preparedIds.length === 0 && <div className={styles.emptyNote}>No spells prepared — tap ○ on a spell below, or drag it here.</div>}
               </div>
 
               {subclassDisplayIds.length > 0 && (

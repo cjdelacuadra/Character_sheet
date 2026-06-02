@@ -277,7 +277,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       })(),
       preparedSpellIds: [],
       concentrationSpellId: null,
-      spellSlots: defaultSpellSlots(basics.classId, basics.level, basics.subclass ?? undefined),
+      spellSlots: isTestSpells
+        ? Object.fromEntries([1,2,3,4,5,6,7,8,9].map(lvl => [lvl, { used: 0, total: 4 }]))
+        : defaultSpellSlots(basics.classId, basics.level, basics.subclass ?? undefined),
       weapons,
       conditionIds: [],
       resources,

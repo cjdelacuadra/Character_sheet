@@ -233,6 +233,23 @@
   flex-shrink: 0;
 }
 
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.checkRow input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* Stats */
 .statsSection {
   border-top: 1px solid var(--border);

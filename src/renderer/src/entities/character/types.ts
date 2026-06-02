@@ -112,6 +112,7 @@ export interface Character {
   gold: number
   ownedItemIds: string[]
   feats: string[]
+  attunedItemIds?: string[]
   warlockInvocations?: string[]
   pactBoon?: string
   pactBoonLocked?: boolean

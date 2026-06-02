@@ -49,6 +49,7 @@ export interface CharacterSlice {
   unequipSlot: (charId: string, slot: keyof Equipment) => void
   unequipWeapon: (charId: string, slotIndex: 0 | 1) => void
   equipWeaponFromId: (charId: string, defId: string, slotIndex: 0 | 1) => void
+  toggleAttune: (charId: string, itemId: string) => void
 
   summonFromTemplate: (charId: string, templateId: string, count?: number, source?: { spellId?: string }) => void
   removeSummon: (charId: string, summonId: string) => void
@@ -491,6 +492,25 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         ...withWeapons,
         updatedAt: new Date().toISOString(),
         ...computeDerivedStats(withWeapons),
+      }
+      ipcService.save(charId, updated)
+      return { characters: { ...state.characters, [charId]: updated } }
+    })
+  },
+
+  toggleAttune: (charId, itemId) => {
+    set((state) => {
+      const char = state.characters[charId]
+      if (!char) return state
+      const attuned = char.attunedItemIds ?? []
+      const isAttuned = attuned.includes(itemId)
+      const next = isAttuned
+        ? attuned.filter(id => id !== itemId)
+        : attuned.length < 3 ? [...attuned, itemId] : attuned
+      const updated: Character = {
+        ...char,
+        updatedAt: new Date().toISOString(),
+        attunedItemIds: next,
       }
       ipcService.save(charId, updated)
       return { characters: { ...state.characters, [charId]: updated } }
