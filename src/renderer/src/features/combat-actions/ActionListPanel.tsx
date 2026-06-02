@@ -18,10 +18,17 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
 
+  function actionPriority(a: ActionDef): number {
+    if (a.name === 'Attack' || a.name === 'Off-Hand Attack' || a.name.startsWith('Opportunity Attack')) return 0
+    if (a.name.startsWith('Cast a Spell')) return 1
+    if (a.classOnly) return 2
+    return 3
+  }
+
   const actionGroups = [
-    { type: 'Action' as const,       label: 'Actions',       items: availableActions.filter(a => a.type === 'Action') },
-    { type: 'Bonus Action' as const, label: 'Bonus Actions', items: availableActions.filter(a => a.type === 'Bonus Action') },
-    { type: 'Reaction' as const,     label: 'Reactions',     items: availableActions.filter(a => a.type === 'Reaction') },
+    { type: 'Action' as const,       label: 'Actions',       items: availableActions.filter(a => a.type === 'Action').sort((a, b) => actionPriority(a) - actionPriority(b)) },
+    { type: 'Bonus Action' as const, label: 'Bonus Actions', items: availableActions.filter(a => a.type === 'Bonus Action').sort((a, b) => actionPriority(a) - actionPriority(b)) },
+    { type: 'Reaction' as const,     label: 'Reactions',     items: availableActions.filter(a => a.type === 'Reaction').sort((a, b) => actionPriority(a) - actionPriority(b)) },
   ].filter(g => g.items.length > 0)
 
   function isActionDepleted(action: ActionDef): boolean {

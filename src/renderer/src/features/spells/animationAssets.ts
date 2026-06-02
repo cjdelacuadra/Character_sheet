@@ -1,103 +1,83 @@
 export type SpellResult = 'hit' | 'pass' | 'miss'
 
+// import.meta.glob with ?url on public-dir files returns "/public/..." paths (wrong).
+// Use direct URL construction instead: BASE_URL = '/' in dev, './' in production build.
+const base = import.meta.env.BASE_URL  // '/' in dev, './' in Electron production build
+
+function pub(path: string): string {
+  // path should NOT start with /
+  return base + path
+}
+
 const IMPACT_DEFAULT: Record<SpellResult, string> = {
-  hit:  '/assets/spells/hit/Blood_Effect.gif',
-  pass: '/assets/spells/pass/Sparks_Effect.gif',
-  miss: '/assets/spells/miss/Poof_Effect.gif',
+  hit:  pub('assets/spells/hit/Blood_Effect.gif'),
+  pass: pub('assets/spells/pass/Sparks_Effect.gif'),
+  miss: pub('assets/spells/miss/Poof_Effect.gif'),
 }
 
 export function resolveImpactGif(result: SpellResult, damageType?: string): { primary: string; fallback: string } {
   const fallback = IMPACT_DEFAULT[result]
   const primary = damageType
-    ? `/assets/spells/${result}/${damageType}_effect.gif`
+    ? pub(`assets/spells/hit/${damageType}_effect.gif`)
     : fallback
   return { primary, fallback }
 }
 
-const aoeModules = import.meta.glob<string>(
-  '/public/assets/spells/animation/**/*.png',
-  { eager: true, query: '?url', import: 'default' }
+const DAMAGE_TYPES = [
+  'acid', 'cold', 'fire', 'force', 'lightning',
+  'necrotic', 'poison', 'psychic', 'radiant', 'thunder',
+]
+
+// Per-damage-type AOE loop GIFs (assets/spells/animation/<type>.gif)
+const animationGifMap: Record<string, string[]> = Object.fromEntries(
+  DAMAGE_TYPES.map(t => [t, [pub(`assets/spells/animation/${t}.gif`)]])
 )
 
-const missileModules = import.meta.glob<string>(
-  '/public/assets/spells/missiles/magic/**/*.png',
-  { eager: true, query: '?url', import: 'default' }
+// Per-damage-type missile GIFs (assets/spells/missiles/magic/<type>.gif)
+const missileGifMap: Record<string, string[]> = Object.fromEntries(
+  DAMAGE_TYPES.map(t => [t, [pub(`assets/spells/missiles/magic/${t}.gif`)]])
 )
 
-// Single-file GIF sprites that self-animate in the browser (no PNG frame sequence):
-// effect-themed buff/debuff auras and persistent terrain zones. Each is keyed by the
-// stem a spell's `vizDamageType` matches — auras drop the `_aura` suffix
-// (`defense_aura.gif` → `defense`), terrain keeps its full stem (`fog_cloud`).
-const auraModules = import.meta.glob<string>(
-  '/public/assets/spells/aura/**/*.gif',
-  { eager: true, query: '?url', import: 'default' }
-)
-const terrainModules = import.meta.glob<string>(
-  '/public/assets/spells/effects/terrain/*.gif',
-  { eager: true, query: '?url', import: 'default' }
-)
-// Per-damage-type single-GIF VFX (procedurally generated): one area loop + one missile each,
-// keyed by the damage type (`/animation/fire.gif`, `/missiles/magic/fire.gif`).
-const animationGifModules = import.meta.glob<string>(
-  '/public/assets/spells/animation/*.gif',
-  { eager: true, query: '?url', import: 'default' }
-)
-const missileGifModules = import.meta.glob<string>(
-  '/public/assets/spells/missiles/magic/*.gif',
-  { eager: true, query: '?url', import: 'default' }
-)
-
-function buildGifMap(
-  modules: Record<string, string>,
-  stripAuraSuffix: boolean,
-): Record<string, string[]> {
-  const map: Record<string, string[]> = {}
-  for (const [path, url] of Object.entries(modules)) {
-    const file = path.split('/').pop() ?? ''
-    let stem = file.replace(/\.gif$/, '')
-    if (stripAuraSuffix) stem = stem.replace(/_aura$/, '')
-    map[stem] = [url] // length-1: the single GIF self-animates
-  }
-  return map
+// Buff/debuff aura GIFs, keyed by stem (strip _aura suffix)
+const auraGifMap: Record<string, string[]> = {
+  defense: [pub('assets/spells/aura/buff/defense_aura.gif')],
+  heal:    [pub('assets/spells/aura/buff/heal_aura.gif')],
+  holy:    [pub('assets/spells/aura/buff/holy_aura.gif')],
+  mirror:  [pub('assets/spells/aura/buff/mirror_aura.gif')],
+  speed:   [pub('assets/spells/aura/buff/speed_aura.gif')],
+  asleep:     [pub('assets/spells/aura/debuff/asleep_aura.gif')],
+  banished:   [pub('assets/spells/aura/debuff/banished_aura.gif')],
+  charmed:    [pub('assets/spells/aura/debuff/charmed_aura.gif')],
+  frightened: [pub('assets/spells/aura/debuff/frightened_aura.gif')],
+  marked:     [pub('assets/spells/aura/debuff/marked_aura.gif')],
+  paralyzed:  [pub('assets/spells/aura/debuff/paralyzed_aura.gif')],
+  slowed:     [pub('assets/spells/aura/debuff/slowed_aura.gif')],
 }
 
+// Terrain/environment effect GIFs, keyed by full stem
+const terrainGifMap: Record<string, string[]> = {
+  darkness_sphere:  [pub('assets/spells/effects/terrain/darkness_sphere.gif')],
+  fog_cloud:        [pub('assets/spells/effects/terrain/fog_cloud.gif')],
+  hypnotic_swirl:   [pub('assets/spells/effects/terrain/hypnotic_swirl.gif')],
+  illusion_shimmer: [pub('assets/spells/effects/terrain/illusion_shimmer.gif')],
+  silence_dome:     [pub('assets/spells/effects/terrain/silence_dome.gif')],
+  spikes_thorns:    [pub('assets/spells/effects/terrain/spikes_thorns.gif')],
+  vines_grasping:   [pub('assets/spells/effects/terrain/vines_grasping.gif')],
+}
+
+// Combined map: damage-type animations take lowest priority; aura/terrain/vizDamageType keys win.
 const gifSpriteMap: Record<string, string[]> = {
-  ...buildGifMap(auraModules, true),
-  ...buildGifMap(terrainModules, false),
-  ...buildGifMap(animationGifModules, false), // /animation/<type>.gif
+  ...animationGifMap,
+  ...auraGifMap,
+  ...terrainGifMap,
 }
-
-// Missile GIFs keyed by damage type (/missiles/magic/<type>.gif).
-const missileGifMap = buildGifMap(missileGifModules, false)
-
-function buildFrameMap(modules: Record<string, string>): Record<string, string[]> {
-  const map: Record<string, string[]> = {}
-  Object.entries(modules)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .forEach(([path, url]) => {
-      const match = path.match(/\/assets\/spells\/(animation|missiles)\/([^/]+)\//)
-      if (match) {
-        const damageType = match[2]
-        if (!map[damageType]) map[damageType] = []
-        map[damageType].push(url)
-      }
-    })
-  return map
-}
-
-const aoeFrameMap = buildFrameMap(aoeModules)
-const missileFrameMap = buildFrameMap(missileModules)
 
 export function resolveMissileFrames(damageType?: string): string[] {
   const type = damageType ?? 'psychic'
-  // Single-GIF missiles win over legacy PNG sequences; fall back to psychic either way.
-  return missileGifMap[type] ?? missileFrameMap[type]
-    ?? missileGifMap.psychic ?? missileFrameMap.psychic ?? []
+  return missileGifMap[type] ?? missileGifMap.psychic ?? []
 }
 
 export function resolveAoeAnimationFrames(damageType?: string): string[] {
   const type = damageType ?? 'psychic'
-  // Effect-themed single-GIF sprites (auras, terrain) win over the damage-type PNG
-  // sequences; otherwise fall back to the PNG frame map, then the psychic default.
-  return gifSpriteMap[type] ?? aoeFrameMap[type] ?? aoeFrameMap.psychic ?? []
+  return gifSpriteMap[type] ?? gifSpriteMap.psychic ?? []
 }

@@ -56,6 +56,35 @@ export interface SpellGridLayout {
   enemyHitPositions: { x: number; y: number }[]
   enemyMissPositions: { x: number; y: number }[]
   areaCells: { x: number; y: number }[]
+  /** Populated for wall/line spells with two-point placement. */
+  wallSpine?: { x: number; y: number }[]
+}
+
+export interface SpellGridConfig {
+  /** Cone/line: the cell the player aimed at. Direction = player→aimTarget. */
+  aimTarget?: { x: number; y: number }
+  /** Sphere: 'square' = tile centre (default), 'intersection' = tile corner (+0.5, +0.5 shift). */
+  sphereMode?: 'square' | 'intersection'
+  /** Wall: explicit start+end cells. When null/absent, falls back to static straight-down layout. */
+  wallPoints?: { start: { x: number; y: number }; end: { x: number; y: number } } | null
+}
+
+function bresenhamLine(
+  x0: number, y0: number, x1: number, y1: number,
+): { x: number; y: number }[] {
+  const cells: { x: number; y: number }[] = []
+  let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1
+  let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1
+  let err = dx + dy
+  let x = x0, y = y0
+  while (true) {
+    cells.push({ x, y })
+    if (x === x1 && y === y1) break
+    const e2 = 2 * err
+    if (e2 >= dy) { err += dy; x += sx }
+    if (e2 <= dx) { err += dx; y += sy }
+  }
+  return cells
 }
 
 export const SPELLS: SpellEntry[] = [
@@ -262,6 +291,7 @@ export function computeSpellGrid(
   spell: SpellEntry,
   slotLevel?: number,
   characterLevel?: number,
+  config?: SpellGridConfig,
 ): SpellGridLayout {
   const shape = spell.aoeShape ?? 'single'
   const size = spell.aoeSize ?? 0
@@ -303,15 +333,19 @@ export function computeSpellGrid(
   }
 
   if (shape === 'sphere') {
+    const isSelf = spell.range.toLowerCase().startsWith('self')
     const radiusTiles = Math.ceil(size / 5)
     const side = Math.max(9, radiusTiles * 2 + 5)
     const centerX = Math.floor(side / 2)
     const centerY = side - radiusTiles - 2
+    // Intersection mode: shift effective center by +0.5 so radius is measured from a corner
+    const cx = centerX + (config?.sphereMode === 'intersection' ? 0.5 : 0)
+    const cy = centerY + (config?.sphereMode === 'intersection' ? 0.5 : 0)
     const areaCells: { x: number; y: number }[] = []
     for (let y = 0; y < side; y++) {
       for (let x = 0; x < side; x++) {
-        const dx = x - centerX
-        const dy = y - centerY
+        const dx = x - cx
+        const dy = y - cy
         if (Math.sqrt(dx * dx + dy * dy) <= radiusTiles) areaCells.push({ x, y })
       }
     }
@@ -319,11 +353,11 @@ export function computeSpellGrid(
     const outsideEnemies: { x: number; y: number }[] = [
       { x: Math.max(0, centerX - radiusTiles - 1), y: centerY },
       { x: Math.min(side - 1, centerX + radiusTiles + 1), y: centerY },
-    ].filter(p => Math.sqrt((p.x - centerX) ** 2 + (p.y - centerY) ** 2) > radiusTiles)
+    ].filter(p => Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2) > radiusTiles)
     return {
       cols: side, rows: side,
       playerPosA: { x: centerX, y: 0 },
-      playerPosB: { x: 1, y: 0 },
+      playerPosB: isSelf ? { x: centerX, y: centerY } : { x: 1, y: 0 },
       enemyHitPositions:  inside.slice(0, Math.min(3, inside.length)),
       enemyMissPositions: outsideEnemies,
       areaCells,
@@ -332,44 +366,68 @@ export function computeSpellGrid(
 
   if (shape === 'cone') {
     const lenTiles = Math.ceil(size / 5)
-    const cols = Math.max(7, lenTiles + 2)
-    const rows = Math.max(7, lenTiles + 2)
+    // Rectangular grid: wide enough for diagonal swing but only as tall as needed.
+    // Aiming is restricted to the lower half in the UI, so we waste no rows above
+    // the player. Player sits at row 1 (1-row visual buffer at top).
+    const cols = Math.max(9, lenTiles + 7)
+    const rows = Math.max(7, lenTiles + 4)
     const apexX = Math.floor(cols / 2)
-    const apexY = 0
+    const apexY = 1
+    // θ = atan2(dy, dx) in screen coords (+y = down).  Default: straight down (π/2).
+    const θ = config?.aimTarget
+      ? Math.atan2(config.aimTarget.y - apexY, config.aimTarget.x - apexX)
+      : Math.PI / 2
+    const cosθ = Math.cos(θ), sinθ = Math.sin(θ)
+    // Rotation into the cone's local frame (forward axis = +dyr):
+    //   dxr = dx·sinθ − dy·cosθ   (perpendicular)
+    //   dyr = dx·cosθ + dy·sinθ   (forward)
     const areaCells: { x: number; y: number }[] = []
-    for (let depth = 1; depth <= lenTiles; depth++) {
-      const y = apexY + depth
-      if (y >= rows) break
-      const half = Math.floor(depth / 2)
-      for (let dx = -half; dx <= half; dx++) {
-        const x = apexX + dx
-        if (x >= 0 && x < cols) areaCells.push({ x, y })
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const dx = x - apexX, dy = y - apexY
+        if (dy <= 0) continue  // never show cells at or above the player row
+        const dxr = dx * sinθ - dy * cosθ
+        const dyr = dx * cosθ + dy * sinθ
+        if (dyr <= 0) continue
+        if (Math.abs(dxr) > dyr / 2) continue
+        if (Math.hypot(dx, dy) > lenTiles + 0.5) continue
+        areaCells.push({ x, y })
       }
     }
-    const midDepth = Math.floor(lenTiles / 2)
-    const insideEnemies: { x: number; y: number }[] = [
-      { x: apexX, y: apexY + midDepth },
-      { x: apexX + 1, y: apexY + lenTiles - 1 },
+    // Map local (forward, perp) → world grid coords (inverse rotation)
+    const toGrid = (fwd: number, perp: number) => ({
+      x: Math.round(apexX + sinθ * perp + cosθ * fwd),
+      y: Math.round(apexY - cosθ * perp + sinθ * fwd),
+    })
+    const clampG = (p: { x: number; y: number }) => ({
+      x: Math.max(0, Math.min(cols - 1, p.x)),
+      y: Math.max(apexY + 1, Math.min(rows - 1, p.y)),
+    })
+    const midDepth = Math.round(lenTiles / 2)
+    const insideEnemies = [
+      clampG(toGrid(midDepth, 0)),
+      clampG(toGrid(lenTiles - 1, 1)),
     ].filter(p => areaCells.some(c => c.x === p.x && c.y === p.y))
-    const outsideEnemies: { x: number; y: number }[] = [
-      { x: Math.max(0, apexX - midDepth - 1), y: apexY + midDepth },
-      { x: Math.min(cols - 1, apexX + midDepth + 1), y: apexY + midDepth },
+    const outsideEnemies = [
+      clampG(toGrid(midDepth, midDepth + 1)),
+      clampG(toGrid(midDepth, -(midDepth + 1))),
     ]
     return {
       cols, rows,
       playerPosA: { x: apexX, y: apexY },
-      playerPosB: { x: Math.max(0, apexX - 2), y: apexY },
-      enemyHitPositions:  insideEnemies,
+      playerPosB: { x: apexX, y: apexY },
+      enemyHitPositions:  insideEnemies.slice(0, 2),
       enemyMissPositions: outsideEnemies,
       areaCells,
     }
   }
 
   if (shape === 'cube') {
+    const isSelf = spell.range.toLowerCase().startsWith('self')
     const sideTiles = Math.ceil(size / 5)
     const total = Math.max(7, sideTiles + 3)
     const startX = Math.floor((total - sideTiles) / 2)
-    const startY = Math.floor(total * 0.4)
+    const startY = 1
     const areaCells: { x: number; y: number }[] = []
     for (let y = startY; y < startY + sideTiles; y++) {
       for (let x = startX; x < startX + sideTiles; x++) {
@@ -379,25 +437,74 @@ export function computeSpellGrid(
     return {
       cols: total, rows: total,
       playerPosA: { x: Math.floor(total / 2), y: 0 },
-      playerPosB: { x: 1, y: 0 },
+      playerPosB: isSelf ? { x: Math.floor(total / 2), y: startY } : { x: 1, y: 0 },
       enemyHitPositions:  areaCells.slice(0, 3),
       enemyMissPositions: [{ x: 0, y: total - 1 }, { x: total - 1, y: total - 1 }],
       areaCells,
     }
   }
 
-  // line
+  // line / wall
   const lenTiles = Math.ceil(size / 5)
-  const cols = 3
-  const rows = Math.max(5, lenTiles + 2)
-  const areaCells: { x: number; y: number }[] = []
-  for (let y = 1; y <= lenTiles && y < rows - 1; y++) areaCells.push({ x: 1, y })
+  // Width: same as the old lineSide (enough for moderate diagonal aim).
+  // Height: shorter since the player sits at row 1 and we only show the forward half.
+  const lineCols = Math.max(9, lenTiles + 6)
+  const lineRows = Math.max(9, lenTiles + 4)
+  const lineApexX = Math.floor(lineCols / 2)
+  const lineApexY = 1  // player near top; aiming restricted to y > lineApexY in UI
+
+  if (config?.wallPoints) {
+    // Two-point wall: Bresenham spine between start and end.
+    // Use a square grid so the user can reach all cells.
+    const wallSide = Math.max(9, lenTiles + 6)
+    const clampW = (v: number) => Math.max(0, Math.min(wallSide - 1, v))
+    const spine = bresenhamLine(
+      clampW(config.wallPoints.start.x), clampW(config.wallPoints.start.y),
+      clampW(config.wallPoints.end.x),   clampW(config.wallPoints.end.y),
+    )
+    const wCtr = Math.floor(wallSide / 2)
+    return {
+      cols: wallSide, rows: wallSide,
+      playerPosA: { x: wCtr, y: wCtr },
+      playerPosB: { x: wCtr, y: wCtr },
+      enemyHitPositions:  spine.slice(0, 2),
+      enemyMissPositions: [{ x: 0, y: 0 }, { x: wallSide - 1, y: wallSide - 1 }],
+      areaCells: spine,
+      wallSpine: spine,
+    }
+  }
+
+  // Rotation-based directional line: same rotation formula as cone, 1-cell-wide spine
+  const lineθ = config?.aimTarget
+    ? Math.atan2(config.aimTarget.y - lineApexY, config.aimTarget.x - lineApexX)
+    : Math.PI / 2
+  const lineCos = Math.cos(lineθ), lineSin = Math.sin(lineθ)
+  const lineArea: { x: number; y: number }[] = []
+  for (let y = 0; y < lineRows; y++) {
+    for (let x = 0; x < lineCols; x++) {
+      const dx = x - lineApexX, dy = y - lineApexY
+      if (dy <= 0) continue  // only forward (below player)
+      const dxr = dx * lineSin - dy * lineCos
+      const dyr = dx * lineCos + dy * lineSin
+      if (dyr <= 0) continue
+      if (Math.abs(dxr) > 0.5) continue
+      if (Math.hypot(dx, dy) > lenTiles + 0.5) continue
+      lineArea.push({ x, y })
+    }
+  }
+  const midL = Math.round(lenTiles / 2)
+  const toGridL = (fwd: number, perp: number) => ({
+    x: Math.max(0, Math.min(lineCols - 1, Math.round(lineApexX + lineSin * perp + lineCos * fwd))),
+    y: Math.max(lineApexY + 1, Math.min(lineRows - 1, Math.round(lineApexY - lineCos * perp + lineSin * fwd))),
+  })
+  const lineHit = [toGridL(midL, 0), toGridL(lenTiles - 1, 0)]
+    .filter(p => lineArea.some(c => c.x === p.x && c.y === p.y))
   return {
-    cols, rows,
-    playerPosA: { x: 1, y: 0 },
-    playerPosB: { x: 0, y: 0 },
-    enemyHitPositions:  areaCells.slice(0, 2),
-    enemyMissPositions: [{ x: 0, y: rows - 1 }, { x: 2, y: rows - 1 }],
-    areaCells,
+    cols: lineCols, rows: lineRows,
+    playerPosA: { x: lineApexX, y: lineApexY },
+    playerPosB: { x: lineApexX, y: lineApexY },
+    enemyHitPositions:  lineHit.slice(0, 2),
+    enemyMissPositions: [toGridL(midL, 2), toGridL(midL, -2)],
+    areaCells: lineArea,
   }
 }

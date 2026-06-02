@@ -145,6 +145,11 @@
 .stopBtn:hover { filter: brightness(1.1); }
 .stopBtn:active { filter: brightness(0.95); }
 
+.cellInteractive { cursor: crosshair; }
+.cellInteractive:hover { background: rgba(139, 124, 248, 0.18) !important; }
+.cellAimTarget { background: rgba(255, 220, 60, 0.35) !important; }
+.cellWallStart { background: rgba(255, 200, 60, 0.45) !important; box-shadow: inset 0 0 0 1px rgba(255, 200, 60, 0.9); }
+
 @keyframes missileFly {
   to { transform: translate(var(--dx, 0), var(--dy, 0)); }
 }

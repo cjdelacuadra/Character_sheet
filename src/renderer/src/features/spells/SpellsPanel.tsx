@@ -23,6 +23,7 @@ interface Props {
 
 export function SpellsPanel({ character: char, update, castingTimeFilter, onLearnSpell, onSummon, onConcentrationBroken }: Props) {
   const [search, setSearch] = useState('')
+  const [schoolFilter, setSchoolFilter] = useState('')
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
@@ -395,22 +396,29 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const subclassGrantedSet = new Set(subclassGrantedIds)
 
   // Decide which spells go in which section
+  function matchesFilters(spell: { name: string; castingTime: string; school: string }): boolean {
+    if (castingTimeFilter && !spell.castingTime.toLowerCase().includes(castingTimeFilter.toLowerCase())) return false
+    if (schoolFilter && spell.school !== schoolFilter) return false
+    return spell.name.toLowerCase().includes(search.toLowerCase())
+  }
+
+  function spellSort(a: string, b: string): number {
+    const la = SPELL_BY_ID[a]?.level ?? 0, lb = SPELL_BY_ID[b]?.level ?? 0
+    if (la !== lb) return la - lb
+    return (SPELL_BY_ID[a]?.name ?? a).localeCompare(SPELL_BY_ID[b]?.name ?? b)
+  }
+
   const allKnownIds = char.spellIds.filter(id => {
     const spell = SPELL_BY_ID[id]
     if (!spell) return id.toLowerCase().includes(search.toLowerCase())
-    if (castingTimeFilter && !spell.castingTime.toLowerCase().includes(castingTimeFilter.toLowerCase())) return false
-    return spell.name.toLowerCase().includes(search.toLowerCase())
-  }).sort((a, b) => (SPELL_BY_ID[a]?.level ?? 0) - (SPELL_BY_ID[b]?.level ?? 0))
+    return matchesFilters(spell)
+  }).sort(spellSort)
 
   // Subclass spells filtered the same way and only those that exist in the catalog
   const subclassDisplayIds = subclassGrantedIds
     .filter(id => SPELL_BY_ID[id])
-    .filter(id => {
-      const spell = SPELL_BY_ID[id]!
-      if (castingTimeFilter && !spell.castingTime.toLowerCase().includes(castingTimeFilter.toLowerCase())) return false
-      return spell.name.toLowerCase().includes(search.toLowerCase())
-    })
-    .sort((a, b) => (SPELL_BY_ID[a]?.level ?? 0) - (SPELL_BY_ID[b]?.level ?? 0))
+    .filter(id => matchesFilters(SPELL_BY_ID[id]!))
+    .sort(spellSort)
 
   const preparedIds = allKnownIds.filter(id => preparedSet.has(id))
   const cantripsAndKnown = allKnownIds.filter(id => !preparedSet.has(id) && !subclassGrantedSet.has(id))
@@ -542,13 +550,27 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             </div>
           )}
 
-          <input
-            className={styles.spellSearch}
-            type="search"
-            placeholder="Search spells…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input
+              className={styles.spellSearch}
+              style={{ flex: 1 }}
+              type="search"
+              placeholder="Search spells…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <select
+              className={styles.spellSearch}
+              style={{ width: 'auto', flex: 'none' }}
+              value={schoolFilter}
+              onChange={e => setSchoolFilter(e.target.value)}
+            >
+              <option value="">All schools</option>
+              {['Abjuration','Conjuration','Divination','Enchantment','Evocation','Illusion','Necromancy','Transmutation'].map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
 
           {isPreparedCaster ? (
             <>
@@ -602,6 +624,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 const learnable = allLearnable
                   .filter(s => learnShowAllLevels || s.level === 0 || s.level <= maxCastableLevel)
                   .filter(s => s.name.toLowerCase().includes(learnSearch.toLowerCase()))
+                  .filter(s => !schoolFilter || s.school === schoolFilter)
                   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
                 const totalLearnableCount = allLearnable.length
                 return (
@@ -696,7 +719,8 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 const learnable = SPELLS.filter(s =>
                   s.classes.includes(spellListClass) &&
                   !knownIds.has(s.id) &&
-                  s.name.toLowerCase().includes(learnSearch.toLowerCase())
+                  s.name.toLowerCase().includes(learnSearch.toLowerCase()) &&
+                  (!schoolFilter || s.school === schoolFilter)
                 ).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
                 return (
                   <div className={styles.learnPicker}>

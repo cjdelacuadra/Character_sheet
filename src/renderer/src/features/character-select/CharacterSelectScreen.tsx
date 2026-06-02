@@ -17,7 +17,7 @@ import {
   rollScoreSet, POINT_BUY_COST, POINT_BUY_TOTAL
 } from '@/shared/data/charCalculations'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
-import { spellsForClass, getSelectableSpells, type SpellEntry } from '@/shared/data/spellData'
+import { SPELLS, getSelectableSpells, type SpellEntry } from '@/shared/data/spellData'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import styles from './CharacterSelectScreen.module.css'
 
@@ -164,7 +164,14 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
   }
 
   function buildCharacter(): Character {
-    const scores = getScores()
+    const testName = basics.name.trim().toLowerCase()
+    const isTestSpells  = testName.includes('test spells')
+    const isTestActions = testName.includes('test actions')
+    const isTestMode    = isTestSpells || isTestActions
+
+    const scores = isTestMode
+      ? { str: 20, dex: 20, con: 20, int: 20, wis: 20, cha: 20 }
+      : getScores()
     const equipment = {
       armorId: armorId === 'none' ? null : armorId,
       hasShield: !!shieldId,
@@ -263,6 +270,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             if (Number(lvl) <= basics.level) allRacialSpells.push(...(ids ?? []))
           }
         }
+        if (isTestSpells) {
+          return [...new Set([...SPELLS.map(s => s.id), ...allRacialSpells])]
+        }
         return [...new Set([...chosenSpells, ...allRacialSpells])]
       })(),
       preparedSpellIds: [],
@@ -277,7 +287,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       feats: chosenFeat ? [chosenFeat] : [],
       fightingStyle: chosenFightingStyle,
       completedAsiLevels: [],
-      gold: Math.max(100 - equipCost, 10),
+      gold: isTestMode ? 10000 : Math.max(100 - equipCost, 10),
       ownedItemIds: [],
       activeSummons: [],
       circleOfLandTerrain: basics.subclass === 'CircleOfTheLand' && basics.level >= 3 ? chosenLandTerrain : undefined,
