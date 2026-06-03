@@ -3,7 +3,16 @@ import { getAvailableActions, type ActionDef } from '@/domain/rules'
 import { CLASS_BY_ID, type ResourceDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { mod } from '@/shared/data/charCalculations'
+import { useAppStore } from '@/app/store'
+import type { EconomyType } from '@/app/store/turnSlice'
 import styles from './ActionListPanel.module.css'
+
+function actionTypeToEconomy(type: ActionDef['type']): EconomyType | null {
+  if (type === 'Action') return 'action'
+  if (type === 'Bonus Action') return 'bonus'
+  if (type === 'Reaction') return 'reaction'
+  return null
+}
 
 interface Props {
   character: Character
@@ -17,6 +26,8 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
+  const useEconomy = useAppStore(s => s.useEconomy)
+  const grantEconomy = useAppStore(s => s.grantEconomy)
 
   function actionPriority(a: ActionDef): number {
     if (a.name === 'Attack' || a.name === 'Off-Hand Attack' || a.name.startsWith('Opportunity Attack')) return 0
@@ -88,10 +99,19 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     return chips
   }
 
-  function useResource(key: string, total: number) {
+  function useResource(key: string, total: number, actionType?: ActionDef['type']) {
     const res = char.resources[key] ?? { used: 0, total }
     if (res.used >= res.total) return
     update({ resources: { ...char.resources, [key]: { used: res.used + 1, total: res.total } } })
+    // Action Surge grants +1 action this turn rather than consuming one
+    if (key === 'Action Surge') {
+      grantEconomy(char.id, 'action', 1)
+      return
+    }
+    if (actionType) {
+      const econ = actionTypeToEconomy(actionType)
+      if (econ) useEconomy(char.id, econ)
+    }
   }
 
   function recoverResource(key: string, total: number) {
@@ -123,7 +143,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
                           <button
                             key={i}
                             className={`${styles.chipPip} ${i < remaining ? styles.chipPipFull : styles.chipPipEmpty}`}
-                            onClick={() => i < remaining ? useResource(key, total) : recoverResource(key, total)}
+                            onClick={() => i < remaining ? useResource(key, total, type) : recoverResource(key, total)}
                             title={i < remaining ? 'Use' : 'Recover'}
                           />
                         ))}

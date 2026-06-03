@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand'
+import type { TurnSlice } from './turnSlice'
 import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
 import type { ActiveSummon, ActiveSummonRuntime, SummonBase } from '@/entities/summon/types'
 import type { GearEquipmentItem } from '@/shared/data/equipment/types'
@@ -61,7 +62,7 @@ export interface CharacterSlice {
   addCustomItem: (def: GearEquipmentItem) => void
 }
 
-export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => ({
+export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => ({
   activeCharacterId: null,
   characters: {},
   customItems: {},
@@ -73,7 +74,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
   },
   loaded: false,
 
-  setActiveCharacter: (id) => set({ activeCharacterId: id }),
+  setActiveCharacter: (id) => {
+    set({ activeCharacterId: id })
+    get().initTurnState(id)
+  },
 
   exitCharacter: () => set({ activeCharacterId: null }),
 
@@ -172,6 +176,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         superiorityDiceUsed: 0,
       }
       ipcService.save(id, updated)
+      get().initTurnState(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },
@@ -210,6 +215,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         isBladesinging: false,
       }
       ipcService.save(id, updated)
+      get().initTurnState(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },
@@ -302,6 +308,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
           : (char.completedAsiChoices ?? {}),
       }
       ipcService.save(id, updated)
+      get().initTurnState(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },

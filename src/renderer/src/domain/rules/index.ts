@@ -251,6 +251,9 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Extra Attack',     type: 'Free',         classOnly: 'Fighter', requiresLevel: 5,
     short: 'Attack twice when you take the Attack action.',
     full: 'Beginning at 5th level, when you take the Attack action on your turn, you can attack twice instead of once. This increases to three attacks at level 11 and four at level 20.' },
+  { name: 'Indomitable',      type: 'Reaction',     classOnly: 'Fighter', requiresLevel: 9, resourceKey: 'Indomitable', resourceCost: 1,
+    short: 'Reroll a failed saving throw.',
+    full: 'You can reroll a saving throw that you fail. If you do so, you must use the new roll. You can use this feature once between long rests (twice at level 13, three times at level 17).' },
   // Barbarian
   { name: 'Rage',             type: 'Bonus Action', classOnly: 'Barbarian', requiresLevel: 1, resourceKey: 'Rage', resourceCost: 1,
     short: 'Enter a rage for 1 min (+damage, resistance to B/P/S, Str advantage).',
@@ -263,9 +266,9 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Channel Divinity', type: 'Action', classOnly: 'Cleric', requiresLevel: 2, resourceKey: 'Channel Divinity', resourceCost: 1,
     short: 'Use a divine power (varies by domain).',
     full: 'Choose a Channel Divinity option available to you based on your divine domain. All clerics have Turn Undead; your domain grants additional options. Recharges on short rest.' },
-  { name: 'Turn Undead',      type: 'Action', classOnly: 'Cleric', requiresLevel: 2, resourceKey: 'Channel Divinity', resourceCost: 1,
-    short: 'Wis save DC or undead within 30ft flees for 1 min.',
-    full: 'As an action, present your holy symbol. Each undead that can see/hear you within 30ft must make a Wisdom saving throw (DC 8 + proficiency + Wis mod). On fail, the undead is turned for 1 minute or until it takes damage.' },
+  { name: 'Divine Intervention', type: 'Action', classOnly: 'Cleric', requiresLevel: 10, resourceKey: 'Divine Intervention', resourceCost: 1,
+    short: 'Call on your deity for aid. Roll d100 ≤ cleric level to succeed.',
+    full: "Implore your deity's aid. Roll a percentile die. If the roll is equal to or lower than your cleric level, your deity intervenes. At level 20, the intervention always succeeds. On success this feature can't be used again for 7 days. On failure, try again after a long rest." },
   // Druid
   { name: 'Wild Shape',       type: 'Action', classOnly: 'Druid', requiresLevel: 2, resourceKey: 'Wild Shape', resourceCost: 1,
     short: "Transform into a beast you've seen (CR ≤ ¼ at level 2).",
@@ -310,6 +313,9 @@ const CLASS_ACTIONS: ActionDef[] = [
     short: 'Short rest: recover spell slots (total levels ≤ ½ wizard level).',
     full: 'Once per day after a short rest, choose expended spell slots to recover. The combined level of the recovered slots must be equal to or lower than half your wizard level (rounded up). No slot of 6th level or higher can be recovered.' },
   // Warlock
+  { name: 'Flash of Genius',  type: 'Reaction', classOnly: 'Artificer', requiresLevel: 7, resourceKey: 'Flash of Genius', resourceCost: 1,
+    short: 'Add your INT modifier to an ability check or save within 30ft.',
+    full: 'When you or a creature you can see within 30ft makes an ability check or saving throw, use your reaction to add your Intelligence modifier to the roll (minimum +1). Uses = your Intelligence modifier (minimum 1) per long rest.' },
   { name: 'Eldritch Blast',   type: 'Action', classOnly: 'Warlock', requiresLevel: 1,
     short: 'Cantrip: 1d10 force dmg. Beams scale: 1 at level 1 → 4 at level 17.',
     full: 'A beam of crackling energy streaks toward a creature within 120ft. Make a ranged spell attack. On a hit: 1d10 force damage. Creates additional beams at 5th (×2), 11th (×3), and 17th (×4) level. Each beam can target the same or different creatures.' },
@@ -336,6 +342,24 @@ function makeOffHandAction(character: Character): ActionDef {
   }
 }
 
+/** Returns the minimum d20 roll needed to score a critical hit (normally 20; Champion reduces it). */
+export function computeCritThreshold(character: Character): number {
+  if (character.subclass === 'Champion') {
+    if (character.level >= 15) return 18
+    if (character.level >= 3)  return 19
+  }
+  return 20
+}
+
+function destroyUndeadCRThreshold(level: number): string | null {
+  if (level >= 17) return '4'
+  if (level >= 14) return '3'
+  if (level >= 11) return '2'
+  if (level >= 8)  return '1'
+  if (level >= 5)  return '½'
+  return null
+}
+
 export function getAvailableActions(character: Character): ActionDef[] {
   const classActions = CLASS_ACTIONS.filter(a => {
     if (a.classOnly && a.classOnly !== character.classId) return false
@@ -353,6 +377,39 @@ export function getAvailableActions(character: Character): ActionDef[] {
   const offHandActions = lightMelee.length >= 2 ? [makeOffHandAction(character)] : []
 
   const subclassActions: ActionDef[] = []
+
+  // Cleric: Turn Undead (dynamic so Destroy Undead threshold can be level-aware)
+  if (character.classId === 'Cleric' && character.level >= 2) {
+    const crThreshold = destroyUndeadCRThreshold(character.level)
+    const destroyNote = crThreshold
+      ? ` At your level, undead of CR ${crThreshold} or lower are destroyed outright on a failed save.`
+      : ''
+    subclassActions.push({
+      name: 'Turn Undead',
+      type: 'Action',
+      short: 'Wis save DC or undead within 30ft flees for 1 min.',
+      full: `As an action, present your holy symbol. Each undead that can see/hear you within 30ft must make a Wisdom saving throw (DC 8 + proficiency + Wis mod). On fail, the undead is turned for 1 minute or until it takes damage.${destroyNote}`,
+      resourceKey: 'Channel Divinity',
+      resourceCost: 1,
+    })
+  }
+
+  // Cleric War Domain: War Priest (bonus-action weapon attack after casting a spell)
+  if (character.subclass === 'WarDomain' && character.level >= 1) {
+    const wisMod = mod(effectiveAbilityScore(character, 'wis'))
+    const total = Math.max(1, wisMod)
+    const used = character.resources?.['War Priest']?.used ?? 0
+    subclassActions.push({
+      name: 'War Priest',
+      type: 'Bonus Action',
+      short: `Make a weapon attack after casting a spell. ${total - used}/${total} remaining.`,
+      full: `When you cast a spell on your turn, you can use a bonus action to make one weapon attack. Uses = your Wisdom modifier (minimum 1) per long rest.`,
+      resourceKey: 'War Priest',
+      resourceCost: 1,
+    })
+  }
+
+  // Fighter: Samurai Fighting Spirit
   if (character.subclass === 'Samurai' && character.level >= 3) {
     const fightingSpiritRes = character.resources?.['Fighting Spirit']
     const used = fightingSpiritRes?.used ?? 0
@@ -363,6 +420,32 @@ export function getAvailableActions(character: Character): ActionDef[] {
       short: `Advantage on attacks + temp HP until end of turn. ${total - used}/${total} remaining.`,
       full: 'As a bonus action on your turn, you can give yourself advantage on all weapon attack rolls until the end of the current turn. When you do so, you also gain 5 temporary HP at level 3 (10 at level 10, 15 at level 15). Usable 3/long rest.',
     })
+  }
+
+  // Warlock: Mystic Arcanum (one free 6th/7th/8th/9th-level spell cast per long rest, per tier)
+  if (character.classId === 'Warlock') {
+    const arcanumTiers: Array<{ slotLevel: number; requiresLevel: number }> = [
+      { slotLevel: 6, requiresLevel: 11 },
+      { slotLevel: 7, requiresLevel: 13 },
+      { slotLevel: 8, requiresLevel: 15 },
+      { slotLevel: 9, requiresLevel: 17 },
+    ]
+    for (const { slotLevel, requiresLevel } of arcanumTiers) {
+      if (character.level >= requiresLevel) {
+        const key = `Mystic Arcanum ${slotLevel}`
+        const res = character.resources?.[key]
+        const used = res?.used ?? 0
+        const total = res?.total ?? 1
+        subclassActions.push({
+          name: `Mystic Arcanum (${slotLevel}th)`,
+          type: 'Action',
+          short: `Cast your ${slotLevel}th-level arcanum spell without expending a slot. ${total - used}/${total} remaining.`,
+          full: `Choose a spell of ${slotLevel}th level from your class spell list (decided when you gain this feature). You can cast it once without expending a spell slot. You regain this ability after a long rest.`,
+          resourceKey: key,
+          resourceCost: 1,
+        })
+      }
+    }
   }
 
   const featActions: ActionDef[] = []
@@ -452,11 +535,14 @@ export function getSpecialAttacks(character: Character): SpecialAttack[] {
 
   if (classId === 'Rogue') {
     const diceCount = Math.ceil(level / 2)
+    const isSwashbuckler = character.subclass === 'Swashbuckler'
     attacks.push({
       name: 'Sneak Attack',
       dice: `${diceCount}d6`,
       note: 'Extra damage once per turn',
-      condition: 'Requires advantage or adjacent ally, finesse/ranged weapon',
+      condition: isSwashbuckler
+        ? 'Requires finesse/ranged weapon; advantage OR no other creature adjacent to you (Rakish Audacity)'
+        : 'Requires advantage or adjacent ally, finesse/ranged weapon',
     })
   }
 
@@ -464,6 +550,15 @@ export function getSpecialAttacks(character: Character): SpecialAttack[] {
     attacks.push({
       name: 'Reckless Attack',
       note: 'Advantage on first Str attack, attackers gain advantage vs you until next turn',
+    })
+  }
+
+  if (classId === 'Barbarian' && level >= 9) {
+    const extraDice = level >= 17 ? 3 : level >= 13 ? 2 : 1
+    attacks.push({
+      name: 'Brutal Critical',
+      dice: `+${extraDice}[weapon die]`,
+      note: `On a critical hit, roll ${extraDice} extra weapon damage ${extraDice === 1 ? 'die' : 'dice'}`,
     })
   }
 
@@ -520,8 +615,11 @@ export function getWeaponSpecialAttacks(character: Character, weapon: Weapon): S
   const isRanged = weapon.rangeType === 'Ranged'
 
   if (classId === 'Rogue' && (isFinesse || isRanged)) {
+    const isSwashbuckler = character.subclass === 'Swashbuckler'
     attacks.push({ name: 'Sneak Attack', dice: `${Math.ceil(level / 2)}d6`,
-      note: 'Once per turn — advantage or ally adjacent to target' })
+      note: isSwashbuckler
+        ? 'Once per turn — advantage, ally adjacent, or one-on-one (Rakish Audacity)'
+        : 'Once per turn — advantage or ally adjacent to target' })
   }
   if (classId === 'Barbarian' && level >= 2) {
     attacks.push({ name: 'Reckless Attack',

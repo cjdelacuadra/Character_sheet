@@ -386,6 +386,12 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const startedAtRef = useRef<number | null>(null)
 
   const playerPos = position === 'A' ? layout.playerPosA : layout.playerPosB
+  const tile = layout.tileSize ?? TILE
+  // Scaled cellCenter — mirrors the module-level function but uses the layout's tileSize.
+  const scaledCellCenter = (c: Cell): { left: number; top: number } => ({
+    left: GRID_PADDING + c.x * (tile + GRID_GAP) + tile / 2,
+    top:  GRID_PADDING + c.y * (tile + GRID_GAP) + tile / 2,
+  })
   const isSelfBuff = spell.vizCategory === 'self-buff'
   const isDebuffAura = spell.vizCategory === 'debuff-aura'
   // Terrain zones loop a sprite on their tiles like an AOE, but never deal damage —
@@ -634,8 +640,8 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
         <div
           className={styles.grid}
           style={{
-            gridTemplateColumns: `repeat(${layout.cols}, ${TILE}px)`,
-            gridTemplateRows:    `repeat(${layout.rows}, ${TILE}px)`,
+            gridTemplateColumns: `repeat(${layout.cols}, ${tile}px)`,
+            gridTemplateRows:    `repeat(${layout.rows}, ${tile}px)`,
           }}
         >
           {Array.from({ length: layout.rows }).flatMap((_, y) =>
@@ -673,7 +679,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
                       alt="Enemy"
                       style={{
                         position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-                        width: TILE, height: Math.round(TILE * 32 / 24),
+                        width: tile, height: Math.round(tile * 32 / 24),
                         imageRendering: 'pixelated', zIndex: 3, pointerEvents: 'none',
                       }}
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
@@ -683,7 +689,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
                     <div
                       style={{
                         position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
-                        width: Math.round(TILE * 0.62), height: Math.round(TILE * 0.62),
+                        width: Math.round(tile * 0.62), height: Math.round(tile * 0.62),
                         borderRadius: '50%',
                         background: 'radial-gradient(circle at 35% 30%, #6aa6ff, #2b5bbf 70%, #16306e)',
                         border: '2px solid #0e1f44', boxShadow: '0 0 4px rgba(0,0,0,0.5)',
@@ -699,7 +705,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
           {showAoeLayer && cellTimings.map(({ cell, appearAt }) => {
             const opacity = cellOpacity(appearAt, clockMs, waveLengthMs)
             if (opacity === 0) return null
-            const px = cellCenter(cell)
+            const px = scaledCellCenter(cell)
             return (
               <img
                 key={`aoe-${cell.x},${cell.y}`}
@@ -707,8 +713,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
                 src={aoeFrames[sharedFrameIdx]}
                 alt=""
                 style={{
-                  left: px.left - TILE / 2,
-                  top:  px.top  - TILE / 2,
+                  left: px.left - tile / 2,
+                  top:  px.top  - tile / 2,
+                  width: tile,
+                  height: tile,
                   opacity,
                 }}
                 onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
@@ -740,8 +748,8 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
             const overlay = computeShapeOverlay(spell.aoeShape ?? 'single', layout, playerPos, aimAngle)
             const marker = computeOriginMarker(spell, layout, playerPos, wallStart)
             if (!overlay && !marker) return null
-            const svgW = 2 * GRID_PADDING + layout.cols * (TILE + GRID_GAP) - GRID_GAP
-            const svgH = 2 * GRID_PADDING + layout.rows * (TILE + GRID_GAP) - GRID_GAP
+            const svgW = 2 * GRID_PADDING + layout.cols * (tile + GRID_GAP) - GRID_GAP
+            const svgH = 2 * GRID_PADDING + layout.rows * (tile + GRID_GAP) - GRID_GAP
             const markerColor = DMG_SOLID[spell.damageType ?? ''] ?? 'rgb(180,180,180)'
             return (
               <svg

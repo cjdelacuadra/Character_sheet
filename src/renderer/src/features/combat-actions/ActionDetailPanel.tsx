@@ -18,6 +18,7 @@ import { MANEUVERS, MANEUVER_BY_ID, MANEUVER_PROGRESSION, maneuversKnown } from 
 import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION, arcaneShotsKnown } from '@/shared/data/arcaneShotsData'
 import { SKILLS } from '@/shared/data/skills'
 import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
+import { useAppStore } from '@/app/store'
 import { SpellsPanel } from '@/features/spells/SpellsPanel'
 import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 import styles from './ActionDetailPanel.module.css'
@@ -309,6 +310,33 @@ interface Props {
 }
 
 const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th',9:'9th' }
+
+function BoomingBladeTurnToggle({ charId }: { charId: string }) {
+  const ts = useAppStore(s => s.turnStates[charId])
+  const registerEndOfTurnSpell = useAppStore(s => s.registerEndOfTurnSpell)
+  const unregisterEndOfTurnSpell = useAppStore(s => s.unregisterEndOfTurnSpell)
+  const armed = !!ts?.endOfTurnSpellIds.includes('booming-blade')
+  return (
+    <button
+      onClick={() => armed
+        ? unregisterEndOfTurnSpell(charId, 'booming-blade')
+        : registerEndOfTurnSpell(charId, 'booming-blade')}
+      title={armed ? 'Cast this turn — will expire on Next Turn' : 'Mark as cast this turn'}
+      style={{
+        fontSize: 9,
+        padding: '2px 5px',
+        marginLeft: 4,
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        background: armed ? 'rgba(216, 162, 61, 0.25)' : 'transparent',
+        color: armed ? '#d8a23d' : 'var(--text-muted)',
+        cursor: 'pointer',
+      }}
+    >
+      {armed ? '● Cast' : '○ Cast'}
+    </button>
+  )
+}
 
 export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature, onSummon, onConcentrationBroken }: Props) {
   const [armoryOpen, setArmoryOpen] = useState(false)
@@ -1451,7 +1479,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td>
                         <td>{row.bonusDmgType ?? '—'}</td>
-                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
+                        <td>
+                          <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                        </td>
                       </tr>
                     ))}
                     <tr className={styles.attackBreakdownTotalRow}>
@@ -2051,7 +2082,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
-                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
+                        <td>
+                          <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                        </td>
                       </tr>
                     ))}
                     <tr className={styles.attackBreakdownTotalRow}>
@@ -2145,7 +2179,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
-                        <td><span className={styles.resourceChip}>{rowResource(row)}</span></td>
+                        <td>
+                          <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                        </td>
                       </tr>
                     ))}
                     <tr className={styles.attackBreakdownTotalRow}>

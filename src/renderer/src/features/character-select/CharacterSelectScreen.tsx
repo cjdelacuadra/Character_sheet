@@ -83,7 +83,14 @@ export function CharacterSelectScreen() {
       )}
 
       {showCreate && (
-        <CreateModal onClose={() => setShowCreate(false)} onCreate={(char) => { addCharacter(char); setActiveCharacter(char.id) }} />
+        <CreateModal
+          onClose={() => setShowCreate(false)}
+          onCreate={(chars) => {
+            const arr = Array.isArray(chars) ? chars : [chars]
+            arr.forEach(c => addCharacter(c))
+            setActiveCharacter(arr[0].id)
+          }}
+        />
       )}
     </div>
   )
@@ -103,7 +110,7 @@ type ScoreMethod = 'standard' | 'pointbuy' | 'roll'
 
 interface Basics { name: string; playerName: string; alignment: string; race: string; classId: string; subclass?: string; background: string; level: number }
 
-function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Character) => void }) {
+function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Character | Character[]) => void }) {
   const [step, setStep] = useState<Step>('basics')
   const [basics, setBasics] = useState<Basics>({ name: '', playerName: '', alignment: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1 })
 
@@ -297,6 +304,39 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     }
   }
 
+  function buildTestClassBatch(base: Character): Character[] {
+    const subclasses = SUBCLASSES_BY_CLASS[base.classId] ?? []
+    const now = new Date().toISOString()
+    const level = 3
+    const prof = profBonus(level)
+    return subclasses.map(sc => {
+      const maxHp = computeMaxHP(base.classId, level, base.abilityScores.con, base.bonusHpPerLevel)
+      return {
+        ...base,
+        id: crypto.randomUUID(),
+        createdAt: now,
+        updatedAt: now,
+        name: `${base.name} — ${sc.label}`,
+        subclass: sc.id,
+        level,
+        proficiencyBonus: prof,
+        hitPoints: { current: maxHp, max: maxHp, temp: 0 },
+        resources: getResourceDefaults(base.classId, level, base.abilityScores),
+        spellSlots: defaultSpellSlots(base.classId, level, sc.id),
+      }
+    })
+  }
+
+  function isTestClassMode(): boolean {
+    const n = basics.name.trim().toLowerCase()
+    return n.startsWith('test') && !n.includes('test spells') && !n.includes('test actions')
+  }
+
+  function submit() {
+    const base = buildCharacter()
+    onCreate(isTestClassMode() ? buildTestClassBatch(base) : base)
+  }
+
   function goToEquipment() {
     setStep('equipment')
     // Reset spell choices if class changed to non-caster
@@ -353,7 +393,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             chosenFightingStyle={chosenFightingStyle} setChosenFightingStyle={setChosenFightingStyle}
             onBack={() => setStep('scores')}
             onNext={isSpellcaster ? () => setStep('spells') : undefined}
-            onCreate={isSpellcaster ? undefined : () => onCreate(buildCharacter())}
+            onCreate={isSpellcaster ? undefined : submit}
           />
         )}
 
@@ -364,7 +404,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
             chosenSpells={chosenSpells}
             setChosenSpells={setChosenSpells}
             onBack={goToEquipment}
-            onCreate={() => onCreate(buildCharacter())}
+            onCreate={submit}
           />
         )}
       </div>

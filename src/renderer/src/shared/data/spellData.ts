@@ -60,6 +60,8 @@ export interface SpellGridLayout {
   areaCells: { x: number; y: number }[]
   /** Populated for wall/line spells with two-point placement. */
   wallSpine?: { x: number; y: number }[]
+  /** Override tile size in px; defaults to 22. Set larger for compact grids (e.g. self-buff 3×3). */
+  tileSize?: number
 }
 
 export interface SpellGridConfig {
@@ -366,6 +368,21 @@ export function computeSpellGrid(
 ): SpellGridLayout {
   const shape = spell.aoeShape ?? 'single'
   const size = spell.aoeSize ?? 0
+
+  // Self-buff spells (and touch/melee cantrips like Booming Blade) render on a compact
+  // 3×3 grid at 44px per tile so the aura fills the frame rather than being a tiny dot
+  // in the corner of a tall single-target grid.
+  if (spell.vizCategory === 'self-buff') {
+    return {
+      cols: 3, rows: 3,
+      playerPosA: { x: 1, y: 1 },
+      playerPosB: { x: 1, y: 1 },
+      enemyHitPositions: [],
+      enemyMissPositions: [],
+      areaCells: [],
+      tileSize: 44,
+    }
+  }
 
   if (shape === 'single') {
     // Multi-target spells (Magic Missile, Scorching Ray, Eldritch Blast) place

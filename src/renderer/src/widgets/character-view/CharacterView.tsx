@@ -16,6 +16,8 @@ import { SummonDetailPanel } from '@/features/summons/SummonDetailPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
+import { TurnHeader } from '@/features/combat-actions/TurnHeader'
+import { NextTurnChecklist } from '@/features/combat-actions/NextTurnChecklist'
 import { FeatureDetailPanel } from '@/features/detail-panel/FeatureDetailPanel'
 import { SkillSaveDetailPanel } from '@/features/detail-panel/SkillSaveDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
@@ -46,6 +48,7 @@ export function CharacterView() {
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
   const [spellValidationDeficit, setSpellValidationDeficit] = useState<{ spells: number; cantrips: number } | null>(null)
+  const [nextTurnOpen, setNextTurnOpen] = useState(false)
 
   // Validate known-spell count when selecting a character (handles post-update migrations)
   useEffect(() => {
@@ -178,16 +181,29 @@ export function CharacterView() {
         </aside>
 
         <div className={styles.centerCol}>
-          <ActionListPanel
-            character={char}
-            selectedAction={selectedAction}
-            onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
-            update={update}
+          <TurnHeader
+            charId={char.id}
+            nextTurnOpen={nextTurnOpen}
+            onToggleNextTurn={() => setNextTurnOpen(v => !v)}
           />
+          <div className={styles.centerScroll}>
+            <ActionListPanel
+              character={char}
+              selectedAction={selectedAction}
+              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null); setNextTurnOpen(false) } }}
+              update={update}
+            />
+          </div>
         </div>
 
         <div className={styles.rightCol}>
-          {levelUpOpen && (
+          {nextTurnOpen && (
+            <NextTurnChecklist
+              character={char}
+              onClose={() => setNextTurnOpen(false)}
+            />
+          )}
+          {!nextTurnOpen && levelUpOpen && (
             <LevelUpModal
               panelMode
               character={char}
@@ -238,7 +254,7 @@ export function CharacterView() {
               onCancel={() => { setSpellOnlyOpen(false); setSpellValidationDeficit(null) }}
             />
           )}
-          {!levelUpOpen && !spellOnlyOpen && equipOpen && (
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && equipOpen && (
             <>
               <EquipmentLayout
                 character={char}
@@ -257,7 +273,7 @@ export function CharacterView() {
               )}
             </>
           )}
-          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && selectedAction !== null && (
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && selectedAction !== null && (
             <ActionDetailPanel
               character={char}
               update={update}
@@ -268,7 +284,7 @@ export function CharacterView() {
               onConcentrationBroken={() => clearAllSummons(char.id, { concentrationOnly: true })}
             />
           )}
-          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
             <FeatureDetailPanel
               character={char}
               feature={selectedFeature}
@@ -276,14 +292,14 @@ export function CharacterView() {
               onClose={() => setSelectedFeature(null)}
             />
           )}
-          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && selectedDetail && (
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && selectedDetail && (
             <SkillSaveDetailPanel
               character={char}
               detail={selectedDetail}
               onClose={() => setSelectedDetail(null)}
             />
           )}
-          {!levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && !selectedDetail && selectedSummonId && (() => {
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && !selectedDetail && selectedSummonId && (() => {
             const summon = char.activeSummons.find(s => s.id === selectedSummonId)
             return summon ? (
               <SummonDetailPanel

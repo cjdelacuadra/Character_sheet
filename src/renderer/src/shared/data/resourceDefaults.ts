@@ -22,6 +22,7 @@ function resolveTotal(
   if (scalingPer === 'chamod') return Math.max(1, mod(abilityScores.cha) + 1)
   if (scalingPer === 'wismod') return Math.max(1, mod(abilityScores.wis) + 1)
   if (scalingPer === 'conmod') return Math.max(1, mod(abilityScores.con) + 1)
+  if (scalingPer === 'intmod') return Math.max(1, mod(abilityScores.int))
   return 1
 }
 
@@ -34,6 +35,7 @@ export function getResourceDefaults(
   if (!cls?.resources) return {}
   const result: Record<string, { used: number; total: number }> = {}
   for (const res of cls.resources) {
+    if (res.minLevel && level < res.minLevel) continue
     const total = resolveTotal(
       res.scalingPer,
       res.scalingTable as Record<number, number> | undefined,

@@ -8,9 +8,12 @@ export type ResourceRecovery = 'short' | 'long' | 'none'
 export interface ResourceDef {
   name: string
   recoverOn: ResourceRecovery
-  scalingPer?: 'level' | 'chamod' | 'wismod' | 'conmod' | 'fixed'
+  /** 'intmod' = max(1, INT mod); 'chamod'/'wismod'/'conmod' = max(1, mod+1) per existing pattern */
+  scalingPer?: 'level' | 'chamod' | 'wismod' | 'conmod' | 'intmod' | 'fixed'
   fixedTotal?: number
   scalingTable?: Partial<Record<number, number>>
+  /** Resource is not created below this character level. */
+  minLevel?: number
 }
 
 export interface ClassDef {
@@ -78,7 +81,10 @@ export const CLASSES: ClassDef[] = [
     cantripsKnownTable: { 1:3, 4:4, 10:5 },
     prepareSpells: true,
     asiLevels: [4, 8, 12, 16, 19],
-    resources: [{ name: 'Channel Divinity', recoverOn: 'short', scalingTable: { 1:1, 2:1, 3:1, 4:1, 5:1, 6:2, 18:3 } }],
+    resources: [
+      { name: 'Channel Divinity', recoverOn: 'short', scalingTable: { 1:1, 2:1, 3:1, 4:1, 5:1, 6:2, 18:3 } },
+      { name: 'Divine Intervention', recoverOn: 'long', minLevel: 10, fixedTotal: 1 },
+    ],
   },
   {
     id: 'Druid',
@@ -110,6 +116,7 @@ export const CLASSES: ClassDef[] = [
     resources: [
       { name: 'Second Wind', recoverOn: 'short', fixedTotal: 1 },
       { name: 'Action Surge', recoverOn: 'short', scalingTable: { 1:0, 2:1, 17:2 } },
+      { name: 'Indomitable', recoverOn: 'long', minLevel: 9, scalingTable: { 9:1, 13:2, 17:3 } },
     ],
   },
   {
@@ -200,6 +207,12 @@ export const CLASSES: ClassDef[] = [
     cantripsKnownTable: { 1:2, 4:3, 10:4 },
     spellsKnownTable: { 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 11:11, 13:12, 15:13, 17:14, 19:15 },
     asiLevels: [4, 8, 12, 16, 19],
+    resources: [
+      { name: 'Mystic Arcanum 6', recoverOn: 'long', minLevel: 11, fixedTotal: 1 },
+      { name: 'Mystic Arcanum 7', recoverOn: 'long', minLevel: 13, fixedTotal: 1 },
+      { name: 'Mystic Arcanum 8', recoverOn: 'long', minLevel: 15, fixedTotal: 1 },
+      { name: 'Mystic Arcanum 9', recoverOn: 'long', minLevel: 17, fixedTotal: 1 },
+    ],
   },
   {
     id: 'Wizard',
@@ -234,7 +247,10 @@ export const CLASSES: ClassDef[] = [
     isSpellcaster: true,
     prepareSpells: true,
     asiLevels: [4, 8, 12, 16, 19],
-    resources: [{ name: 'Infuse Item', recoverOn: 'long', scalingTable: { 2:2, 6:3, 10:4, 14:5, 18:6 } }],
+    resources: [
+      { name: 'Infuse Item', recoverOn: 'long', scalingTable: { 2:2, 6:3, 10:4, 14:5, 18:6 } },
+      { name: 'Flash of Genius', recoverOn: 'long', minLevel: 7, scalingPer: 'intmod' },
+    ],
   },
 ]
 

@@ -5,10 +5,21 @@ import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID, LAND_CIRCLE_SPELLS } from '@/shared/data/subclassData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { useAppStore } from '@/app/store'
+import type { EconomyType } from '@/app/store/turnSlice'
 import { SpellVisualization } from './SpellVisualization'
 import styles from './SpellsPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
+
+/** Map a spell's casting time to the action-economy slot it consumes (null = doesn't use a turn action). */
+function castingTimeToEconomy(castingTime: string): EconomyType | null {
+  const ct = castingTime.toLowerCase()
+  if (ct.includes('bonus action')) return 'bonus'
+  if (ct.includes('reaction')) return 'reaction'
+  if (ct.includes('action')) return 'action'
+  return null
+}
 
 const ORDINAL: Record<number, string> = { 0:'Cantrip',1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th',9:'9th' }
 
@@ -30,6 +41,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [learnShowAllLevels, setLearnShowAllLevels] = useState(false)
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
+  const useEconomy = useAppStore(s => s.useEconomy)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const raceDef = RACE_BY_ID[char.race]
@@ -95,6 +107,8 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     if (castLevel > 0) useSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
+    const econ = castingTimeToEconomy(spell.castingTime)
+    if (econ) useEconomy(char.id, econ)
     setExpandedSpell(null)
   }
 
@@ -245,7 +259,14 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           </ul>
         )}
         {(spell.id === char.masterySpells?.level1 || spell.id === char.masterySpells?.level2) && (
-          <button className={styles.spellExpandCastBtn} onClick={() => setExpandedSpell(null)}>
+          <button
+            className={styles.spellExpandCastBtn}
+            onClick={() => {
+              const econ = castingTimeToEconomy(spell.castingTime)
+              if (econ) useEconomy(char.id, econ)
+              setExpandedSpell(null)
+            }}
+          >
             Cast (Mastery) — no slot required
           </button>
         )}
@@ -509,6 +530,10 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                             className={styles.spellExpandCastBtn}
                             style={{ borderColor: used < 1 ? undefined : 'var(--danger)', color: used < 1 ? undefined : 'var(--danger)' }}
                             onClick={() => {
+                              if (used < 1) {
+                                const econ = castingTimeToEconomy(spell.castingTime)
+                                if (econ) useEconomy(char.id, econ)
+                              }
                               update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
                               setExpandedSpell(null)
                             }}

@@ -1,0 +1,94 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.economyRow {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  flex-wrap: nowrap;
+  justify-content: center;
+  min-width: 0;
+}
+
+.econGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.econLabel {
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 22px;
+}
+
+.econLabelAction { color: #dd5d5d; }
+.econLabelBonus { color: #d8a23d; }
+.econLabelReaction { color: #5d9add; }
+
+.pipRow {
+  display: flex;
+  gap: 2px;
+}
+
+.pip {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s;
+}
+
+.pip:hover { border-color: var(--accent); }
+
+.pipUsed { background: var(--text-muted); border-color: var(--text-muted); }
+.pipAvailable { background: transparent; }
+
+.pipActionUsed { background: #dd5d5d; border-color: #dd5d5d; }
+.pipBonusUsed { background: #d8a23d; border-color: #d8a23d; }
+.pipReactionUsed { background: #5d9add; border-color: #5d9add; }
+
+.econCount {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 2px;
+  min-width: 26px;
+}
+
+.nextTurnBtn {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: filter 0.1s;
+  white-space: nowrap;
+}
+
+.nextTurnBtn:hover { filter: brightness(1.1); }
+.nextTurnBtn:active { filter: brightness(0.9); }
+
+.nextTurnBtnOpen {
+  background: var(--surface-3);
+  color: var(--accent);
+}
