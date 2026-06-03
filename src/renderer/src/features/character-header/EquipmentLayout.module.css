@@ -2,41 +2,46 @@
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  overflow-x: auto;
+  min-width: 0;
 }
 
 .equipRow {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 4px;
-  flex: 1;
 }
 
 .inventoryCol {
-  flex: 1;
+  flex: 1 0 auto;
   min-width: 0;
-  overflow: hidden;
 }
 
 .columnWrap {
   display: flex;
+  flex-direction: row;
   align-items: stretch;
+  align-self: stretch;
+  flex-shrink: 0;
 }
 
 /* ── Equipment slot grid ────────────────────────────────────────────────── */
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(4, 1fr);
   gap: 2px 4px;
   padding: 4px 6px;
-  align-items: start;
+  align-self: stretch;
 }
 
 .slot {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
   padding: 2px;
   border-radius: 3px;
@@ -62,10 +67,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 3px;
   transition: background 0.1s;
+  flex-shrink: 0;
 }
 
 .slotIconBtn:hover {
@@ -75,8 +81,8 @@
 .slotIcon {
   image-rendering: pixelated;
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
 }
 
 .slotIcon[data-empty] {
@@ -125,7 +131,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  align-self: flex-start;
+  overflow-y: auto;
 }
 
 .statGroupTitle {
@@ -156,17 +162,6 @@
   font-size: 9px;
   color: var(--text-muted);
   font-style: italic;
-}
-
-.statDivider {
-  border-top: 1px solid var(--border);
-  margin: 2px 0;
-}
-
-.attunedItem {
-  font-size: 9px;
-  color: #f0c040;
-  padding-left: 2px;
 }
 
 /* ── Slot stat breakdown ─────────────────────────────────────────────────── */
@@ -292,20 +287,38 @@
   color: var(--bg);
 }
 
-.inventoryBar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border-top: 1px solid var(--border); }
-.inventoryChip { padding: 2px 8px; font-size: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text-muted); cursor: pointer; }
-.inventoryChip:hover { border-color: var(--accent); color: var(--accent); }
-.inventoryChipActive { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
-.inventoryBarGold { font-size: 10px; font-weight: 600; color: #f0c040; margin-left: auto; }
 
 /* ── Attunement ────────────────────────────────────────────────────────────── */
 
-.attuneCounter {
-  font-size: 9px;
+.attuneSection {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 5px;
+  margin-bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attunedItemRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 2px;
+}
+
+.attunedItemDot {
+  font-size: 7px;
+  color: #f0c040;
+  flex-shrink: 0;
+}
+
+.attunedItemName {
+  font-size: 8px;
   color: var(--text-muted);
-  padding: 2px 6px 0;
-  text-align: center;
-  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
 }
 
 .attuneDot {

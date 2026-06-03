@@ -427,6 +427,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         ...char,
         equipment: { ...char.equipment, [slot]: null },
         ownedItemIds: needsOwned ? [...char.ownedItemIds, itemId] : char.ownedItemIds,
+        attunedItemIds: (char.attunedItemIds ?? []).filter(id => id !== itemId),
       }
       const updated: Character = {
         ...withEquip,
@@ -449,6 +450,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice> = (set, get) => 
         ...char,
         weapons: char.weapons.filter((_, i) => i !== slotIndex),
         ownedItemIds: needsOwned ? [...char.ownedItemIds, weapon.id] : char.ownedItemIds,
+        attunedItemIds: (char.attunedItemIds ?? []).filter(id => id !== weapon.id),
       }
       const updated: Character = {
         ...withWeapons,

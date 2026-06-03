@@ -57,28 +57,23 @@ function getCardPills(item: ShopItem): string[] {
   return pills
 }
 
-const FILTER_KINDS: { kind: ShopItemKind | 'all'; label: string }[] = [
-  { kind: 'all',    label: 'All'    },
-  { kind: 'weapon', label: 'Wpn'    },
-  { kind: 'armor',  label: 'Armor'  },
-  { kind: 'shield', label: 'Shield' },
-  { kind: 'ring',   label: 'Ring'   },
-]
 
 interface Props {
   character: Character
   onClose: () => void
+  filterKind?: ShopItemKind | null
 }
 
-export function ShopPanel({ character: char, onClose }: Props) {
+export function ShopPanel({ character: char, onClose, filterKind: filterKindProp }: Props) {
   const buyItem     = useAppStore(s => s.buyItem)
   const sellItem    = useAppStore(s => s.sellItem)
   const customItems = useAppStore(s => s.customItems)
 
   const [sellQueue,  setSellQueue]  = useState<string[]>([])
   const [buyQueue,   setBuyQueue]   = useState<string[]>([])
-  const [filterKind, setFilterKind] = useState<ShopItemKind | null>(null)
   const [sortBy,     setSortBy]     = useState<SortBy>('cost')
+
+  const filterKind = filterKindProp !== undefined ? filterKindProp : null
   const [previewId,  setPreviewId]  = useState<string | null>(null)
 
   function togglePreview(id: string) {
@@ -167,19 +162,7 @@ export function ShopPanel({ character: char, onClose }: Props) {
     <div className={styles.panel}>
       {/* Header */}
       <div className={styles.header}>
-        <span className={styles.title}>Shop</span>
-        <div className={styles.filters}>
-          {FILTER_KINDS.map(({ kind, label }) => {
-            const active = kind === 'all' ? !filterKind : filterKind === kind
-            return (
-              <button
-                key={kind}
-                className={`${styles.filterBtn}${active ? ` ${styles.filterBtnActive}` : ''}`}
-                onClick={() => setFilterKind(kind === 'all' ? null : kind)}
-              >{label}</button>
-            )
-          })}
-        </div>
+        <span className={styles.title}>Shop{filterKind ? ` — ${filterKind.charAt(0).toUpperCase() + filterKind.slice(1)}` : ''}</span>
         <select
           className={styles.sortSel}
           value={sortBy}

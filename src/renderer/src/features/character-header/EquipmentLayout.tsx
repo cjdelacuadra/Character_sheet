@@ -21,6 +21,7 @@ interface Props {
   onCloseShop?: () => void
   isShopOpen?: boolean
   onInventorySelectItem?: (id: string | null) => void
+  onFilterChange?: (kind: ShopItemKind | null) => void
 }
 
 
@@ -367,20 +368,6 @@ function ReadSlot({ label, value, kind, itemId: itemIdProp, spriteOverride, onCl
 
 function Empty() { return <div /> }
 
-const ALL_FILTER_KINDS: { label: string; kind: ShopItemKind }[] = [
-  { label: 'Weapon',   kind: 'weapon'   },
-  { label: 'Armor',    kind: 'armor'    },
-  { label: 'Shield',   kind: 'shield'   },
-  { label: 'Helmet',   kind: 'helmet'   },
-  { label: 'Necklace', kind: 'necklace' },
-  { label: 'Cape',     kind: 'cape'     },
-  { label: 'Gloves',   kind: 'gloves'   },
-  { label: 'Legs',     kind: 'legs'     },
-  { label: 'Boots',    kind: 'boots'    },
-  { label: 'Ring',     kind: 'ring'     },
-  { label: 'Amulet',   kind: 'amulet'   },
-]
-
 // ─── Stat rows ───────────────────────────────────────────────────────────────
 
 function StatRow({ label, value, unit = '' }: { label: string; value: number; unit?: string }) {
@@ -409,6 +396,15 @@ function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Char
   const attunedIds = char.attunedItemIds ?? []
   const attunedCount = attunedIds.length
 
+  // Collect names of attuned + equipped items
+  const attunedEquippedNames: string[] = []
+  for (const id of attunedIds) {
+    const gear = GEAR_BY_ID[id]
+    const weapon = char.weapons.find(w => w.id === id)
+    const name = gear?.name ?? weapon?.name
+    if (name) attunedEquippedNames.push(name)
+  }
+
   const AdVCell = ({ label }: { label: string }) => (
     <div className={styles.statRow}>
       <span className={styles.statLabel}>{label}</span>
@@ -418,22 +414,26 @@ function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Char
 
   return (
     <div className={styles.statsPanel}>
-      {/* Attunement count — always shown */}
-      <div className={styles.statRow}>
-        <span className={styles.statLabel}>Attuned</span>
-        <span className={styles.statValue} style={{ color: attunedCount > 0 ? '#f0c040' : 'var(--text-muted)', fontWeight: attunedCount > 0 ? 600 : 400 }}>
-          {attunedCount}/3
-        </span>
-      </div>
-      {attunedIds.map(id => {
-        const name = GEAR_BY_ID[id]?.name ?? id
-        return (
-          <div key={id} className={styles.attunedItem}>
-            <span>⟁ {name}</span>
+      {/* Attunement section — always visible */}
+      <div className={styles.attuneSection}>
+        <div className={styles.statRow}>
+          <span className={styles.statLabel} style={{ fontWeight: 700, color: 'var(--text)' }}>Attuned</span>
+          <span className={styles.statValue} style={{ color: attunedCount > 0 ? '#f0c040' : 'var(--text-muted)', fontWeight: 700 }}>
+            {attunedCount}/3
+          </span>
+        </div>
+        {attunedEquippedNames.map(name => (
+          <div key={name} className={styles.attunedItemRow}>
+            <span className={styles.attunedItemDot}>●</span>
+            <span className={styles.attunedItemName}>{name}</span>
           </div>
-        )
-      })}
-      {hasAny && <div className={styles.statDivider} />}
+        ))}
+        {attunedCount === 0 && (
+          <span className={styles.statEmpty}>None attuned</span>
+        )}
+      </div>
+
+      {!hasAny && <span className={styles.statEmpty}>No accessory bonuses</span>}
       {stats.acBonus !== 0 && <StatRow label="AC Bonus" value={stats.acBonus} />}
       {stats.toHitBonus !== 0 && <StatRow label="To-Hit" value={stats.toHitBonus} />}
       {stats.speedBonus !== 0 && <StatRow label="Speed" value={stats.speedBonus} unit=" ft" />}
@@ -474,7 +474,7 @@ function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Char
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isShopOpen, onInventorySelectItem }: Props) {
+export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isShopOpen, onInventorySelectItem, onFilterChange }: Props) {
   const equipItemToSlot   = useAppStore(s => s.equipItemToSlot)
   const equipWeaponFromId = useAppStore(s => s.equipWeaponFromId)
   const _unequipSlot      = useAppStore(s => s.unequipSlot)
@@ -661,15 +661,6 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
 
   const equipStats = computeEquipmentStats(char)
 
-  const equippedIds = new Set(Object.values(char.equipment).filter((v): v is string => Boolean(v)))
-  const unequippedByKind: Partial<Record<ShopItemKind, number>> = {}
-  for (const id of char.ownedItemIds ?? []) {
-    if (equippedIds.has(id)) continue
-    const kind = getShopItemById(id, customItems)?.kind
-    if (kind) unequippedByKind[kind] = (unequippedByKind[kind] ?? 0) + 1
-  }
-  const inventoryEntries = Object.entries(unequippedByKind) as [ShopItemKind, number][]
-
   function openKindInInventory(kind: ShopItemKind) {
     setInventoryFilter(prev => prev === kind ? null : kind)
     setSlotBreakdown(null)
@@ -685,14 +676,14 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
       <div className={styles.outer}>
         <div className={styles.equipRow}>
           <div className={styles.columnWrap}>
-            {/* Equipment slot grid */}
+            {/* Equipment slot grid — 4 rows × 3 cols */}
             <div className={styles.grid}>
-              {/* Row 1 */}
+              {/* Row 1: Necklace | Helmet | Cape */}
               <SlotButton slotKey="necklaceId" label="Necklace" char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-necklaceId'} />
               <SlotButton slotKey="helmetId"   label="Helmet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-helmetId'} />
               <SlotButton slotKey="capeId"     label="Cape"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-capeId'} />
 
-              {/* Row 2 */}
+              {/* Row 2: Weapon | Armor | Off-Hand */}
               <ReadSlot   label="Weapon"   value={mainHand}    kind="weapon"
                 itemId={char.weapons[0]?.id}
                 spriteOverride={resolveWeaponSprite(getShopItemById(char.weapons[0]?.id, customItems)?.sprite, char.weapons[0]?.enchantment)}
@@ -728,15 +719,15 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
                       : undefined
                 } />
 
-              {/* Row 3 */}
+              {/* Row 3: Gloves | Legs | Ring 1 */}
               <SlotButton slotKey="glovesId"   label="Gloves"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-glovesId'} />
               <SlotButton slotKey="legsId"     label="Legs"     char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-legsId'} />
-              <SlotButton slotKey="bootsId"    label="Boots"    char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-bootsId'} />
-
-              {/* Row 4 */}
               <SlotButton slotKey="ring1Id"    label="Ring 1"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring1Id'} />
-              <SlotButton slotKey="amuletId"   label="Amulet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-amuletId'} />
+
+              {/* Row 4: Ring 2 | Boots | Amulet */}
               <SlotButton slotKey="ring2Id"    label="Ring 2"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-ring2Id'} />
+              <SlotButton slotKey="bootsId"    label="Boots"    char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-bootsId'} />
+              <SlotButton slotKey="amuletId"   label="Amulet"   char={char} onOpen={openSlot} onUnequip={handleUnequip} isShaking={shakingId === 'equipped-amuletId'} />
             </div>
 
             {/* Stats panel */}
@@ -744,50 +735,27 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
           </div>
 
           <div className={styles.inventoryCol}>
-            <InventoryGrid
-              character={char}
-              filterKind={inventoryFilter}
-              shakingId={shakingId}
-              selectedItemId={inventorySelectedId}
-              onSelectItem={handleInventorySelect}
-            />
+            {(() => {
+              const externalOpen = isShopOpen ?? false
+              const open = onOpenShop ? externalOpen : shopOpen
+              const handleToggleShop = () => {
+                if (open) { onCloseShop ? onCloseShop() : setShopOpen(false) }
+                else { setInventorySelectedId(null); onOpenShop ? onOpenShop() : setShopOpen(true) }
+              }
+              return (
+                <InventoryGrid
+                  character={char}
+                  filterKind={inventoryFilter}
+                  onFilterChange={(k) => { setInventoryFilter(k); onFilterChange?.(k) }}
+                  shakingId={shakingId}
+                  selectedItemId={inventorySelectedId}
+                  onSelectItem={handleInventorySelect}
+                  isShopOpen={open}
+                  onToggleShop={handleToggleShop}
+                />
+              )
+            })()}
           </div>
-        </div>
-
-        {/* Unified filter bar */}
-        <div className={styles.inventoryBar}>
-          {(() => {
-            const externalOpen = isShopOpen ?? false
-            const open = onOpenShop ? externalOpen : shopOpen
-            return (
-              <button
-                className={`${styles.inventoryChip}${open ? ` ${styles.inventoryChipActive}` : ''}`}
-                onClick={() => {
-                  if (open) { onCloseShop ? onCloseShop() : setShopOpen(false) }
-                  else { setInventorySelectedId(null); onOpenShop ? onOpenShop() : setShopOpen(true) }
-                }}
-              >
-                Shop
-              </button>
-            )
-          })()}
-          <button
-            className={`${styles.inventoryChip}${!inventoryFilter ? ` ${styles.inventoryChipActive}` : ''}`}
-            onClick={() => setInventoryFilter(null)}
-          >All</button>
-          {ALL_FILTER_KINDS.map(({ label, kind }) => {
-            const count = unequippedByKind[kind] ?? 0
-            return (
-              <button
-                key={kind}
-                className={`${styles.inventoryChip}${inventoryFilter === kind ? ` ${styles.inventoryChipActive}` : ''}`}
-                onClick={() => openKindInInventory(kind)}
-              >
-                {label}{count > 0 ? ` (${count})` : ''}
-              </button>
-            )
-          })}
-          <span className={styles.inventoryBarGold}>💰 {char.gold} gp</span>
         </div>
 
         {/* Item editor — shows when an inventory item is selected */}

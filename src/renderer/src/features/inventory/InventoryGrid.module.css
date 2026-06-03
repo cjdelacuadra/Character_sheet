@@ -1,26 +1,65 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 4px 6px;
-  height: 100%;
-  overflow: hidden;
+  gap: 6px;
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: calc(7 * 40px + 6 * 3px + 2 * 8px); /* 314px — 7-column grid width */
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.filterBtn {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filterBtn:hover { background: var(--surface-3); color: var(--text); }
+
+.filterBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.filterBtnShop {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.goldDisplay {
+  font-size: 10px;
+  font-weight: 600;
+  color: #f0c040;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 40px);
   gap: 3px;
   overflow-y: auto;
-  min-height: calc(5 * (36px + 3px));
-  max-height: calc(8 * (36px + 3px));
+  min-height: calc(5 * (40px + 3px));
+  max-height: calc(10 * (40px + 3px));
 }
 
 .grid[data-over] { outline: 1px dashed var(--accent); }
 
 .cell {
-  width: 100%;
-  aspect-ratio: 1;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--surface-2);

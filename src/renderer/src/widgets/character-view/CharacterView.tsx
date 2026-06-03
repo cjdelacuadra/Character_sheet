@@ -20,6 +20,7 @@ import { FeatureDetailPanel } from '@/features/detail-panel/FeatureDetailPanel'
 import { SkillSaveDetailPanel } from '@/features/detail-panel/SkillSaveDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
 import { ShopPanel } from '@/features/shop/ShopPanel'
+import type { ShopItemKind } from '@/shared/data/equipment/types'
 import { LevelUpModal } from '@/features/level-up/LevelUpModal'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { SpellSelectionStep } from '@/features/level-up/SpellSelectionStep'
@@ -34,6 +35,7 @@ export function CharacterView() {
   const [restOpen, setRestOpen] = useState(false)
   const [equipOpen, setEquipOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
+  const [sharedFilter, setSharedFilter] = useState<ShopItemKind | null>(null)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
   const [selectedAction, setSelectedAction] = useState<string | null>(null)
@@ -244,11 +246,13 @@ export function CharacterView() {
                 onCloseShop={() => setShopOpen(false)}
                 isShopOpen={shopOpen}
                 onInventorySelectItem={(id) => { if (id) setShopOpen(false) }}
+                onFilterChange={setSharedFilter}
               />
               {shopOpen && (
                 <ShopPanel
                   character={char}
                   onClose={() => setShopOpen(false)}
+                  filterKind={sharedFilter}
                 />
               )}
             </>

@@ -58,32 +58,31 @@ export function ShopModal({ character: char, onClose, filterKind }: Props) {
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
-          <span className={styles.title}>Shop</span>
+          <span className={styles.title}>
+            Shop{filterKind ? ` — ${filterKind.charAt(0).toUpperCase() + filterKind.slice(1)}` : ''}
+          </span>
           <span className={styles.gold}>💰 {char.gold} gp</span>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
         <div className={styles.controls}>
-          <input
-            className={styles.search}
-            placeholder="Search…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <select
-            className={styles.sort}
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as SortBy)}
-          >
-            <option value="cost">Sort: Cost</option>
-            <option value="name">Sort: Name</option>
-            <option value="rarity">Sort: Rarity</option>
-          </select>
-          {filterKind && (
-            <span className={styles.activeFilter}>
-              {filterKind.charAt(0).toUpperCase() + filterKind.slice(1)}
-            </span>
-          )}
+          <div className={styles.rightControls}>
+            <input
+              className={styles.search}
+              placeholder="Search…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            <select
+              className={styles.sort}
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortBy)}
+            >
+              <option value="cost">Cost ↑</option>
+              <option value="name">Name</option>
+              <option value="rarity">Rarity</option>
+            </select>
+          </div>
         </div>
 
         <div className={styles.grid}>

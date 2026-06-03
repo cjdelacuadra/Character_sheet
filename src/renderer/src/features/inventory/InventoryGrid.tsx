@@ -7,9 +7,24 @@ import type { ShopItem } from '@/shared/data/equipment/catalogue'
 import { useAppStore } from '@/app/store'
 import styles from './InventoryGrid.module.css'
 
-const COLS = 6
+const COLS = 7
 const ROWS = 5
 const MIN_CELLS = COLS * ROWS
+
+const FILTER_KINDS: { label: string; kind: ShopItemKind | 'all' }[] = [
+  { label: 'All',      kind: 'all' },
+  { label: 'Weapon',   kind: 'weapon' },
+  { label: 'Armor',    kind: 'armor' },
+  { label: 'Shield',   kind: 'shield' },
+  { label: 'Helmet',   kind: 'helmet' },
+  { label: 'Necklace', kind: 'necklace' },
+  { label: 'Cape',     kind: 'cape' },
+  { label: 'Gloves',   kind: 'gloves' },
+  { label: 'Legs',     kind: 'legs' },
+  { label: 'Boots',    kind: 'boots' },
+  { label: 'Ring',     kind: 'ring' },
+  { label: 'Amulet',   kind: 'amulet' },
+]
 
 const RARITY_COLOR: Record<string, string> = {
   common:      'var(--text-muted)',
@@ -22,9 +37,12 @@ const RARITY_COLOR: Record<string, string> = {
 interface Props {
   character: Character
   filterKind?: ShopItemKind | null
+  onFilterChange: (kind: ShopItemKind | null) => void
   shakingId?: string | null
   selectedItemId?: string | null
   onSelectItem?: (id: string | null) => void
+  isShopOpen?: boolean
+  onToggleShop?: () => void
 }
 
 function DraggableCell({
@@ -71,7 +89,7 @@ function DroppableGrid({ children, className }: { children: ReactNode; className
 }
 
 
-export function InventoryGrid({ character: char, filterKind, shakingId: _shakingId, selectedItemId: controlledId, onSelectItem }: Props) {
+export function InventoryGrid({ character: char, filterKind, onFilterChange, shakingId: _shakingId, selectedItemId: controlledId, onSelectItem, isShopOpen, onToggleShop }: Props) {
   const customItems = useAppStore(s => s.customItems)
   const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null)
   const selectedId = controlledId !== undefined ? controlledId : internalSelectedId
@@ -108,6 +126,30 @@ export function InventoryGrid({ character: char, filterKind, shakingId: _shaking
 
   return (
     <div className={styles.root}>
+      <div className={styles.filterBar}>
+        {onToggleShop && (
+          <button
+            className={`${styles.filterBtn} ${styles.filterBtnShop}${isShopOpen ? ` ${styles.filterBtnActive}` : ''}`}
+            onClick={onToggleShop}
+          >
+            Shop
+          </button>
+        )}
+        {FILTER_KINDS.map(({ label, kind }) => {
+          const active = kind === 'all' ? !filterKind : filterKind === kind
+          return (
+            <button
+              key={kind}
+              className={`${styles.filterBtn}${active ? ` ${styles.filterBtnActive}` : ''}`}
+              onClick={() => onFilterChange(kind === 'all' ? null : kind)}
+            >
+              {label}
+            </button>
+          )
+        })}
+        <span className={styles.goldDisplay}>💰 {char.gold} gp</span>
+      </div>
+
       <DroppableGrid className={styles.grid}>
         {unequippedOwned.map((item, i) => (
           <DraggableCell
