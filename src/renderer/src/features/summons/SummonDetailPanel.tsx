@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ActiveSummon, ActiveSummonRuntime } from '@/entities/summon/types'
+import { SummonSprite } from './SummonSprite'
 import styles from './SummonDetailPanel.module.css'
 
 const CONDITIONS = [
@@ -90,20 +91,23 @@ export function SummonDetailPanel({ summon: s, onUpdate, onRemove, onNewTurn, on
   return (
     <section className={`${styles.panel} ${dead ? styles.panelDead : ''}`}>
       <div className={styles.header}>
-        {labelEdit !== null ? (
-          <input
-            className={styles.labelInput}
-            value={labelEdit}
-            autoFocus
-            onChange={e => setLabelEdit(e.target.value)}
-            onBlur={commitLabel}
-            onKeyDown={e => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') setLabelEdit(null) }}
-          />
-        ) : (
-          <span className={styles.label} onClick={() => setLabelEdit(s.label)} title="Click to rename">
-            {s.label}
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <SummonSprite templateId={s.templateId} type={s.base.type} size={44} playPortal />
+          {labelEdit !== null ? (
+            <input
+              className={styles.labelInput}
+              value={labelEdit}
+              autoFocus
+              onChange={e => setLabelEdit(e.target.value)}
+              onBlur={commitLabel}
+              onKeyDown={e => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') setLabelEdit(null) }}
+            />
+          ) : (
+            <span className={styles.label} onClick={() => setLabelEdit(s.label)} title="Click to rename">
+              {s.label}
+            </span>
+          )}
+        </div>
         <div className={styles.headerBadges}>
           <span className={styles.typeBadge}>{s.base.type}</span>
           {s.concentration && <span className={styles.concBadge}>concentration</span>}

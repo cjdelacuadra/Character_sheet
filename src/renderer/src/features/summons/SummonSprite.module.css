@@ -1,0 +1,6 @@
+.summonSprite {
+  display: block;
+  flex: 0 0 auto;
+  image-rendering: auto;
+  object-fit: contain;
+}

@@ -3,6 +3,7 @@ import type { SummonTemplate } from '@/entities/summon/types'
 import { SUMMON_TEMPLATES } from '@/shared/data/summons/summonTemplates'
 import { addSummonTemplate, updateSummonTemplate, deleteSummonTemplate } from '@/shared/data/summons/summonLoader'
 import { SummonEditorForm } from './SummonEditorForm'
+import { SummonSprite } from './SummonSprite'
 import styles from './SummonCatalogModal.module.css'
 
 interface Props {
@@ -70,6 +71,7 @@ export function SummonCatalogModal({ mode, onPick, onClose }: Props) {
           onClick={() => { if (mode === 'pick') { onPick?.(t.id); onClose() } }}
           title={mode === 'pick' ? 'Summon this' : undefined}
         >
+          <SummonSprite templateId={t.id} type={t.type} size={22} />
           <span className={styles.entryName}>{t.name}</span>
           <span className={styles.entryMeta}>{t.maxHp} HP · AC {t.ac}</span>
         </button>

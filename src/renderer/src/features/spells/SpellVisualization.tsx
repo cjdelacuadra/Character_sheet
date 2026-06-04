@@ -3,8 +3,10 @@ import type { Character } from '@/entities/character/types'
 import { computeSpellGrid, type SpellEntry, type SpellGridLayout } from '@/shared/data/spellData'
 import {
   resolveAoeAnimationFrames,
+  resolveIconAsset,
   resolveImpactGif,
   resolveMissileFrames,
+  resolveWallAsset,
   type SpellResult,
 } from './animationAssets'
 import styles from './SpellVisualization.module.css'
@@ -347,7 +349,10 @@ function ImpactGif({
 export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const isAoe = (spell.aoeShape ?? 'single') !== 'single'
   const isConeOrLine = spell.aoeShape === 'cone' || spell.aoeShape === 'line'
-  const isWallSpell = spell.aoeShape === 'line' && spell.name.toLowerCase().includes('wall')
+  // A dedicated 'wall' vizCategory (Wall of Force) renders a stretchable barrier sprite and
+  // has no aoeShape; the older heuristic still covers any line-shaped spell named "wall".
+  const isWallViz = spell.vizCategory === 'wall'
+  const isWallSpell = isWallViz || (spell.aoeShape === 'line' && spell.name.toLowerCase().includes('wall'))
   const isConeOrDirectionalLine = isConeOrLine && !isWallSpell
   const isCubeAoe = spell.aoeShape === 'cube'
   const isSphereAoe = spell.aoeShape === 'sphere'
@@ -400,8 +405,11 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   const isTerrain = spell.vizCategory === 'terrain'
   // Heal spells play the heal aura on the player/caster tile.
   const isHeal = spell.vizCategory === 'heal'
+  // Icon overlays (decorative/info) and walls render their own static layer; no targets/wave.
+  const isIcon = spell.vizCategory === 'icon'
   // useWave = any spell that propagates a looping AOE sprite (vs missile-based single targets).
-  const useWave = isAoe || isSelfBuff || isDebuffAura || isTerrain || isHeal
+  // Icon/wall join it only so they skip the missile cycle — their wavefront is empty.
+  const useWave = isAoe || isSelfBuff || isDebuffAura || isTerrain || isHeal || isIcon || isWallViz
   // Sprite/tint colour. Non-damage templates use vizDamageType; damage spells use damageType.
   const auraColor = spell.vizDamageType ?? spell.damageType
   const tint = DMG_TINT[auraColor ?? ''] ?? 'rgba(180, 180, 180, 0.3)'
@@ -416,10 +424,10 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
   )
 
   const targets = useMemo<TargetResult[]>(
-    // Self-buff, terrain zones, and heals have no enemy targets; everything else rolls per enemyHitPositions.
-    () => (isSelfBuff || isTerrain || isHeal ? [] : rollTargets(spell, layout.enemyHitPositions)),
+    // Self-buff, terrain, heal, icon, and wall templates have no enemy targets; everything else rolls.
+    () => (isSelfBuff || isTerrain || isHeal || isIcon || isWallViz ? [] : rollTargets(spell, layout.enemyHitPositions)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spell.id, slotLevel, isSelfBuff, isTerrain, isHeal, layout],
+    [spell.id, slotLevel, isSelfBuff, isTerrain, isHeal, isIcon, isWallViz, layout],
   )
 
   // Wave origin: self-buff/debuff-aura always emanate from the player; AOE damage uses
@@ -680,7 +688,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
                       style={{
                         position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
                         width: tile, height: Math.round(tile * 32 / 24),
-                        imageRendering: 'pixelated', zIndex: 3, pointerEvents: 'none',
+                        imageRendering: 'auto', zIndex: 3, pointerEvents: 'none',
                       }}
                       onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                     />
@@ -723,6 +731,82 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
               />
             )
           })}
+
+          {/* Icon overlays (decorative/info cantrips) — anchored to a tile, no combat. */}
+          {isIcon && (() => {
+            const iconSrc = resolveIconAsset(spell.vizAsset)
+            if (!iconSrc) return null
+            const anchor = spell.iconAnchor ?? 'player'
+            if (anchor === 'motes') {
+              // Dancing Lights: up to 4 motes around the caster, alternating warm/cool.
+              const warm = resolveIconAsset('mote_warm')
+              const cool = resolveIconAsset('mote_cool')
+              const ms = Math.round(tile * 0.5)
+              const motes = [
+                { dx: -1, dy: -1, src: warm },
+                { dx:  1, dy: -1, src: cool },
+                { dx: -1, dy:  1, src: cool },
+                { dx:  1, dy:  1, src: warm },
+              ]
+              return motes.map((m, k) => {
+                if (!m.src) return null
+                const px = scaledCellCenter({ x: playerPos.x + m.dx, y: playerPos.y + m.dy })
+                return (
+                  <img
+                    key={`mote-${k}`}
+                    className={styles.spellIcon}
+                    src={m.src}
+                    alt=""
+                    style={{ left: px.left - ms / 2, top: px.top - ms / 2, width: ms, height: ms, imageRendering: 'auto' }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+                  />
+                )
+              })
+            }
+            // One-shot flourishes (prestidigitation/thaumaturgy) appear only once casting begins.
+            if (anchor === 'oneshot' && phase === 'idle') return null
+            const cell = anchor === 'ally' ? { x: playerPos.x, y: playerPos.y - 1 } : playerPos
+            const px = scaledCellCenter(cell)
+            const sz = Math.round(tile * 1.4)
+            return (
+              <img
+                className={styles.spellIcon}
+                src={iconSrc}
+                alt=""
+                style={{ left: px.left - sz / 2, top: px.top - sz / 2, width: sz, height: sz }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+              />
+            )
+          })()}
+
+          {/* Force-wall barrier — one stretchable sprite spanning the placed spine. */}
+          {isWallViz && layout.wallSpine && layout.wallSpine.length >= 2 && (() => {
+            const wallSrc = resolveWallAsset(spell.vizAsset)
+            if (!wallSrc) return null
+            const sp = layout.wallSpine
+            const a = scaledCellCenter(sp[0])
+            const b = scaledCellCenter(sp[sp.length - 1])
+            const len = Math.hypot(b.left - a.left, b.top - a.top)
+            const angle = Math.atan2(b.top - a.top, b.left - a.left)
+            const sx = a.left - (tile / 2) * Math.cos(angle)
+            const sy = a.top - (tile / 2) * Math.sin(angle)
+            return (
+              <img
+                className={styles.wallSprite}
+                src={wallSrc}
+                alt=""
+                style={{
+                  left: sx,
+                  top: sy - tile / 2,
+                  width: len + tile,
+                  height: tile,
+                  transformOrigin: '0 50%',
+                  transform: `rotate(${angle}rad)`,
+                }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }}
+              />
+            )
+          })()}
 
           {showMissiles && targets.map((t, i) => (
             <MissileSprite

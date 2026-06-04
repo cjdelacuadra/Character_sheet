@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import type { ActiveSummon } from '@/entities/summon/types'
 import { SummonCatalogModal } from './SummonCatalogModal'
+import { SummonSprite } from './SummonSprite'
 import styles from './SummonsPanel.module.css'
 
 interface Props {
@@ -51,7 +52,10 @@ export function SummonsPanel({ character: char, selectedSummonId, onSelectSummon
         onClick={() => onSelectSummon(selectedSummonId === s.id ? null : s.id)}
       >
         <div className={styles.rowTop}>
-          <span className={styles.rowName}>{s.label}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <SummonSprite templateId={s.templateId} type={s.base.type} size={20} />
+            <span className={styles.rowName}>{s.label}</span>
+          </span>
           <span className={styles.rowAc}>AC {s.base.ac}</span>
         </div>
         <div className={styles.rowHpBar}>
