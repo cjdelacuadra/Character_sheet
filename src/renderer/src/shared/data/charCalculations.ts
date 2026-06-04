@@ -92,6 +92,13 @@ export function computeSpeed(race: string): number {
   return raceDef?.speed ?? 30
 }
 
+/** Computes darkvision range from race and subclass (takes the maximum). */
+export function computeDarkvision(char: Pick<Character, 'race' | 'subclass'>): number {
+  const raceDv = RACE_BY_ID[char.race]?.darkvisionRange ?? 0
+  const subclassDv = char.subclass ? SUBCLASS_BY_ID[char.subclass]?.darkvisionRange ?? 0 : 0
+  return Math.max(raceDv, subclassDv)
+}
+
 /** Base speed + equipment speed bonuses + active subclass buffs (Bladesong). */
 export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass'>): number {
   const base = char.speed + computeEquipmentStats(char).speedBonus

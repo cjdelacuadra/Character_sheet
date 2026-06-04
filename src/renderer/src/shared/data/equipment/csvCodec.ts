@@ -40,6 +40,7 @@ const WEAPON_COLS = [
   'enchantmentBonus', 'enchantment', 'enchantments', 'bonusDamageDie', 'bonusDamageType', 'isMonkWeapon',
   'to_hit_count', 'to_hit_die', 'to_hit_flat',
   'dmg_bonus_count', 'dmg_bonus_die', 'dmg_bonus_flat', 'dmg_bonus_type',
+  'requiresAttunement', 'crit_bonus', 'crit_bonus_type',
 ]
 
 export function weaponsToCsv(weapons: WeaponEquipmentItem[]): string {
@@ -68,6 +69,9 @@ export function weaponsToCsv(weapons: WeaponEquipmentItem[]): string {
     dmg_bonus_die:       w.dmgBonusDieType ?? '',
     dmg_bonus_flat:      w.dmgBonusFlat ?? '',
     dmg_bonus_type:      w.dmgBonusType ?? '',
+    requiresAttunement:  w.requiresAttunement ? 'true' : '',
+    crit_bonus:          w.critModifier ? Object.values(w.critModifier)[0] ?? '' : '',
+    crit_bonus_type:     w.critModifier ? Object.keys(w.critModifier)[0] ?? '' : '',
   }))
   return Papa.unparse(rows, { columns: WEAPON_COLS })
 }
@@ -75,6 +79,13 @@ export function weaponsToCsv(weapons: WeaponEquipmentItem[]): string {
 export function csvToWeapons(csv: string): WeaponEquipmentItem[] {
   const result = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true })
   return result.data.map(r => {
+    const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
+    const cb = num(r.crit_bonus)
+    const cbt = str(r.crit_bonus_type) as 'melee' | 'ranged' | 'spells' | 'martial' | 'all' | undefined
+    if (cb !== undefined && cbt) {
+      critModifier[cbt] = cb
+    }
+
     const w: WeaponEquipmentItem = {
       id:                  r.id,
       name:                r.name,
@@ -100,6 +111,8 @@ export function csvToWeapons(csv: string): WeaponEquipmentItem[] {
       dmgBonusDieType:     num(r.dmg_bonus_die),
       dmgBonusFlat:        num(r.dmg_bonus_flat),
       dmgBonusType:        str(r.dmg_bonus_type),
+      requiresAttunement:  bool(r.requiresAttunement),
+      critModifier:        Object.keys(critModifier).length > 0 ? critModifier : undefined,
     }
     return w
   })
@@ -109,13 +122,14 @@ export function csvToWeapons(csv: string): WeaponEquipmentItem[] {
 
 const GEAR_COLS = [
   'id', 'name', 'kind', 'cost', 'rarity', 'sprite',
-  'type', 'baseAC', 'dexCap', 'stealthDisadvantage', 'strRequirement', 'enchantmentBonus',
+  'type', 'baseAC', 'dexCap', 'stealthDisadvantage', 'strRequirement', 'enchantmentBonus', 'requiresAttunement',
   'stats_acBonus', 'stats_toHitBonus', 'stats_toHitAppliesTo', 'stats_speedBonus',
   ...ABILITIES.map(a => `stats_ab_${a}`),
   ...ABILITIES.map(a => `stats_save_${a}`),
   ...SKILLS.map(s  => `stats_skill_${s}`),
   'stats_adv_saves', 'stats_adv_skills', 'stats_adv_deathSaves',
   'stats_bonusDmg_flat', 'stats_bonusDmg_dice', 'stats_bonusDmg_type', 'stats_bonusDmg_appliesTo',
+  'stats_crit_bonus', 'stats_crit_bonus_type',
 ]
 
 export function gearToCsv(gear: GearEquipmentItem[]): string {
@@ -153,6 +167,9 @@ export function gearToCsv(gear: GearEquipmentItem[]): string {
     row.stats_bonusDmg_dice  = s?.bonusDamage?.dice ?? ''
     row.stats_bonusDmg_type  = s?.bonusDamage?.dmgType ?? ''
     row.stats_bonusDmg_appliesTo = s?.bonusDamage?.appliesTo ?? ''
+    row.stats_crit_bonus     = s?.critModifier ? Object.values(s.critModifier)[0] ?? '' : ''
+    row.stats_crit_bonus_type = s?.critModifier ? Object.keys(s.critModifier)[0] ?? '' : ''
+    row.requiresAttunement   = g.requiresAttunement ? 'true' : ''
     return row
   })
   return Papa.unparse(rows, { columns: GEAR_COLS })
@@ -185,6 +202,13 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
     const bonusDmgAppliesTo = str(r.stats_bonusDmg_appliesTo) as 'melee' | 'ranged' | 'all' | undefined
     const toHitAppliesTo = str(r.stats_toHitAppliesTo) as 'melee' | 'ranged' | 'both' | undefined
 
+    const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
+    const cb = num(r.stats_crit_bonus)
+    const cbt = str(r.stats_crit_bonus_type) as 'melee' | 'ranged' | 'spells' | 'martial' | 'all' | undefined
+    if (cb !== undefined && cbt) {
+      critModifier[cbt] = cb
+    }
+
     const hasStats =
       num(r.stats_acBonus) !== undefined ||
       num(r.stats_toHitBonus) !== undefined ||
@@ -193,7 +217,8 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
       Object.keys(savingThrowBonus).length > 0 ||
       Object.keys(skillBonus).length > 0 ||
       advSaves.length > 0 || advSkills.length > 0 || deathSaves ||
-      bonusDmgType !== undefined
+      bonusDmgType !== undefined ||
+      Object.keys(critModifier).length > 0
 
     const stats = hasStats ? {
       acBonus:          num(r.stats_acBonus),
@@ -214,6 +239,7 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
         dmgType:   bonusDmgType,
         appliesTo: bonusDmgAppliesTo,
       } : undefined,
+      critModifier: Object.keys(critModifier).length > 0 ? critModifier : undefined,
     } : undefined
 
     const gear: GearEquipmentItem = {
@@ -229,6 +255,7 @@ export function csvToGear(csv: string): GearEquipmentItem[] {
       stealthDisadvantage: bool(r.stealthDisadvantage),
       strRequirement:      num(r.strRequirement),
       enchantmentBonus:    num(r.enchantmentBonus),
+      requiresAttunement:  bool(r.requiresAttunement),
       stats,
     }
     return gear

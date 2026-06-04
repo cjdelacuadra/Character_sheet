@@ -3,7 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeACFull, computeSpeedFull, mod } from '@/shared/data/charCalculations'
+import { computeACFull, computeSpeedFull, computeDarkvision, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import { DeathSaveDetailPanel } from '@/features/detail-panel/DeathSaveDetailPanel'
 import styles from './VitalsPanel.module.css'
@@ -181,6 +181,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         <span className={styles.secondaryStat}><strong>{fmtMod(prof)}</strong> Prof</span>
         {spellSaveDC !== null && <span className={styles.secondaryStat}><strong>{spellSaveDC}</strong> Spell DC</span>}
         {spellAtkBonus !== null && <span className={styles.secondaryStat}><strong>{fmtMod(spellAtkBonus)}</strong> Spell Atk</span>}
+        {computeDarkvision(char) > 0 && <span className={styles.secondaryStat}><strong>{computeDarkvision(char)}</strong> Darkvision ft</span>}
       </div>
 
       {/* HP section */}

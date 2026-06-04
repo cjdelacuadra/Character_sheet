@@ -156,6 +156,10 @@ export let GEAR: GearEquipmentItem[] = [
     requiresAttunement: true, stats: { skillBonus: { arcana: 2 } } },
   { id: 'berserker-ring-i', name: 'Berserker Ring (i)', kind: 'ring', cost: 0,    rarity: 'legendary', sprite: `${S}Berserker_ring_(i).png`,
     requiresAttunement: true, stats: { acBonus: 1, skillBonus: { athletics: 4 } } },
+  { id: 'ring-of-sharpness', name: 'Ring of Sharpness', kind: 'ring', cost: 2000, rarity: 'rare', sprite: `${S}Ring_of_life.png`,
+    requiresAttunement: true, stats: { critModifier: { all: 1 } } },
+  { id: 'ring-of-precision', name: 'Ring of Precision', kind: 'ring', cost: 5000, rarity: 'very rare', sprite: `${S}Ring_of_life.png`,
+    requiresAttunement: true, stats: { critModifier: { melee: 1, ranged: 1 } } },
 
   // ── Quiver ──────────────────────────────────────────────────────────────────
   { id: 'arrow-quiver',     name: 'Arrow Quiver',      kind: 'quiver', cost: 5, rarity: 'common' },

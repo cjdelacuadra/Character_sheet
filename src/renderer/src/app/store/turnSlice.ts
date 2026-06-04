@@ -12,6 +12,7 @@ export interface TurnState {
   bonusReactions: number
   endOfTurnSpellIds: string[]
   endOfTurnBuffIds: string[]
+  divineStrikeFired: boolean
 }
 
 export interface NextTurnDecisions {
@@ -31,6 +32,7 @@ export interface TurnSlice {
   registerEndOfTurnSpell: (charId: string, spellId: string) => void
   unregisterEndOfTurnSpell: (charId: string, spellId: string) => void
   registerEndOfTurnBuff: (charId: string, spellId: string) => void
+  fireDivineStrike: (charId: string) => void
   confirmNextTurn: (charId: string, decisions: NextTurnDecisions) => void
 }
 
@@ -44,6 +46,7 @@ export function makeFreshTurnState(): TurnState {
     bonusReactions: 0,
     endOfTurnSpellIds: [],
     endOfTurnBuffIds: [],
+    divineStrikeFired: false,
   }
 }
 
@@ -128,6 +131,14 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     })
   },
 
+  fireDivineStrike: (charId) => {
+    set((state) => {
+      const ts = state.turnStates[charId] ?? makeFreshTurnState()
+      const next = { ...ts, divineStrikeFired: true }
+      return { turnStates: { ...state.turnStates, [charId]: next } }
+    })
+  },
+
   confirmNextTurn: (charId, decisions) => {
     const char = get().characters[charId]
     const ts = get().turnStates[charId] ?? makeFreshTurnState()
@@ -167,6 +178,7 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
       bonusReactions: 0,
       endOfTurnSpellIds: [],
       endOfTurnBuffIds: [],
+      divineStrikeFired: false,
     }
     set((state) => ({ turnStates: { ...state.turnStates, [charId]: nextTs } }))
   },

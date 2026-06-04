@@ -342,13 +342,27 @@ function makeOffHandAction(character: Character): ActionDef {
   }
 }
 
-/** Returns the minimum d20 roll needed to score a critical hit (normally 20; Champion reduces it). */
-export function computeCritThreshold(character: Character): number {
+/** Returns the minimum d20 roll needed to score a critical hit (normally 20; Champion reduces it, weapons/gear may further reduce it). */
+export function computeCritThreshold(character: Character, opts?: { weaponCritMod?: number; gearCritMods?: number[] }): number {
+  let threshold = 20
+
   if (character.subclass === 'Champion') {
-    if (character.level >= 15) return 18
-    if (character.level >= 3)  return 19
+    if (character.level >= 15) threshold = 18
+    else if (character.level >= 3) threshold = 19
   }
-  return 20
+
+  // Apply weapon crit modifier (reduces threshold)
+  if (opts?.weaponCritMod && opts.weaponCritMod !== 0) {
+    threshold = Math.max(10, threshold - opts.weaponCritMod)
+  }
+
+  // Apply gear crit modifiers (stack them, all reduce threshold)
+  if (opts?.gearCritMods && opts.gearCritMods.length > 0) {
+    const totalGearMod = opts.gearCritMods.reduce((a, b) => a + b, 0)
+    threshold = Math.max(10, threshold - totalGearMod)
+  }
+
+  return threshold
 }
 
 function destroyUndeadCRThreshold(level: number): string | null {
@@ -464,7 +478,33 @@ export function getAvailableActions(character: Character): ActionDef[] {
     })
   }
 
-  return [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...subclassActions, ...featActions]
+  // Compute extra attack count
+  let attackCount = 1
+  if (character.classId === 'Fighter') {
+    if (character.level >= 20) attackCount = 4
+    else if (character.level >= 11) attackCount = 3
+    else if (character.level >= 5) attackCount = 2
+  } else if ((character.classId === 'Barbarian' || character.classId === 'Paladin' || character.classId === 'Ranger' || character.classId === 'Monk') && character.level >= 5) {
+    attackCount = 2
+  } else if (character.subclass === 'Bladesinger' && character.level >= 6) {
+    attackCount = 2
+  }
+
+  const allActions = [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...subclassActions, ...featActions]
+
+  // Update Attack action short description if extra attacks available
+  if (attackCount > 1) {
+    const attackActionIndex = allActions.findIndex(a => a.name === 'Attack')
+    if (attackActionIndex !== -1) {
+      const attackAction = allActions[attackActionIndex]
+      allActions[attackActionIndex] = {
+        ...attackAction,
+        short: `Make ${attackCount === 2 ? 'two' : attackCount === 3 ? 'three' : 'four'} melee or ranged attacks.`,
+      }
+    }
+  }
+
+  return allActions
 }
 
 export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {

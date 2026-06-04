@@ -65,6 +65,9 @@ export interface Weapon {
   dmgBonusDieType?: number
   dmgBonusFlat?: number
   dmgBonusType?: string
+  requiresAttunement?: boolean
+  attuned?: boolean
+  critModifier?: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>>
 }
 
 export interface Character {
@@ -116,6 +119,8 @@ export interface Character {
   warlockInvocations?: string[]
   pactBoon?: string
   pactBoonLocked?: boolean
+  tomeCantrips?: string[]
+  chainFamiliarType?: 'imp' | 'pseudodragon' | 'quasit' | 'sprite'
   isRaging?: boolean
   /** Bladesinger (Wizard) — Bladesong active toggle. While active: +INT to AC, +10 ft speed,
    *  advantage on Acrobatics, +INT to Constitution saves for concentration. Only valid while

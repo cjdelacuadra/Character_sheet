@@ -42,6 +42,8 @@ export interface SubclassDef {
   /** Races allowed to take this subclass (e.g. Battlerager is Dwarf-only per SCAG).
    *  An empty/undefined list means no restriction. Enforced in CharacterSelectScreen with a lineage-override toggle. */
   restrictedRaces?: string[]
+  /** Darkvision range in feet granted by this subclass (e.g. 300 for Twilight Domain) */
+  darkvisionRange?: number
 }
 
 export const SUBCLASSES: SubclassDef[] = [
@@ -342,6 +344,7 @@ export const SUBCLASSES: SubclassDef[] = [
     extraWeaponProficiencies: ['martial weapons'],
     description: 'Guard against the terrors of night. Twilight Sanctuary protects allies in a sphere of dim light.',
     channelDivinityDesc: 'Twilight Sanctuary: As an action, present your holy symbol; a 30-ft-radius sphere of dim light emanates from you for 1 minute (moves with you; ends if you are incapacitated or die). Each creature ending its turn in the sphere gains either 1d6 + cleric level temp HP, or ends one charm/frightened effect on it.',
+    darkvisionRange: 300,
     subclassSpells: { 1: ['faerie-fire', 'sleep'], 3: ['moonbeam', 'see-invisibility'], 5: ['aura-of-vitality'], 7: ['greater-invisibility'] },
     subclassFeatures: [
       // TODO: mechanical wiring — Eyes of Night could be modeled as a race-mod-style darkvision override.

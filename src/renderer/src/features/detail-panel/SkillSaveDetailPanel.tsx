@@ -84,8 +84,9 @@ export function SkillSaveDetailPanel({ character: char, detail, onClose }: Props
       }
       return false
     })()
+    const auraMod = char.classId === 'Paladin' && char.level >= 6 ? Math.max(1, mod(char.abilityScores.cha)) : 0
     const equipSourceSum = sources.reduce((s, r) => s + r.value, 0)
-    const total = baseAbilMod + equipSourceSum + (isProficient ? prof : 0)
+    const total = baseAbilMod + equipSourceSum + (isProficient ? prof : 0) + auraMod
 
     return (
       <div className={styles.panel}>
@@ -99,6 +100,7 @@ export function SkillSaveDetailPanel({ character: char, detail, onClose }: Props
             <FormulaRow key={i} label={src.name} value={fmtMod(src.value)} tag={src.tag} />
           ))}
           {isProficient && <FormulaRow label="Proficiency" value={`+${prof}`} tag="prof" />}
+          {auraMod > 0 && <FormulaRow label="Aura of Protection" value={`+${auraMod}`} tag="aura" />}
           <div className={styles.formulaTotal}>Total <strong>{fmtMod(total)}</strong></div>
         </div>
         <p className={styles.desc}>{SAVE_DESCS[ab]}</p>

@@ -141,7 +141,8 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
             ...racialAdv.map(a => `${a.source} (${a.vs})`),
           ].join(' · ')
           const abilMod = mod(char.abilityScores[ab] + abilBonus)
-          const bonus = abilMod + (isProficient ? prof : 0) + equipBonus
+          const auraMod = char.classId === 'Paladin' && char.level >= 6 ? Math.max(1, mod(char.abilityScores.cha)) : 0
+          const bonus = abilMod + (isProficient ? prof : 0) + equipBonus + auraMod
           const isSel = selectedDetail?.type === 'save' && selectedDetail.key === ab
           return (
             <div
@@ -159,10 +160,11 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
               />
               <span className={styles.saveBonus}>{fmtMod(bonus)}</span>
               {equipBonus !== 0 && <span className={styles.equipBadge}>★</span>}
+              {auraMod > 0 && <span className={styles.equipBadge} title="Aura of Protection">✦</span>}
               {hasAdv && <span className={styles.advBadge} title={advTooltip}>ADV</span>}
               <span className={styles.saveAb}>{ab.toUpperCase()}</span>
               <span className={styles.saveFormula}>
-                d20{fmtMod(abilMod)}{isProficient ? `+${prof}p` : ''}{equipBonus !== 0 ? `+${equipBonus}eq` : ''}
+                d20{fmtMod(abilMod)}{isProficient ? `+${prof}p` : ''}{equipBonus !== 0 ? `+${equipBonus}eq` : ''}{auraMod > 0 ? `+${auraMod}aura` : ''}
               </span>
             </div>
           )

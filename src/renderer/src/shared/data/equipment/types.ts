@@ -31,6 +31,7 @@ export interface AccessoryStats {
     deathSaves?: boolean
   }
   bonusDamage?: { flat?: number; dice?: string; dmgType: string; appliesTo?: 'melee' | 'ranged' | 'all' }
+  critModifier?: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>>
 }
 
 export interface BaseEquipmentItem {
@@ -76,6 +77,7 @@ export interface WeaponEquipmentItem extends BaseEquipmentItem {
   dmgBonusDieType?: number
   dmgBonusFlat?: number
   dmgBonusType?: string
+  critModifier?: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>>
 }
 
 export type EquipmentDef = WeaponEquipmentItem | GearEquipmentItem

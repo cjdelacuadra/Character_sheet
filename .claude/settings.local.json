@@ -52,7 +52,20 @@
       "Bash(node -e \"const {externalizeDepsPlugin} = require\\('./node_modules/electron-vite/dist/index.js'\\); const p = externalizeDepsPlugin\\(\\); console.log\\(JSON.stringify\\(Object.keys\\(p\\)\\)\\); const opts = {resolve:{}}; if\\(p.options\\) p.options\\(opts\\); console.log\\(JSON.stringify\\(opts\\)\\)\")",
       "Bash(node -e \"const fs = require\\('fs'\\); const src = fs.readFileSync\\('./node_modules/electron-vite/dist/chunks/lib-q6ns0vZr.js','utf8'\\); const idx = src.indexOf\\('externalizeDepsPlugin'\\); const snippet = src.slice\\(idx, idx+800\\); console.log\\(snippet\\)\")",
       "Bash(node -e \"const fs = require\\('fs'\\); const src = fs.readFileSync\\('./node_modules/electron-vite/dist/chunks/lib-BkLsMF4i.js','utf8'\\); const idx = src.indexOf\\('electron'\\); const snippet = src.slice\\(Math.max\\(0,idx-100\\), idx+500\\); console.log\\(snippet\\)\")",
-      "Bash(node -e \"const fs = require\\('fs'\\); const src = fs.readFileSync\\('./node_modules/electron-vite/dist/chunks/lib-q6ns0vZr.js','utf8'\\); const idx = src.indexOf\\('builtinModules'\\); const snippet = src.slice\\(Math.max\\(0,idx-200\\), idx+600\\); console.log\\(snippet\\)\")"
+      "Bash(node -e \"const fs = require\\('fs'\\); const src = fs.readFileSync\\('./node_modules/electron-vite/dist/chunks/lib-q6ns0vZr.js','utf8'\\); const idx = src.indexOf\\('builtinModules'\\); const snippet = src.slice\\(Math.max\\(0,idx-200\\), idx+600\\); console.log\\(snippet\\)\")",
+      "Bash(xargs grep -l \"csv\\\\|CSV\")",
+      "Bash(xargs grep -l \"weaponsToCsv\\\\|gearToCsv\")",
+      "Bash(xargs grep -l \"saveWeaponDef\\\\|saveGearDef\")",
+      "Bash(Start-Sleep -Seconds 5)",
+      "Bash(Write-Host \"Dev server should be ready\")",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(run-\" || echo \"No verifier or run skills found\")",
+      "Bash(npm list *)",
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot saved'\\\\''')",
+      "Bash(powershell -Command ' *)",
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot2.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot saved'\\\\''')",
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot3.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot taken'\\\\''')",
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot4.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot'\\\\'' ')"
     ]
   }
 }

@@ -3,7 +3,7 @@ import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks } from '@/domain/rules'
+import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold } from '@/domain/rules'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
@@ -334,6 +334,40 @@ function BoomingBladeTurnToggle({ charId }: { charId: string }) {
       }}
     >
       {armed ? '● Cast' : '○ Cast'}
+    </button>
+  )
+}
+
+const DIVINE_STRIKE_DAMAGE_TYPE: Partial<Record<string, string>> = {
+  LifeDomain: 'radiant', TrickeryDomain: 'poison', TempestDomain: 'thunder',
+  WarDomain: "weapon's damage type", DeathDomain: 'necrotic', ForgeDomain: 'fire',
+  OrderDomain: 'psychic', TwilightDomain: 'radiant', NatureDomain: 'cold/fire/lightning',
+}
+
+function DivineStrikeTurnToggle({ charId, subclass, level }: { charId: string; subclass?: string; level: number }) {
+  const ts = useAppStore(s => s.turnStates[charId])
+  const fireDivineStrike = useAppStore(s => s.fireDivineStrike)
+  const fired = !!ts?.divineStrikeFired
+  const damage = level >= 14 ? '2d8' : '1d8'
+  const dmgType = (subclass && DIVINE_STRIKE_DAMAGE_TYPE[subclass]) || 'radiant'
+  return (
+    <button
+      onClick={() => !fired && fireDivineStrike(charId)}
+      title={fired ? 'Already used this turn' : `Fire Divine Strike (+${damage} ${dmgType})`}
+      disabled={fired}
+      style={{
+        fontSize: 9,
+        padding: '2px 5px',
+        marginLeft: 4,
+        border: '1px solid var(--border)',
+        borderRadius: 3,
+        background: fired ? 'rgba(200, 100, 100, 0.25)' : 'transparent',
+        color: fired ? '#c86464' : 'var(--text-muted)',
+        cursor: fired ? 'default' : 'pointer',
+        opacity: fired ? 0.6 : 1,
+      }}
+    >
+      {fired ? '● Used' : '○ Divine Strike'}
     </button>
   )
 }
@@ -902,6 +936,27 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       ]
       const isLocked = char.pactBoonLocked ?? false
       const chosen = char.pactBoon ? PACT_OPTIONS.find(p => p.id === char.pactBoon) : null
+
+      // Pact of the Blade: add weapon on confirm
+      const handleConfirmBlade = () => {
+        const PACT_WEAPON: Weapon = {
+          id: 'pact-weapon',
+          name: 'Pact Weapon',
+          atkBonus: 0,
+          damage: '1d8',
+          damageType: 'slashing',
+          rangeType: 'Melee',
+          properties: ['versatile (1d10)'],
+        }
+        update({
+          pactBoon: 'blade',
+          pactBoonLocked: true,
+          weapons: [...char.weapons, PACT_WEAPON],
+          hexWarriorWeaponId: 'pact-weapon',
+        })
+        setPendingBoon(null)
+      }
+
       return (
         <>
           <ResourcesPanel character={char} update={update} />
@@ -917,6 +972,25 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <p className={styles.detailFull}><strong>{chosen.name}</strong></p>
                     <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{chosen.description}</p>
                   </>
+                )}
+                {chosen?.id === 'blade' && (
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
+                    Your Pact Weapon appears in your weapons list and uses CHA for attacks/damage (Hex Warrior).
+                  </p>
+                )}
+                {chosen?.id === 'tome' && char.tomeCantrips && char.tomeCantrips.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Cantrips Known:</p>
+                    {char.tomeCantrips.map(cid => {
+                      const spell = SPELL_BY_ID[cid]
+                      return <p key={cid} className={styles.detailFull} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{spell?.name || cid}</p>
+                    })}
+                  </div>
+                )}
+                {chosen?.id === 'chain' && char.chainFamiliarType && (
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
+                    Familiar: <strong>{char.chainFamiliarType}</strong>
+                  </p>
                 )}
                 <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
                   Pact Boon locked — this choice is permanent.
@@ -944,8 +1018,16 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     className={styles.armoryAddBtn}
                     style={{ marginTop: 8 }}
                     onClick={() => {
-                      update({ pactBoon: pendingBoon ?? char.pactBoon, pactBoonLocked: true })
-                      setPendingBoon(null)
+                      const boonId = pendingBoon ?? char.pactBoon
+                      if (boonId === 'blade') {
+                        handleConfirmBlade()
+                      } else if (boonId === 'tome') {
+                        update({ pactBoon: 'tome', pactBoonLocked: true, tomeCantrips: [] })
+                        setPendingBoon(null)
+                      } else if (boonId === 'chain') {
+                        update({ pactBoon: 'chain', pactBoonLocked: true })
+                        setPendingBoon(null)
+                      }
                     }}
                   >
                     Confirm Pact Boon
@@ -1442,6 +1524,29 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 : rollState.d1
                 : null
 
+              // Calculate crit modifiers from weapon and equipped gear
+              // Look up weapon in equipment database to get full definition (including critModifier)
+              const weaponDef = WEAPONS.find(wd => wd.id === w.id)
+              const weaponCritMod = (w.critModifier || weaponDef?.critModifier) ? Object.values(w.critModifier || weaponDef?.critModifier || {})[0] : 0
+
+              // Create a map of equipment modifiers by item ID
+              const gearModifierMap: Record<string, number> = {}
+              const gearCritMods: number[] = []
+              const gearSlots = [char.equipment.armorId, char.equipment.shieldId, char.equipment.helmetId,
+                char.equipment.necklaceId, char.equipment.capeId, char.equipment.legsId, char.equipment.bootsId,
+                char.equipment.glovesId, char.equipment.ring1Id, char.equipment.ring2Id, char.equipment.amuletId]
+              for (const itemId of gearSlots) {
+                if (!itemId) continue
+                const gear = GEAR_BY_ID[itemId]
+                if (gear?.stats?.critModifier) {
+                  const critMod = Object.values(gear.stats.critModifier)[0]
+                  if (critMod) {
+                    gearModifierMap[itemId] = critMod
+                    gearCritMods.push(critMod)
+                  }
+                }
+              }
+
               const renderTable = (
                 tableRows: AttackRow[],
                 isRowActive: (rid: string) => boolean,
@@ -1450,6 +1555,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 subtotals: { expr: string; type: string }[],
                 hasVersatileInTable: boolean,
                 overrideRoll?: { d1: number; d2: number; adv: 'n' | 'a' | 'd' } | null,
+                critThreshold?: number,
               ) => {
                 const tRoll = overrideRoll !== undefined ? overrideRoll : rollState
                 const tAdv  = tRoll?.adv ?? 'n'
@@ -1458,7 +1564,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <table className={styles.attackBreakdownTable}>
                   <thead>
                     <tr>
-                      <th>Attack</th><th>To Hit</th><th>DMG</th>
+                      <th>Attack</th><th>To Hit</th><th>Crit mod</th><th>DMG</th>
                       <th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th>
                     </tr>
                   </thead>
@@ -1475,6 +1581,26 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                       >
                         <td>{row.name}{row.disabled ? ' *' : ''}</td>
                         <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td style={{ fontSize: '11px', color: (weaponCritMod !== 0 || Object.keys(gearModifierMap).length > 0) ? 'var(--accent)' : 'var(--text-muted)' }}>
+                          {(() => {
+                            if (row.id === 'normal' && weaponCritMod !== 0) {
+                              return weaponCritMod > 0 ? `-${weaponCritMod}` : `+${Math.abs(weaponCritMod)}`
+                            }
+                            // For equipment rows, find matching equipment modifier
+                            if (row.id.startsWith('equip-bonus-')) {
+                              const rowBaseName = row.name.split(' (')[0].trim().toLowerCase()
+                              const equipId = Object.keys(gearModifierMap).find(id => {
+                                const gearName = GEAR_BY_ID[id]?.name?.split(' (')[0].trim().toLowerCase()
+                                return gearName === rowBaseName
+                              })
+                              if (equipId) {
+                                const mod = gearModifierMap[equipId]
+                                return mod !== 0 ? (mod > 0 ? `-${mod}` : `+${Math.abs(mod)}`) : '—'
+                              }
+                            }
+                            return '—'
+                          })()}
+                        </td>
                         <td>{row.dmg ?? '—'}</td>
                         <td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td>
@@ -1482,17 +1608,35 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                          {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>
                       </tr>
                     ))}
+                    {char.subclass === 'Champion' && (
+                      <tr style={{ opacity: 0.7, fontSize: '11px' }}>
+                        <td>champion</td>
+                        <td></td>
+                        <td style={{ color: 'var(--accent)', fontWeight: 'bold' }}>
+                          {char.level >= 15 ? '-2' : char.level >= 3 ? '-1' : '—'}
+                        </td>
+                        <td colSpan={5}></td>
+                      </tr>
+                    )}
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
                         {tD20 !== null && totalToHit !== null
                           ? `${tD20} ${fmtMod(totalToHit)} = ${tD20 + totalToHit}`
                           : totalToHit !== null ? formatToHit(totalToHit, tAdv) : '—'}
                         {tRoll && tAdv !== 'n' && (
                           <span className={styles.diceNote}>{` (${tRoll.d1}, ${tRoll.d2})`}</span>
+                        )}
+                      </td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        {critThreshold !== undefined && (critThreshold < 20 || char.subclass === 'Champion') && (
+                          <span style={{ padding: '4px 10px', backgroundColor: '#d4af37', color: '#1a1a1a', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', border: '1px solid #8b7c3a', display: 'inline-block' }}>
+                            Crit {critThreshold}+
+                          </span>
                         )}
                       </td>
                       <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
@@ -1563,7 +1707,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                           <button className={styles.rollBtn} onClick={() => rollWeapon(meleeKey)} title="Roll d20">🎲</button>
                         </div>
                       </div>
-                      {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, meleeRoll ?? null)}
+                      {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, meleeRoll ?? null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
@@ -1575,7 +1719,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                           <button className={styles.rollBtn} onClick={() => rollWeapon(rangedKey)} title="Roll d20">🎲</button>
                         </div>
                       </div>
-                      {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, rangedRoll ?? null)}
+                      {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, rangedRoll ?? null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
                   </div>
                 )
@@ -1621,7 +1765,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                       <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
                     </div>
                   </div>
-                  {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile)}
+                  {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile, null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                 </div>
               )
             })}
@@ -2085,6 +2229,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                          {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>
                       </tr>
                     ))}
@@ -2182,6 +2327,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
+                          {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>
                       </tr>
                     ))}

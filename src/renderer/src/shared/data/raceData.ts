@@ -24,6 +24,8 @@ export interface RaceDef {
   freeFeat?: boolean
   /** spell IDs granted automatically at each character level */
   racialSpells?: Partial<Record<number, string[]>>
+  /** Darkvision range in feet (0 if none) */
+  darkvisionRange?: number
 }
 
 export const RACES: RaceDef[] = [
@@ -34,6 +36,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
     traits: ['Extra Language', '+1 to all ability scores'],
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'VariantHuman',
@@ -44,6 +47,7 @@ export const RACES: RaceDef[] = [
     freeFeat: true,
     traits: ['+1 to two different ability scores of your choice', 'One skill proficiency of choice', 'One feat of choice'],
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'Elf',
@@ -53,6 +57,7 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', 'Keen Senses (Perception proficiency)', 'Fey Ancestry (advantage vs charm, immune sleep)', 'Trance (4h rest instead of 8h)'],
     size: 'medium',
     bonusWeaponProficiencies: ['Longsword', 'Shortsword', 'Shortbow', 'Longbow'],
+    darkvisionRange: 60,
   },
   {
     id: 'WoodElf',
@@ -61,6 +66,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, wis: 1 },
     traits: ['Darkvision 60ft', 'Keen Senses', 'Fey Ancestry', 'Fleet of Foot (35ft speed)', 'Mask of the Wild'],
     size: 'medium',
+    darkvisionRange: 60,
   },
   {
     id: 'Dwarf',
@@ -71,6 +77,7 @@ export const RACES: RaceDef[] = [
     size: 'medium',
     bonusHpPerLevel: 1,
     bonusWeaponProficiencies: ['Battleaxe', 'Handaxe', 'Light Hammer', 'Warhammer'],
+    darkvisionRange: 60,
   },
   {
     id: 'MountainDwarf',
@@ -79,6 +86,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { str: 2, con: 2 },
     traits: ['Darkvision 60ft', 'Dwarven Resilience', 'Stonecunning', 'Armor proficiency (light, medium)'],
     size: 'medium',
+    darkvisionRange: 60,
   },
   {
     id: 'Halfling',
@@ -87,6 +95,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, cha: 1 },
     traits: ['Lucky (reroll 1s on attack/check/save)', 'Brave (advantage vs frightened)', 'Halfling Nimbleness (move through larger creatures)', 'Naturally Stealthy'],
     size: 'small',
+    darkvisionRange: 0,
   },
   {
     id: 'HalfElf',
@@ -96,6 +105,7 @@ export const RACES: RaceDef[] = [
     freeAbilityPoints: 2,
     traits: ['Darkvision 60ft', 'Fey Ancestry', 'Skill Versatility (+2 skill proficiencies of choice)'],
     size: 'medium',
+    darkvisionRange: 60,
   },
   {
     id: 'HalfOrc',
@@ -104,6 +114,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { str: 2, con: 1 },
     traits: ['Darkvision 60ft', 'Menacing (Intimidation proficiency)', 'Relentless Endurance (drop to 1 HP instead of 0, 1/LR)', 'Savage Attacks (extra crit die)'],
     size: 'medium',
+    darkvisionRange: 60,
   },
   {
     id: 'Gnome',
@@ -113,6 +124,7 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', 'Gnome Cunning (advantage INT/WIS/CHA saves vs magic)', 'Natural Illusionist', 'Speak with Small Beasts'],
     size: 'small',
     racialSpells: { 1: ['minor-illusion'] },
+    darkvisionRange: 60,
   },
   {
     id: 'Tiefling',
@@ -122,6 +134,7 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', 'Hellish Resistance (fire resistance)', 'Infernal Legacy (Thaumaturgy cantrip; Hellish Rebuke/Darkness as spell)'],
     size: 'medium',
     racialSpells: { 1: ['thaumaturgy'], 3: ['hellish-rebuke'], 5: ['darkness'] },
+    darkvisionRange: 60,
   },
   {
     id: 'Dragonborn',
@@ -130,6 +143,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { str: 2, cha: 1 },
     traits: ['Draconic Ancestry (choose element)', 'Breath Weapon (Dex/Con save, 2d6 damage, scales)', 'Damage Resistance (chosen element)'],
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'StoutHalfling',
@@ -138,6 +152,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, con: 1 },
     traits: ['Lucky (reroll 1s on attack/check/save)', 'Brave (advantage vs frightened)', 'Halfling Nimbleness', 'Stout Resilience (advantage vs poison saves, resistance to poison damage)'],
     size: 'small',
+    darkvisionRange: 0,
   },
   {
     id: 'RockGnome',
@@ -146,6 +161,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { int: 2, con: 1 },
     traits: ['Darkvision 60ft', 'Gnome Cunning (advantage INT/WIS/CHA saves vs magic)', "Artificer's Lore (+2× prof bonus on History checks for magic/alchemical/technological items)", 'Tinker (construct tiny clockwork devices)'],
     size: 'small',
+    darkvisionRange: 60,
   },
   {
     id: 'Drow',
@@ -155,6 +171,7 @@ export const RACES: RaceDef[] = [
     traits: ['Superior Darkvision 120ft', 'Keen Senses (Perception proficiency)', 'Fey Ancestry', 'Trance', 'Sunlight Sensitivity (disadvantage on attack/Perception in direct sunlight)', 'Drow Magic (Dancing Lights; Faerie Fire; Darkness as spells)'],
     size: 'medium',
     racialSpells: { 1: ['dancing-lights'], 3: ['faerie-fire'], 5: ['darkness'] },
+    darkvisionRange: 120,
   },
   {
     id: 'Aasimar',
@@ -164,6 +181,7 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', 'Celestial Resistance (necrotic & radiant resistance)', 'Healing Hands (touch to heal HP equal to level, 1/LR)', 'Light Bearer (Light cantrip)'],
     size: 'medium',
     racialSpells: { 1: ['light'] },
+    darkvisionRange: 60,
   },
   {
     id: 'Kenku',
@@ -172,6 +190,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, wis: 1 },
     traits: ['Expert Forgery (duplicate written/crafted items with advantage)', 'Kenku Training (proficiency in 2 of: Acrobatics, Deception, Stealth, Sleight of Hand)', 'Mimicry (perfectly copy sounds heard; Insight/Investigation DC 14 to detect)'],
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'Tabaxi',
@@ -180,6 +199,7 @@ export const RACES: RaceDef[] = [
     abilityBonus: { dex: 2, cha: 1 },
     traits: ['Darkvision 60ft', "Cat's Claws (climb speed 20ft, 1d4 slashing unarmed strike)", 'Feline Agility (double speed until end of turn, then 0 speed until next turn)', "Cat's Talent (proficiency in Perception & Stealth)"],
     size: 'medium',
+    darkvisionRange: 60,
   },
   {
     id: 'Lizardfolk',
@@ -189,6 +209,7 @@ export const RACES: RaceDef[] = [
     traits: ['Swim speed 30ft', 'Bite (1d6 piercing unarmed strike)', 'Cunning Artisan (craft items from creature remains during short rest)', 'Hold Breath (15 minutes)', "Hunter's Lore (proficiency in 2 of: Animal Handling, Nature, Perception, Stealth, Survival)", 'Natural Armor (AC = 13 + DEX mod when unarmored)'],
     naturalAC: (scores) => 13 + Math.floor((scores.dex - 10) / 2),
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'Tortle',
@@ -198,6 +219,7 @@ export const RACES: RaceDef[] = [
     traits: ['Swim speed 30ft', 'Claws (1d4 slashing unarmed strike)', 'Hold Breath (1 hour)', 'Natural Armor (AC 17, cannot use shields)', 'Shell Defense (withdraw into shell: +4 AC, advantage on STR/CON saves, disadvantage on DEX saves, prone, speed 0, no reactions, no actions except to emerge)'],
     naturalAC: () => 17,
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'Warforged',
@@ -207,6 +229,7 @@ export const RACES: RaceDef[] = [
     traits: ['Constructed Resilience (advantage vs poison saves, resistance to poison, immune to disease, no need to eat/drink/breathe, no magic sleep)', "Sentry's Rest (inactive but conscious during long rest)", 'Integrated Protection (AC = 11 + DEX mod + armor bonus, cannot be removed)', 'Specialized Design (proficiency in 1 skill & 1 tool of choice)'],
     naturalAC: (scores) => 11 + Math.floor((scores.dex - 10) / 2),
     size: 'medium',
+    darkvisionRange: 0,
   },
   {
     id: 'Githyanki',
@@ -216,6 +239,7 @@ export const RACES: RaceDef[] = [
     traits: ['Decadent Mastery (proficiency in 1 language, skill, or tool)', 'Martial Prodigy (light & medium armor proficiency, shortsword & longsword & greatsword proficiency)', 'Githyanki Psionics (Mage Hand cantrip; Jump; Misty Step — using INT)'],
     size: 'medium',
     racialSpells: { 1: ['mage-hand'], 3: ['jump'], 5: ['misty-step'] },
+    darkvisionRange: 0,
   },
   {
     id: 'Githzerai',
@@ -226,6 +250,7 @@ export const RACES: RaceDef[] = [
     naturalAC: (scores) => 10 + Math.floor((scores.dex - 10) / 2) + Math.floor((scores.wis - 10) / 2),
     size: 'medium',
     racialSpells: { 1: ['mage-hand'], 3: ['shield'], 5: ['detect-thoughts'] },
+    darkvisionRange: 0,
   },
 ]
 

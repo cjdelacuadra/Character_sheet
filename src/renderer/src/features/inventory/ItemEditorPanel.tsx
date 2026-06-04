@@ -258,6 +258,17 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
   const [requiresAttunement, setRequiresAttunement] = useState(fullDef?.requiresAttunement ?? false)
 
+  // ── Crit modifier edit state ─────────────────────────────────────────────
+  const initCritMod = fullDef
+    ? (('critModifier' in fullDef && fullDef.critModifier)
+      || ('stats' in fullDef && fullDef.stats?.critModifier))
+    : null
+  const hasCritMod = initCritMod ? Object.keys(initCritMod).length > 0 : false
+  const initCritModValue = hasCritMod && initCritMod ? (Object.values(initCritMod)[0] ?? 0) : 0
+  const initCritModApplies = hasCritMod && initCritMod ? (Object.keys(initCritMod)[0] ?? 'all') : 'all'
+  const [critModValue,     setCritModValue]     = useState<number>(initCritModValue)
+  const [critModAppliesTo, setCritModAppliesTo] = useState<'melee' | 'ranged' | 'spells' | 'martial' | 'all'>(initCritModApplies as any)
+
   // ── Defense edit state (base AC + bonus AC) ──────────────────────────────
   const [baseAC,  setBaseAC]  = useState(gearDef?.baseAC ?? 10)
   const [acBonus, setAcBonus] = useState(gearDef?.stats?.acBonus ?? 0)
@@ -312,6 +323,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         appliesTo: accBdAppliesTo,
       }
     }
+    const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
+    if (critModValue !== 0) {
+      critModifier[critModAppliesTo] = critModValue
+    }
+    if (Object.keys(critModifier).length > 0) stats.critModifier = critModifier
     const gear: GearEquipmentItem = {
       id:                 overrideId ?? editId,
       name:               editName,
@@ -334,6 +350,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   }
 
   function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
+    const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
+    if (critModValue !== 0) {
+      critModifier[critModAppliesTo] = critModValue
+    }
+
     return {
       ...weapDef!,
       id:                 overrideId ?? weapDef!.id,
@@ -342,6 +363,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       rarity:             editRarity as WeaponEquipmentItem['rarity'],
       sprite:             computedSprite,
       requiresAttunement: requiresAttunement || undefined,
+      critModifier:       Object.keys(critModifier).length > 0 ? critModifier : undefined,
       damageDie:        `${dmgCount}d${dmgSides}`,
       damageType:       dmgType,
       properties:       propsText.split(',').map(s => s.trim()).filter(Boolean),
@@ -882,6 +904,43 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         </div>
       )}
 
+      {/* Crit Modifier — all items */}
+      <div className={styles.weaponSection}>
+        <span className={`${styles.sectionTitle} ${styles.fullRow}`}>Crit Modifier</span>
+        <div className={styles.fieldRow}>
+          <label className={styles.label}>Amount</label>
+          {editMode ? (
+            <input
+              type="number" min={-20} max={20} value={critModValue}
+              onChange={e => setCritModValue(Number(e.target.value))}
+              className={styles.inputSmall}
+              title="Crit threshold reduction (e.g. 1 = crit on 19+)"
+            />
+          ) : (
+            <span className={styles.value} style={{ color: critModValue !== 0 ? 'var(--accent)' : undefined }}>
+              {critModValue === 0 ? '—' : critModValue > 0 ? `+${critModValue}` : critModValue}
+            </span>
+          )}
+        </div>
+        <div className={styles.fieldRow}>
+          <label className={styles.label}>Applies To</label>
+          {editMode ? (
+            <select
+              value={critModAppliesTo}
+              onChange={e => setCritModAppliesTo(e.target.value as any)}
+              className={styles.inputSmall}
+            >
+              <option value="all">All</option>
+              <option value="martial">Martial</option>
+              <option value="melee">Melee</option>
+              <option value="ranged">Ranged</option>
+              <option value="spells">Spells</option>
+            </select>
+          ) : (
+            <span className={styles.value}>{critModAppliesTo}</span>
+          )}
+        </div>
+      </div>
 
       </div>{/* scrollBody */}
 

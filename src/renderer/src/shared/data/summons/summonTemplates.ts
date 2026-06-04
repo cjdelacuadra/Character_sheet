@@ -848,7 +848,72 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       }
     ],
     defaultNotes: 'Heals allies whenever it casts healing magic.'
-  }
+  },
+
+  {
+    id: 'familiar-imp',
+    name: 'Familiar (Imp)',
+    type: 'creature',
+    source: 'class-feature',
+    maxHp: 10,
+    ac: 13,
+    speed: '20 ft, fly 40 ft',
+    initiativeMod: 1,
+    actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
+    attacks: [
+      { id: 'sting', name: 'Sting', toHit: '+5', damage: '1d4+3 piercing + 3d6 poison', damageType: 'piercing' },
+    ],
+    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.'
+  },
+
+  {
+    id: 'familiar-pseudodragon',
+    name: 'Familiar (Pseudodragon)',
+    type: 'dragon',
+    source: 'class-feature',
+    maxHp: 7,
+    ac: 13,
+    speed: '15 ft, fly 60 ft',
+    initiativeMod: 2,
+    actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
+    attacks: [
+      { id: 'sting', name: 'Sting', toHit: '+4', damage: '1d4+2 piercing + 3d6 poison', damageType: 'piercing' },
+      { id: 'bite', name: 'Bite', toHit: '+4', damage: '1d4+2 piercing', damageType: 'piercing' },
+    ],
+    defaultNotes: 'Pact Chain familiar. Can sense nearby poison and magic.'
+  },
+
+  {
+    id: 'familiar-quasit',
+    name: 'Familiar (Quasit)',
+    type: 'creature',
+    source: 'class-feature',
+    maxHp: 7,
+    ac: 13,
+    speed: '40 ft, fly 40 ft',
+    initiativeMod: 2,
+    actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
+    attacks: [
+      { id: 'claws', name: 'Claws', toHit: '+4', damage: '1d4+3 slashing + 1d4 poison', damageType: 'slashing' },
+    ],
+    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.'
+  },
+
+  {
+    id: 'familiar-sprite',
+    name: 'Familiar (Sprite)',
+    type: 'fey',
+    source: 'class-feature',
+    maxHp: 2,
+    ac: 13,
+    speed: '10 ft, fly 40 ft',
+    initiativeMod: 3,
+    actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
+    attacks: [
+      { id: 'longbow', name: 'Longbow', toHit: '+6', damage: '1 piercing + sleep poison', damageType: 'piercing', notes: 'Poison: target must succeed on CON save or fall unconscious for 1 minute' },
+    ],
+    defaultNotes: 'Pact Chain familiar. Can cast Invisibility on itself.'
+  },
 ]
 
 export let SUMMON_TEMPLATE_BY_ID =

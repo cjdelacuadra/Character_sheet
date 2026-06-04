@@ -84,6 +84,7 @@ export const CLASSES: ClassDef[] = [
     resources: [
       { name: 'Channel Divinity', recoverOn: 'short', scalingTable: { 1:1, 2:1, 3:1, 4:1, 5:1, 6:2, 18:3 } },
       { name: 'Divine Intervention', recoverOn: 'long', minLevel: 10, fixedTotal: 1 },
+      { name: 'Eyes of Night', recoverOn: 'long', minLevel: 1, scalingPer: 'wismod' },
     ],
   },
   {
