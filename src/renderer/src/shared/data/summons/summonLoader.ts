@@ -42,7 +42,17 @@ export async function loadSummonTemplatesFromDisk(): Promise<void> {
   }
   try {
     const parsed = JSON.parse(raw) as SummonTemplate[]
-    if (Array.isArray(parsed)) setSummonTemplatesData(parsed)
+    if (Array.isArray(parsed)) {
+      // Merge: keep disk entries (preserving user edits), append any new built-in
+      // templates that were added to code since the file was last written.
+      const diskIds = new Set(parsed.map(t => t.id))
+      const merged = [
+        ...parsed,
+        ...SUMMON_TEMPLATES.filter(t => !diskIds.has(t.id)),
+      ]
+      setSummonTemplatesData(merged)
+      if (merged.length > parsed.length) await persist(merged)
+    }
   } catch (e) {
     console.error('[summonLoader] Failed to parse summonTemplates.json, using defaults', e)
   }

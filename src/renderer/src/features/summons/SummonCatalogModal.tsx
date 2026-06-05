@@ -29,7 +29,9 @@ export function SummonCatalogModal({ mode, onPick, onClose }: Props) {
   const [creating, setCreating] = useState(false)
   // Bumped after catalog mutations to re-read the module array.
   const [version, setVersion] = useState(0)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(SUMMON_TEMPLATES.map(t => t.type))
+  )
 
   const templates = SUMMON_TEMPLATES
     .filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
