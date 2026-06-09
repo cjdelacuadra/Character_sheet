@@ -35,6 +35,7 @@ export function CharacterView() {
   const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, shortRest, longRest, levelUp, applyPendingAsi, setTempHp, summonFromTemplate, removeSummon, updateSummonState, newSummonTurn, clearAllSummons } = useAppStore()
 
   const [restOpen, setRestOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [equipOpen, setEquipOpen] = useState(false)
   const [shopOpen, setShopOpen] = useState(false)
   const [sharedFilter, setSharedFilter] = useState<ShopItemKind | null>(null)
@@ -103,6 +104,14 @@ export function CharacterView() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth >= 1000) setDrawerOpen(false)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const char = activeCharacterId ? characters[activeCharacterId] : null
   if (!char) return null
 
@@ -117,6 +126,8 @@ export function CharacterView() {
       <CharacterHeader
         character={char}
         update={update}
+        drawerOpen={drawerOpen}
+        onDrawerToggle={() => setDrawerOpen(v => !v)}
         onLevelUp={() => {
           const newLevel = char.level + 1
           const subclassUnlockLevel = SUBCLASSES_BY_CLASS[char.classId]?.[0]?.unlocksAtLevel
@@ -153,8 +164,15 @@ export function CharacterView() {
         />
       )}
 
+      {drawerOpen && (
+        <div
+          className={styles.drawerBackdrop}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
       <div className={styles.columns}>
-        <aside className={styles.leftCol}>
+        <aside className={`${styles.leftCol}${drawerOpen ? ` ${styles.leftColOpen}` : ''}`}>
           <VitalsPanel character={char} update={update} onTempHp={(amt) => setTempHp(char.id, amt)} onDelete={() => { deleteCharacter(char.id); exitCharacter() }} />
           <ConditionsPanel character={char} update={update} />
           <SummonsPanel

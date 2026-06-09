@@ -14,9 +14,11 @@ interface Props {
   onBack: () => void
   onEquipToggle: () => void
   equipOpen: boolean
+  drawerOpen?: boolean
+  onDrawerToggle?: () => void
 }
 
-export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen }: Props) {
+export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen, drawerOpen, onDrawerToggle }: Props) {
   const [xpEdit, setXpEdit] = useState<string | null>(null)
   const { theme, toggle } = useTheme()
   const xpNext = xpForNextLevel(char.level)
@@ -92,6 +94,13 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
         <span className={styles.headerLabel}>Experience Points</span>
       </div>
       <div className={`${styles.headerCell} ${styles.headerActions}`}>
+        {onDrawerToggle && (
+          <button
+            className={`${styles.drawerBtn}${drawerOpen ? ` ${styles.drawerBtnActive}` : ''}`}
+            onClick={onDrawerToggle}
+            title="Toggle stats panel"
+          >â˜°</button>
+        )}
         <button
           className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
           onClick={onEquipToggle}

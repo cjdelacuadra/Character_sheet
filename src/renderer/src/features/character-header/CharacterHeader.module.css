@@ -47,3 +47,24 @@
 .themeBtn:hover { border-color: var(--accent); color: var(--accent); }
 .backBtn { padding: 4px 10px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; margin-left: auto; }
 .backBtn:hover { border-color: var(--danger); color: var(--danger); }
+
+/* â”€â”€ Drawer toggle â€” only visible on tablet (max-width: 999px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.drawerBtn {
+  display: none;
+  padding: 4px 10px;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.drawerBtn:hover { border-color: var(--accent); color: var(--accent); }
+.drawerBtnActive { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.1); }
+
+@media (max-width: 999px) {
+  .drawerBtn { display: flex; align-items: center; justify-content: center; }
+}

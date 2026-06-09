@@ -6,7 +6,7 @@ declare module '*.module.css' {
 }
 
 interface Window {
-  characterStore: {
+  characterStore?: {
     saveCharacter: (id: string, data: unknown) => Promise<{ ok: boolean }>
     loadCharacter: (id: string) => Promise<unknown>
     listCharacters: () => Promise<string[]>
@@ -15,9 +15,12 @@ interface Window {
   appLogger?: {
     logError: (source: string, message: string) => Promise<void>
   }
-  equipmentStore: {
+  equipmentStore?: {
     readFile:   (filename: string) => Promise<string | null>
     writeFile:  (filename: string, content: string) => Promise<{ ok: true }>
     fileExists: (filename: string) => Promise<boolean>
+  }
+  assetStore?: {
+    listFiles: (folderPath: string) => Promise<string[]>
   }
 }

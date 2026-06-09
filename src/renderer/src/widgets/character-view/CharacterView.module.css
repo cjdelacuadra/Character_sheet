@@ -1,5 +1,6 @@
 .view {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2330,4 +2331,58 @@
   font-size: 11px;
   font-weight: 700;
   vertical-align: middle;
+}
+
+/* â”€â”€ Drawer backdrop (hidden on desktop) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.drawerBackdrop {
+  display: none;
+}
+
+/* â”€â”€ TABLET PORTRAIT LAYOUT (768px â€“ 999px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* At this width the 3-column layout does not fit. The left column becomes  */
+/* a fixed slide-in drawer. Center and right columns fill the full width.   */
+@media (max-width: 999px) {
+
+  /* Left column: hidden off-screen by default */
+  .leftCol {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 300;
+    width: 300px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    border-radius: 0;
+    border-top: none;
+    border-left: none;
+    overflow-y: auto;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    flex-shrink: 0;
+  }
+
+  /* Applied by CharacterView.tsx when drawer is open */
+  .leftColOpen {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Backdrop: covers the rest of the screen when drawer is open */
+  .drawerBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 299;
+    background: rgba(0, 0, 0, 0.52);
+  }
+
+  /* Remove hardcoded min-widths so columns fill the available space */
+  .centerCol {
+    min-width: 0;
+  }
+
+  .rightCol {
+    min-width: 0;
+  }
 }

@@ -1,0 +1,739 @@
+========================================================================
+CODEX IMPLEMENTATION PLAN
+Project : DnD Character Sheet
+Goal    : Capacitor iOS support + tablet portrait responsive layout
+Date    : 2026-06-09
+========================================================================
+
+This plan is complete and self-contained.
+Do NOT assume anything outside this document.
+If any prerequisite check fails, STOP and report which check failed.
+If any "find" string is not found in the target file, STOP and report it.
+Do not skip steps. Execute in order.
+
+------------------------------------------------------------------------
+PROJECT ROOT
+------------------------------------------------------------------------
+All relative paths in this plan are relative to the project root.
+The project root is the directory that contains package.json.
+
+------------------------------------------------------------------------
+PREREQUISITE CHECKS
+------------------------------------------------------------------------
+Verify every item below before writing any code.
+If any check fails: STOP.
+
+CHECK 1
+  File must exist: src/renderer/src/services/ipc.ts
+  File must contain the exact string: window.characterStore.saveCharacter
+  File must contain the exact string: window.equipmentStore.readFile
+
+CHECK 2
+  File must exist: src/renderer/src/widgets/character-view/CharacterView.tsx
+  File must contain the exact string: className={styles.leftCol}
+  File must contain the exact string: className={styles.columns}
+
+CHECK 3
+  File must exist: src/renderer/src/widgets/character-view/CharacterView.module.css
+  File must contain the exact string: .leftCol {
+  File must contain the exact string: .columns {
+
+CHECK 4
+  File must exist: src/renderer/src/features/character-header/CharacterHeader.tsx
+  File must contain the exact string: interface Props {
+  File must contain the exact string: onEquipToggle: () => void
+
+CHECK 5
+  File must exist: src/renderer/src/features/character-header/CharacterHeader.module.css
+  File must contain the exact string: .backBtn
+
+CHECK 6
+  File must exist: src/renderer/src/env.d.ts
+  File must contain the exact string: interface Window {
+  File must contain the exact string: characterStore:
+
+CHECK 7
+  File must exist: src/renderer/index.html
+  File must contain the exact string: <meta name="viewport"
+
+CHECK 8
+  File must exist: src/renderer/src/app/global.css
+  File must contain the exact string: body {
+  File must contain the exact string: #root {
+
+CHECK 9
+  File must NOT exist: capacitor.config.ts
+  File must NOT exist: src/renderer/src/services/storageAdapter.ts
+  If either already exists: STOP. Ask for instructions before overwriting.
+
+------------------------------------------------------------------------
+STEP 1 — INSTALL NPM PACKAGES
+------------------------------------------------------------------------
+Run this command from the project root:
+
+  npm install @capacitor/core@^7.0.0 @capacitor/filesystem@^7.0.0
+
+Run this command from the project root:
+
+  npm install --save-dev @capacitor/cli@^7.0.0 @capacitor/ios@^7.0.0
+
+After both commands complete, verify:
+  node_modules/@capacitor/core         must exist
+  node_modules/@capacitor/filesystem   must exist
+  node_modules/@capacitor/cli          must exist
+  node_modules/@capacitor/ios          must exist
+If any is missing: STOP.
+
+------------------------------------------------------------------------
+STEP 2 — MODIFY package.json (add build scripts)
+------------------------------------------------------------------------
+File: package.json
+
+Locate the "scripts" object. It currently contains keys including
+"dev", "build", "preview", "typecheck", "test", "test:watch", "gen:csv".
+
+Add the following three entries to the "scripts" object.
+Do not remove or change any existing entries.
+
+  "build:ios": "electron-vite build && cap sync ios",
+  "cap:sync": "cap sync",
+  "cap:open": "cap open ios"
+
+Placement: insert after the existing "build" entry.
+
+Verify after: the scripts object contains all original keys plus the
+three new ones listed above.
+
+------------------------------------------------------------------------
+STEP 3 — CREATE FILE: capacitor.config.ts
+------------------------------------------------------------------------
+Location: project root (same directory as package.json)
+Action: CREATE — this file does not exist yet.
+
+Write the following content exactly:
+
+------ BEGIN FILE CONTENT ------
+import type { CapacitorConfig } from '@capacitor/cli'
+
+const config: CapacitorConfig = {
+  appId: 'com.cjdelacuadra.charactersheet',
+  appName: 'DnD Character Companion',
+  webDir: 'out/renderer',
+  ios: {
+    contentInset: 'automatic',
+  },
+}
+
+export default config
+------ END FILE CONTENT ------
+
+------------------------------------------------------------------------
+STEP 4 — CREATE FILE: src/renderer/src/services/storageAdapter.ts
+------------------------------------------------------------------------
+Location: src/renderer/src/services/storageAdapter.ts
+Action: CREATE — this file does not exist yet.
+
+This file must contain:
+
+  A. An exported TypeScript interface named StorageAdapter with these
+     exact method signatures:
+
+       saveCharacter(id: string, data: unknown): Promise<void>
+       loadCharacter(id: string): Promise<unknown>
+       listCharacters(): Promise<string[]>
+       deleteCharacter(id: string): Promise<void>
+       readFile(filename: string): Promise<string | null>
+       writeFile(filename: string, content: string): Promise<void>
+       fileExists(filename: string): Promise<boolean>
+
+  B. A class named ElectronAdapter that implements StorageAdapter.
+     Each method delegates to the window globals as follows.
+     All window globals are accessed with the non-null assertion operator (!).
+
+       saveCharacter(id, data)
+         -> await window.characterStore!.saveCharacter(id, data)
+         -> return void
+
+       loadCharacter(id)
+         -> return window.characterStore!.loadCharacter(id)
+
+       listCharacters()
+         -> return window.characterStore!.listCharacters()
+
+       deleteCharacter(id)
+         -> await window.characterStore!.deleteCharacter(id)
+         -> return void
+
+       readFile(filename)
+         -> return window.equipmentStore!.readFile(filename)
+
+       writeFile(filename, content)
+         -> await window.equipmentStore!.writeFile(filename, content)
+         -> return void
+
+       fileExists(filename)
+         -> return window.equipmentStore!.fileExists(filename)
+
+  C. A class named CapacitorAdapter that implements StorageAdapter.
+
+     At the top of the file, import from '@capacitor/filesystem':
+       import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
+
+     The class uses two module-level string constants (define outside the class):
+       const CHAR_DIR  = 'characters'
+       const EQUIP_DIR = 'equipment'
+
+     All Filesystem calls use:
+       directory: Directory.Data
+       encoding:  Encoding.UTF8   (for read/write file operations only)
+
+     The class has a private method:
+       private async ensureDir(dir: string): Promise<void>
+         Calls Filesystem.mkdir with:
+           path:      dir
+           directory: Directory.Data
+           recursive: true
+         Wraps the call in try/catch. On any error, does nothing (directory
+         likely already exists).
+
+     Method implementations:
+
+       saveCharacter(id, data)
+         1. await this.ensureDir(CHAR_DIR)
+         2. await Filesystem.writeFile({
+              path:      CHAR_DIR + '/' + id + '.json',
+              data:      JSON.stringify(data, null, 2),
+              directory: Directory.Data,
+              encoding:  Encoding.UTF8,
+            })
+
+       loadCharacter(id)
+         1. try:
+              const result = await Filesystem.readFile({
+                path:      CHAR_DIR + '/' + id + '.json',
+                directory: Directory.Data,
+                encoding:  Encoding.UTF8,
+              })
+              return JSON.parse(result.data as string)
+         2. catch any error: return null
+
+       listCharacters()
+         1. await this.ensureDir(CHAR_DIR)
+         2. try:
+              const result = await Filesystem.readdir({
+                path:      CHAR_DIR,
+                directory: Directory.Data,
+              })
+              Filter result.files:
+                keep only entries where f.name ends with '.json'
+                AND f.name does NOT start with '__'
+              Map the filtered entries:
+                for each f, return f.name with the last 5 characters ('.json') removed
+              return the mapped array
+         3. catch any error: return []
+
+       deleteCharacter(id)
+         1. try:
+              await Filesystem.deleteFile({
+                path:      CHAR_DIR + '/' + id + '.json',
+                directory: Directory.Data,
+              })
+         2. catch any error: do nothing
+
+       readFile(filename)
+         1. try:
+              const result = await Filesystem.readFile({
+                path:      EQUIP_DIR + '/' + filename,
+                directory: Directory.Data,
+                encoding:  Encoding.UTF8,
+              })
+              return result.data as string
+         2. catch any error: return null
+
+       writeFile(filename, content)
+         1. await this.ensureDir(EQUIP_DIR)
+         2. await Filesystem.writeFile({
+              path:      EQUIP_DIR + '/' + filename,
+              data:      content,
+              directory: Directory.Data,
+              encoding:  Encoding.UTF8,
+            })
+
+       fileExists(filename)
+         1. try:
+              await Filesystem.stat({
+                path:      EQUIP_DIR + '/' + filename,
+                directory: Directory.Data,
+              })
+              return true
+         2. catch any error: return false
+
+  D. A module-level variable for memoization:
+       let _adapter: StorageAdapter | null = null
+
+  E. An exported function named getStorageAdapter():
+       Return type: StorageAdapter
+       Logic:
+         if _adapter is null:
+           Check: typeof (window as any).characterStore !== 'undefined'
+           If true:  _adapter = new ElectronAdapter()
+           If false: _adapter = new CapacitorAdapter()
+         return _adapter
+
+------------------------------------------------------------------------
+STEP 5 — REPLACE FILE: src/renderer/src/services/ipc.ts
+------------------------------------------------------------------------
+File: src/renderer/src/services/ipc.ts
+Action: REPLACE entire file content.
+
+Write the following content exactly:
+
+------ BEGIN FILE CONTENT ------
+import { getStorageAdapter } from './storageAdapter'
+import type { Character } from '@/entities/character/types'
+
+const CUSTOM_ITEMS_KEY = '__customItems__'
+
+export const ipcService = {
+  save: (id: string, character: Character): void => {
+    getStorageAdapter().saveCharacter(id, character)
+  },
+
+  load: (id: string): Promise<Character | null> => {
+    return getStorageAdapter().loadCharacter(id) as Promise<Character | null>
+  },
+
+  list: (): Promise<string[]> => {
+    return getStorageAdapter().listCharacters()
+  },
+
+  delete: (id: string): void => {
+    getStorageAdapter().deleteCharacter(id)
+  },
+
+  saveCustomItems: (items: Record<string, unknown>): void => {
+    getStorageAdapter().saveCharacter(CUSTOM_ITEMS_KEY, items)
+  },
+
+  loadCustomItems: (): Promise<Record<string, unknown> | null> => {
+    return getStorageAdapter().loadCharacter(CUSTOM_ITEMS_KEY) as Promise<Record<string, unknown> | null>
+  },
+}
+
+export const equipmentIpc = {
+  readFile: (filename: string): Promise<string | null> =>
+    getStorageAdapter().readFile(filename),
+
+  writeFile: (filename: string, content: string): Promise<{ ok: true }> =>
+    getStorageAdapter().writeFile(filename, content).then(() => ({ ok: true as const })),
+
+  fileExists: (filename: string): Promise<boolean> =>
+    getStorageAdapter().fileExists(filename),
+}
+------ END FILE CONTENT ------
+
+------------------------------------------------------------------------
+STEP 6 — MODIFY: src/renderer/src/env.d.ts
+------------------------------------------------------------------------
+File: src/renderer/src/env.d.ts
+
+Find this exact block (the entire Window interface):
+
+  interface Window {
+    characterStore: {
+      saveCharacter: (id: string, data: unknown) => Promise<{ ok: boolean }>
+      loadCharacter: (id: string) => Promise<unknown>
+      listCharacters: () => Promise<string[]>
+      deleteCharacter: (id: string) => Promise<{ ok: boolean }>
+    }
+    appLogger?: {
+      logError: (source: string, message: string) => Promise<void>
+    }
+    equipmentStore: {
+      readFile:   (filename: string) => Promise<string | null>
+      writeFile:  (filename: string, content: string) => Promise<{ ok: true }>
+      fileExists: (filename: string) => Promise<boolean>
+    }
+  }
+
+Replace with:
+
+  interface Window {
+    characterStore?: {
+      saveCharacter: (id: string, data: unknown) => Promise<{ ok: boolean }>
+      loadCharacter: (id: string) => Promise<unknown>
+      listCharacters: () => Promise<string[]>
+      deleteCharacter: (id: string) => Promise<{ ok: boolean }>
+    }
+    appLogger?: {
+      logError: (source: string, message: string) => Promise<void>
+    }
+    equipmentStore?: {
+      readFile:   (filename: string) => Promise<string | null>
+      writeFile:  (filename: string, content: string) => Promise<{ ok: true }>
+      fileExists: (filename: string) => Promise<boolean>
+    }
+    assetStore?: {
+      listFiles: (folderPath: string) => Promise<string[]>
+    }
+  }
+
+Changes made: characterStore and equipmentStore now have ? (optional).
+assetStore is a new optional property added at the end.
+appLogger was already optional — do not change it.
+
+------------------------------------------------------------------------
+STEP 7 — MODIFY: src/renderer/index.html
+------------------------------------------------------------------------
+File: src/renderer/index.html
+
+Find this exact line:
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+Replace with these three lines:
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+------------------------------------------------------------------------
+STEP 8 — MODIFY: src/renderer/src/app/global.css
+------------------------------------------------------------------------
+File: src/renderer/src/app/global.css
+
+CHANGE 8A
+Find this exact block:
+body {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+Replace with:
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+CHANGE 8B
+Find this exact block:
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+Replace with:
+#root {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+CHANGE 8C
+Append the following block at the very end of the file.
+Do not modify any existing content — only add after the last line.
+
+/* ── Touch targets — all tappable elements on tablet ─────────────────── */
+@media (max-width: 1099px) {
+  button,
+  [role="button"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+------------------------------------------------------------------------
+STEP 9 — MODIFY: src/renderer/src/widgets/character-view/CharacterView.module.css
+------------------------------------------------------------------------
+File: src/renderer/src/widgets/character-view/CharacterView.module.css
+
+CHANGE 9A
+Find this exact text:
+.view {
+  height: 100vh;
+  display: flex;
+
+Replace with:
+.view {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+
+CHANGE 9B
+Append the following block at the very end of the file.
+The last existing rule in the file is .enchantBadge { ... }.
+Add the new content after it.
+
+/* ── Drawer backdrop (hidden on desktop) ───────────────────────────────── */
+.drawerBackdrop {
+  display: none;
+}
+
+/* ── TABLET PORTRAIT LAYOUT (768px – 999px) ──────────────────────────── */
+/* At this width the 3-column layout does not fit. The left column becomes  */
+/* a fixed slide-in drawer. Center and right columns fill the full width.   */
+@media (max-width: 999px) {
+
+  /* Left column: hidden off-screen by default */
+  .leftCol {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 300;
+    width: 300px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    border-radius: 0;
+    border-top: none;
+    border-left: none;
+    overflow-y: auto;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    flex-shrink: 0;
+  }
+
+  /* Applied by CharacterView.tsx when drawer is open */
+  .leftColOpen {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Backdrop: covers the rest of the screen when drawer is open */
+  .drawerBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 299;
+    background: rgba(0, 0, 0, 0.52);
+  }
+
+  /* Remove hardcoded min-widths so columns fill the available space */
+  .centerCol {
+    min-width: 0;
+  }
+
+  .rightCol {
+    min-width: 0;
+  }
+}
+
+------------------------------------------------------------------------
+STEP 10 — MODIFY: src/renderer/src/widgets/character-view/CharacterView.tsx
+------------------------------------------------------------------------
+File: src/renderer/src/widgets/character-view/CharacterView.tsx
+
+CHANGE 10A — Add drawerOpen state variable
+Find this exact text (two consecutive lines):
+  const [restOpen, setRestOpen] = useState(false)
+  const [equipOpen, setEquipOpen] = useState(false)
+
+Replace with:
+  const [restOpen, setRestOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [equipOpen, setEquipOpen] = useState(false)
+
+CHANGE 10B — Add resize effect after the keyboard effect
+The file contains this exact useEffect block for the keyboard shortcut:
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      if (e.key === 'r' || e.key === 'R') setDiceOpen(v => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+Replace with:
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      if (e.key === 'r' || e.key === 'R') setDiceOpen(v => !v)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth >= 1000) setDrawerOpen(false)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+CHANGE 10C — Pass drawer props to CharacterHeader
+Find this exact text:
+      <CharacterHeader
+        character={char}
+        update={update}
+        onLevelUp={() => {
+
+Replace with:
+      <CharacterHeader
+        character={char}
+        update={update}
+        drawerOpen={drawerOpen}
+        onDrawerToggle={() => setDrawerOpen(v => !v)}
+        onLevelUp={() => {
+
+CHANGE 10D — Add backdrop and apply leftColOpen modifier class
+Find this exact text:
+      <div className={styles.columns}>
+        <aside className={styles.leftCol}>
+
+Replace with:
+      {drawerOpen && (
+        <div
+          className={styles.drawerBackdrop}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      <div className={styles.columns}>
+        <aside className={`${styles.leftCol}${drawerOpen ? ` ${styles.leftColOpen}` : ''}`}>
+
+------------------------------------------------------------------------
+STEP 11 — MODIFY: src/renderer/src/features/character-header/CharacterHeader.tsx
+------------------------------------------------------------------------
+File: src/renderer/src/features/character-header/CharacterHeader.tsx
+
+CHANGE 11A — Add optional props to the Props interface
+Find this exact block:
+interface Props {
+  character: Character
+  update: (patch: Partial<Character>) => void
+  onLevelUp: () => void
+  onRestToggle: () => void
+  onBack: () => void
+  onEquipToggle: () => void
+  equipOpen: boolean
+}
+
+Replace with:
+interface Props {
+  character: Character
+  update: (patch: Partial<Character>) => void
+  onLevelUp: () => void
+  onRestToggle: () => void
+  onBack: () => void
+  onEquipToggle: () => void
+  equipOpen: boolean
+  drawerOpen?: boolean
+  onDrawerToggle?: () => void
+}
+
+CHANGE 11B — Destructure new props in function signature
+Find this exact text:
+export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen }: Props) {
+
+Replace with:
+export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen, drawerOpen, onDrawerToggle }: Props) {
+
+CHANGE 11C — Add drawer toggle button inside headerActions cell
+Find this exact text:
+      <div className={`${styles.headerCell} ${styles.headerActions}`}>
+        <button
+          className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
+          onClick={onEquipToggle}
+        >Equipment</button>
+
+Replace with:
+      <div className={`${styles.headerCell} ${styles.headerActions}`}>
+        {onDrawerToggle && (
+          <button
+            className={`${styles.drawerBtn}${drawerOpen ? ` ${styles.drawerBtnActive}` : ''}`}
+            onClick={onDrawerToggle}
+            title="Toggle stats panel"
+          >☰</button>
+        )}
+        <button
+          className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
+          onClick={onEquipToggle}
+        >Equipment</button>
+
+------------------------------------------------------------------------
+STEP 12 — MODIFY: src/renderer/src/features/character-header/CharacterHeader.module.css
+------------------------------------------------------------------------
+File: src/renderer/src/features/character-header/CharacterHeader.module.css
+
+Append the following at the very end of the file.
+Do not modify any existing content — only add after the last line.
+
+/* ── Drawer toggle — only visible on tablet (max-width: 999px) ─────────── */
+.drawerBtn {
+  display: none;
+  padding: 4px 10px;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.drawerBtn:hover { border-color: var(--accent); color: var(--accent); }
+.drawerBtnActive { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.1); }
+
+@media (max-width: 999px) {
+  .drawerBtn { display: flex; align-items: center; justify-content: center; }
+}
+
+------------------------------------------------------------------------
+STEP 13 — VERIFICATION
+------------------------------------------------------------------------
+
+RUN: npm run typecheck
+
+Expected result: the command exits with errors ONLY in these pre-existing
+files (errors that existed before this plan was applied):
+  src/renderer/src/__tests__/characterSlice.test.ts
+  src/renderer/src/__tests__/charCalculations.test.ts
+  src/renderer/src/__tests__/equipment.test.ts
+  src/renderer/src/features/character-header/EquipmentLayout.tsx
+  src/renderer/src/shared/data/equipment/gear.ts
+
+If there are TypeScript errors in ANY of the following files: STOP.
+  capacitor.config.ts
+  src/renderer/src/services/storageAdapter.ts
+  src/renderer/src/services/ipc.ts
+  src/renderer/src/env.d.ts
+  src/renderer/src/widgets/character-view/CharacterView.tsx
+  src/renderer/src/features/character-header/CharacterHeader.tsx
+  src/renderer/src/app/global.css
+
+RUN: git status
+
+Expected modified files (13 total):
+  package.json
+  package-lock.json
+  src/renderer/index.html
+  src/renderer/src/app/global.css
+  src/renderer/src/env.d.ts
+  src/renderer/src/features/character-header/CharacterHeader.module.css
+  src/renderer/src/features/character-header/CharacterHeader.tsx
+  src/renderer/src/services/ipc.ts
+  src/renderer/src/widgets/character-view/CharacterView.module.css
+  src/renderer/src/widgets/character-view/CharacterView.tsx
+
+Expected untracked (new) files:
+  capacitor.config.ts
+  src/renderer/src/services/storageAdapter.ts
+
+If any file in these two lists is absent from git status: STOP.
+
+------------------------------------------------------------------------
+END OF PLAN
+------------------------------------------------------------------------
