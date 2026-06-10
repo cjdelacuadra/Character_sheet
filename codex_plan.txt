@@ -1,308 +1,1949 @@
 ========================================================================
-CODEX IMPLEMENTATION PLAN (REVISED)
-Project : DnD Character Sheet
-Goal    : Wire up drawer state in CharacterView + CharacterHeader,
-          and replace ipc.ts direct window.* calls with the adapter
+CODEX MASTER PLAN
+Project : DnD Character Companion
+Source  : Consolidated from CHECKLIST.md, SUBCLASS_AUDIT.md,
+          V2_DESIGN_BLUEPRINT.md, spells_to_implement.md,
+          src/renderer/src/shared/data/needed.md,
+          src/renderer/src/shared/data/todo.md,
+          src/renderer/src/features/spells/needed.md,
+          src/renderer/public/assets/spells/icons/needed.md,
+          src/renderer/public/assets/spells/aura/buff/needed.md,
+          src/renderer/public/assets/spells/aura/debuff/needed.md,
+          src/renderer/public/assets/spells/effects/summon/needed.md,
+          src/renderer/public/assets/spells/effects/wall/needed.md
 Date    : 2026-06-09
 ========================================================================
 
-Context
--------
-The following work is ALREADY DONE — do not touch these files:
-  - capacitor.config.ts               (created)
-  - src/renderer/src/services/storageAdapter.ts  (created)
-  - package.json                      (scripts + Capacitor packages added)
-  - src/renderer/index.html           (viewport-fit=cover meta tags added)
-  - src/renderer/src/app/global.css   (100dvh + safe-area + touch targets added)
-  - src/renderer/src/env.d.ts         (window globals made optional, assetStore added)
-  - src/renderer/src/widgets/character-view/CharacterView.module.css
-                                      (drawerBackdrop + tablet media query added)
-  - src/renderer/src/features/character-header/CharacterHeader.module.css
-                                      (drawerBtn CSS added)
+This plan is complete and self-contained.
+Do NOT assume anything outside this document.
+If any prerequisite check fails, STOP and report which check failed.
+If any "find" string is not found in the target file, STOP and report it.
+Do not skip steps. Execute sections in order unless a section explicitly
+states it can be deferred.
 
-Three files still need changes:
-  1. src/renderer/src/services/ipc.ts
-  2. src/renderer/src/widgets/character-view/CharacterView.tsx
-  3. src/renderer/src/features/character-header/CharacterHeader.tsx
 
 ------------------------------------------------------------------------
-PREREQUISITE CHECKS — STOP IF ANY FAIL
+GLOBAL STOP CONDITIONS
 ------------------------------------------------------------------------
 
-CHECK 1
-  File must exist: src/renderer/src/services/ipc.ts
-  File must contain the exact string:
-    window.characterStore.saveCharacter(id, character)
-  If not found: STOP. File may already be patched or moved.
+Before implementing any section below, verify:
 
-CHECK 2
-  File must exist: src/renderer/src/widgets/character-view/CharacterView.tsx
-  File must contain the exact string:
-    const [restOpen, setRestOpen] = useState(false)
-  File must NOT contain the string:
-    drawerOpen
-  If drawerOpen is already present: STOP. Step 2 may already be applied.
+  1. The project builds without errors: run "npm run build"
+     If the build fails on any file you have not touched: STOP and report.
 
-CHECK 3
-  File must exist: src/renderer/src/features/character-header/CharacterHeader.tsx
-  File must contain the exact string:
-    onEquipToggle: () => void
-  File must NOT contain the string:
-    onDrawerToggle
-  If onDrawerToggle is already present: STOP. Step 3 may already be applied.
+  2. TypeScript type check passes on renderer: run "npm run typecheck"
+     The following pre-existing errors are acceptable and must be ignored:
+       - Any error in src/renderer/src/__tests__/ (test files)
+       - src/renderer/src/features/character-header/EquipmentLayout.tsx line 535
+         ('quiver' does not exist in type Partial<Record<ShopItemKind, keyof Equipment>>)
+       - src/renderer/src/shared/data/equipment/gear.ts lines 165, 166, 168
+         (Type '"quiver"' is not assignable to type 'AccessorySlot')
+     Any error in a file you have modified that is not listed above: STOP.
 
-CHECK 4
-  File must exist: src/renderer/src/services/storageAdapter.ts
-  File must contain the exact string:
-    export function getStorageAdapter
-  If not found: STOP. The adapter layer is missing — do not proceed.
+  3. Any section that requires a data file listed in SECTION 3 (DATA FILES
+     NEEDED) must not begin until that data file exists.
+     If you reach an implementation step and the data file it depends on is
+     missing: STOP and report the missing file name.
 
-------------------------------------------------------------------------
-STEP 1 — REPLACE: src/renderer/src/services/ipc.ts
-------------------------------------------------------------------------
-File: src/renderer/src/services/ipc.ts
-Action: REPLACE entire file content. Discard all existing lines.
 
-Write the following content exactly:
+========================================================================
+SECTION 1 — IMMEDIATE FEATURE BACKLOG
+========================================================================
 
------- BEGIN FILE CONTENT ------
-import { getStorageAdapter } from './storageAdapter'
-import type { Character } from '@/entities/character/types'
+Items below are NOT yet implemented. Implement in priority order.
 
-const CUSTOM_ITEMS_KEY = '__customItems__'
+Priority 1 of 3:
 
-export const ipcService = {
-  save: (id: string, character: Character): void => {
-    getStorageAdapter().saveCharacter(id, character)
-  },
+Feature: Correct Display of Selected Features (FeaturesPanel)
 
-  load: (id: string): Promise<Character | null> => {
-    return getStorageAdapter().loadCharacter(id) as Promise<Character | null>
-  },
+Goal:
+  When a class feature card is clicked in FeaturesPanel, its full
+  description appears in the right detail column with a selection
+  highlight on the card.
 
-  list: (): Promise<string[]> => {
-    return getStorageAdapter().listCharacters()
-  },
+Minimum requirement:
+  Selected card gets the CSS class "featureCardSel" (border + tinted
+  background). Description, name, and level render in ActionDetailPanel.
 
-  delete: (id: string): void => {
-    getStorageAdapter().deleteCharacter(id)
-  },
+Success criteria:
+  - Clicking "Second Wind" in Features panel shows "Second Wind · Level 1"
+    and its full description in the right column.
+  - Clicking it again returns the right column to the empty/default state.
 
-  saveCustomItems: (items: Record<string, unknown>): void => {
-    getStorageAdapter().saveCharacter(CUSTOM_ITEMS_KEY, items)
-  },
-
-  loadCustomItems: (): Promise<Record<string, unknown> | null> => {
-    return getStorageAdapter().loadCharacter(CUSTOM_ITEMS_KEY) as Promise<Record<string, unknown> | null>
-  },
-}
-
-export const equipmentIpc = {
-  readFile: (filename: string): Promise<string | null> =>
-    getStorageAdapter().readFile(filename),
-
-  writeFile: (filename: string, content: string): Promise<{ ok: true }> =>
-    getStorageAdapter().writeFile(filename, content).then(() => ({ ok: true as const })),
-
-  fileExists: (filename: string): Promise<boolean> =>
-    getStorageAdapter().fileExists(filename),
-}
------- END FILE CONTENT ------
-
-Verify after: file no longer contains the string "window.characterStore"
-Verify after: file no longer contains the string "window.equipmentStore"
-If either string is still present: STOP.
+Test cases:
+  - Unit todo: selected feature card gets featureCardSel CSS class
+  - Visual test steps:
+    1. Open any character
+    2. Click "Second Wind" in the Features panel
+    3. Confirm right column shows "Second Wind - Level 1" and description
+    4. Click "Second Wind" again, right column returns to empty state
 
 ------------------------------------------------------------------------
-STEP 2 — MODIFY: src/renderer/src/widgets/character-view/CharacterView.tsx
-------------------------------------------------------------------------
-File: src/renderer/src/widgets/character-view/CharacterView.tsx
 
-Apply the following 4 changes in order.
-Each change is independent — apply them one at a time.
+Priority 2 of 3:
 
--- CHANGE 2A: Add drawerOpen state --
+Feature: Correct Application of Selected Features (FeaturesPanel)
 
-Find this exact text (two consecutive lines):
-  const [restOpen, setRestOpen] = useState(false)
-  const [equipOpen, setEquipOpen] = useState(false)
+Goal:
+  Class features that gate actions (Extra Attack, Spellcasting, Cunning
+  Action) appear in the Actions panel at exactly the correct level.
 
-Replace with:
-  const [restOpen, setRestOpen] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [equipOpen, setEquipOpen] = useState(false)
+Minimum requirement:
+  getAvailableActions() returns level-appropriate entries. Extra Attack
+  feature modifies the Attack action label/count for Fighter at level 5+.
 
--- CHANGE 2B: Add resize effect --
+Success criteria:
+  - Fighter level 4: no Extra Attack indicator on Attack action
+  - Fighter level 5: Attack action notes multiple attacks
+  - Rogue level 1: no Cunning Action; Rogue level 2: Cunning Action appears
 
-Find this exact block:
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-      if (e.key === 'r' || e.key === 'R') setDiceOpen(v => !v)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-Replace with:
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-      if (e.key === 'r' || e.key === 'R') setDiceOpen(v => !v)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  useEffect(() => {
-    function onResize() {
-      if (window.innerWidth >= 1000) setDrawerOpen(false)
-    }
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-
--- CHANGE 2C: Pass drawer props to CharacterHeader --
-
-Find this exact text:
-      <CharacterHeader
-        character={char}
-        update={update}
-        onLevelUp={() => {
-
-Replace with:
-      <CharacterHeader
-        character={char}
-        update={update}
-        drawerOpen={drawerOpen}
-        onDrawerToggle={() => setDrawerOpen(v => !v)}
-        onLevelUp={() => {
-
--- CHANGE 2D: Add backdrop and apply leftColOpen modifier --
-
-Find this exact text:
-      <div className={styles.columns}>
-        <aside className={styles.leftCol}>
-
-Replace with:
-      {drawerOpen && (
-        <div
-          className={styles.drawerBackdrop}
-          onClick={() => setDrawerOpen(false)}
-        />
-      )}
-
-      <div className={styles.columns}>
-        <aside className={`${styles.leftCol}${drawerOpen ? ` ${styles.leftColOpen}` : ''}`}>
-
-Verify after all 4 changes: file contains the string "drawerOpen"
-Verify after all 4 changes: file contains the string "drawerBackdrop"
-Verify after all 4 changes: file contains the string "leftColOpen"
-If any is missing: STOP.
+Test cases:
+  - Unit (passing): getAvailableActions(Rogue level 2) contains 'Cunning Action'
+  - Unit (passing): getAvailableActions(Rogue level 1) does not contain it
+  - Unit todo: Fighter level 5+ Attack action indicates multiple attacks
+  - Visual test steps:
+    1. Create Fighter level 5
+    2. Confirm Attack shows extra attack indicator
+    3. Create Fighter level 4, confirm single attack only
 
 ------------------------------------------------------------------------
-STEP 3 — MODIFY: src/renderer/src/features/character-header/CharacterHeader.tsx
-------------------------------------------------------------------------
-File: src/renderer/src/features/character-header/CharacterHeader.tsx
 
-Apply the following 3 changes in order.
+Priority 3 of 3:
 
--- CHANGE 3A: Add optional props to the Props interface --
+Feature: Subclass Selection When Creating a Character Above Unlock Level
 
-Find this exact block:
-interface Props {
-  character: Character
-  update: (patch: Partial<Character>) => void
-  onLevelUp: () => void
-  onRestToggle: () => void
-  onBack: () => void
-  onEquipToggle: () => void
-  equipOpen: boolean
-}
+Goal:
+  When creating a character at a level >= the subclass unlock level,
+  the subclass selector in Step 1 (Basics) is required before advancing.
 
-Replace with:
-interface Props {
-  character: Character
-  update: (patch: Partial<Character>) => void
-  onLevelUp: () => void
-  onRestToggle: () => void
-  onBack: () => void
-  onEquipToggle: () => void
-  equipOpen: boolean
-  drawerOpen?: boolean
-  onDrawerToggle?: () => void
-}
+Minimum requirement:
+  The subclassRequired flag in StepBasics fires correctly for all classes
+  based on SUBCLASSES_BY_CLASS[classId][0].unlocksAtLevel.
 
--- CHANGE 3B: Destructure the new props in the function signature --
+Success criteria:
+  - Fighter at level 3: "Ability Scores" button disabled until subclass chosen
+  - Fighter at level 2: button enabled without subclass
+  - Cleric at level 1: button disabled until domain chosen
 
-Find this exact text:
-export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen }: Props) {
+Test cases:
+  - Unit (passing): SUBCLASSES_BY_CLASS['Fighter'][0].unlocksAtLevel === 3
+  - Unit (passing): SUBCLASSES_BY_CLASS['Cleric'][0].unlocksAtLevel === 1
+  - Unit (passing): SUBCLASSES_BY_CLASS['Wizard'][0].unlocksAtLevel === 2
+  - Unit todo: StepBasics "Next" disabled for Fighter level 3 with no subclass
+  - Unit todo: StepBasics "Next" enabled for Fighter level 2 with no subclass
+  - Visual test steps:
+    1. New Character - Fighter - Level 3 - confirm "Ability Scores" is greyed
+    2. Select any Fighter subclass, button becomes active
+    3. Repeat for Wizard level 2 and Cleric level 1
 
-Replace with:
-export function CharacterHeader({ character: char, update, onLevelUp, onRestToggle, onBack, onEquipToggle, equipOpen, drawerOpen, onDrawerToggle }: Props) {
 
--- CHANGE 3C: Add drawer toggle button before the Equipment button --
+========================================================================
+SECTION 2 — CLASS FEATURE IMPLEMENTATION BACKLOG
+========================================================================
 
-Find this exact text:
-      <div className={`${styles.headerCell} ${styles.headerActions}`}>
-        <button
-          className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
-          onClick={onEquipToggle}
-        >Equipment</button>
+Status codes used below:
+  DONE         = mechanically implemented (changes computed stats or tracked actions)
+  DISPLAY ONLY = shown in FeaturesPanel / ActionDetailPanel but not in calculations
+  MISSING      = not surfaced in the UI at all
 
-Replace with:
-      <div className={`${styles.headerCell} ${styles.headerActions}`}>
-        {onDrawerToggle && (
-          <button
-            className={`${styles.drawerBtn}${drawerOpen ? ` ${styles.drawerBtnActive}` : ''}`}
-            onClick={onDrawerToggle}
-            title="Toggle stats panel"
-          >☰</button>
-        )}
-        <button
-          className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}
-          onClick={onEquipToggle}
-        >Equipment</button>
 
-Verify after all 3 changes: file contains the string "onDrawerToggle"
-Verify after all 3 changes: file contains the string "drawerBtn"
-If either is missing: STOP.
+---- GENERAL ----
 
-------------------------------------------------------------------------
-STEP 4 — FINAL VERIFICATION
-------------------------------------------------------------------------
+Critical Hit Display on Attack Tables
+  Goal: Show crit threshold on each attack row
+  Success: Each attack row has "Crit 20" badge; Champion lv3 shows "Crit 19-20";
+           Champion lv15 shows "Crit 18-20"; clicking badge explains extra damage roll
+  Status: MISSING
 
-RUN: npm run typecheck
+Multiple Attacks Counter
+  Goal: Display attack count on the Attack action
+  Success: Barbarian/Paladin/Fighter/Ranger lv5 shows x2; Fighter lv11 shows x3;
+           Monk lv2 shows bonus-action unarmed x2 (Martial Arts, not Flurry)
+  Status: MISSING
 
-Expected: TypeScript errors appear ONLY in the following pre-existing files.
-Errors in any other file mean something went wrong — STOP and report.
 
-Pre-existing error files (ignore errors here):
-  src/renderer/src/__tests__/characterSlice.test.ts
-  src/renderer/src/__tests__/charCalculations.test.ts
-  src/renderer/src/__tests__/equipment.test.ts
-  src/renderer/src/features/character-header/EquipmentLayout.tsx
-  src/renderer/src/shared/data/equipment/gear.ts
+---- FIGHTER ----
 
-If there are TypeScript errors in any of these files, STOP and report:
-  src/renderer/src/services/ipc.ts
-  src/renderer/src/services/storageAdapter.ts
-  src/renderer/src/widgets/character-view/CharacterView.tsx
-  src/renderer/src/features/character-header/CharacterHeader.tsx
+Indomitable (lv 9 / 13 / 17)
+  Goal: Resource-tracked reroll of a failed saving throw
+  Success: Reaction in Actions panel with charge counter (1/2/3 by level);
+           spending a charge marks it used; resets on long rest
+  Status: MISSING
 
-RUN: git status
+Champion - Improved Critical / Superior Critical
+  Goal: 19-20 crit range at lv3; 18-20 at lv15
+  Success: Attack table badge reads "Crit 19-20" or "Crit 18-20"; flows into crit logic
+  Status: DISPLAY ONLY
 
-Expected modified files (exactly these 3):
-  src/renderer/src/services/ipc.ts
-  src/renderer/src/widgets/character-view/CharacterView.tsx
-  src/renderer/src/features/character-header/CharacterHeader.tsx
+Battle Master - Combat Superiority maneuver effect formulas
+  Goal: Spending a Superiority Die (d8 to d10 to d12 by tier) adds die result to effect
+  Success: Each maneuver card shows formula ("Precision Attack: +1d8 to hit");
+           spending a die deducts from superiorityDiceUsed; recharges on short rest
+  DEPENDS ON: maneuversData.ts (already exists; exports MANEUVERS, MANEUVER_BY_ID)
+  Status: DISPLAY ONLY
 
-If any of those three files is absent from git status: STOP.
+Eldritch Knight - War Magic (lv7) / Improved War Magic (lv18)
+  Goal: After casting a cantrip (or any spell at lv18), make one weapon attack as bonus action
+  Success: Casting a cantrip shows "War Magic Attack" bonus action; lv18 triggers on any spell
+  BLOCKED BY: no turn-state model exists (see SECTION 3 Architecture Gaps)
+  Status: DISPLAY ONLY
 
-DO NOT COMMIT.
+Cavalier - Unwavering Mark (lv3)
+  Goal: Hitting a creature marks it; if it attacks someone else, gain bonus-action
+        melee attack at advantage + half-level bonus damage
+  Success: Hit action marks target (visible indicator); "Mark Attack (Adv)" bonus action
+           appears when condition triggers; correct bonus damage shown
+  BLOCKED BY: no encounter/combat state model
+  Status: MISSING
 
-------------------------------------------------------------------------
+Arcane Archer - Arcane Shot (lv3)
+  Goal: 2 uses per short rest; each shot adds named magical effect on ranged hit
+  DEPENDS ON: arcane shot effect data file (see SECTION 3)
+  Success: "Arcane Shot (2/2)" in Actions; shot effect shown in detail panel;
+           uses decrement and recharge on short rest
+  Status: DONE (usage tracking) / DISPLAY ONLY (effect formulas)
+
+Samurai - Fighting Spirit (lv3)
+  Status: DONE
+
+Psi Warrior - Psionic Power (lv3)
+  Goal: Psi Energy Dice pool (d6 to d8 to d10 to d12 by level); Psionic Strike,
+        Protective Field, Telekinetic Movement each cost one die;
+        2 free dice recharge on short rest; rest on long rest
+  DEPENDS ON: Psi Warrior ability data file (see SECTION 3)
+  Success: "Psi Energy Dice (X/Y)" resource visible; Psionic Strike adds die to damage
+           once per turn; Protective Field and Telekinetic Movement each cost one die
+  Status: MISSING
+
+Rune Knight - Rune Carver (lv3)
+  Goal: Learn runes (Cloud, Stone, Hill, Fire, Frost, Storm); apply to weapon or armor
+        after long rest; each gives passive bonus and 1/day activated effect
+  DEPENDS ON: runeData.ts (see SECTION 3)
+  Success: Rune selector in equipment; active rune shown as badge on item;
+           activated effect has daily use counter resetting on long rest
+  Status: MISSING
+
+Echo Knight - Manifest Echo
+  Status: MISSING
+
+
+---- BARBARIAN ----
+
+Brutal Critical (lv9 / 13 / 17)
+  Goal: Roll extra weapon damage dice on a crit (1 extra at lv9, 2 at lv13, 3 at lv17)
+  Success: Crit damage formula: baseWeaponDie x (1 + brutalDiceCount) + mods
+  Status: MISSING
+
+Berserker - Frenzy
+  Status: DISPLAY ONLY
+
+Totem Warrior - Totem Spirit (lv3)
+  Goal: Wire three animal bonuses while raging
+  DEPENDS ON: chosenTotem field on Character type (see SECTION 3)
+  Success:
+    Bear: "Resistance: all damage except psychic" as active condition while raging
+    Eagle: "OA Disadvantage" shown
+    Wolf: ally-advantage note shown
+  Status: DISPLAY ONLY
+
+Ancestral Guardian - Ancestral Protectors
+  Status: MISSING
+
+Storm Herald - Storm Aura
+  Status: MISSING
+
+Zealot - Divine Fury
+  Status: DISPLAY ONLY
+
+Wild Magic Barbarian - Wild Surge (lv3)
+  Goal: On entering Rage, roll d8 on Wild Surge table; result produces magical effect
+  DEPENDS ON: wildSurgeTable.ts (see SECTION 3)
+  Success: Entering Rage triggers d8 roll display with result named and description shown
+  Status: MISSING
+
+Path of the Beast - natural weapons
+  Status: MISSING
+
+Battlerager - spiked armor + bonus action grapple damage
+  Status: MISSING
+
+
+---- BARD ----
+
+College of Lore - Cutting Words
+  Status: DISPLAY ONLY
+
+College of Valor - Combat Inspiration
+  Status: DISPLAY ONLY
+
+College of Glamour - Mantle of Inspiration
+  Status: MISSING
+
+College of Swords - Blade Flourish
+  Status: MISSING
+
+College of Whispers - Psychic Blades
+  Status: MISSING
+
+College of Creation - Note of Potential
+  Status: MISSING
+
+College of Eloquence - Unsettling Words
+  Status: MISSING
+
+
+---- CLERIC ----
+
+Destroy Undead (lv5+)
+  Goal: On failed Turn Undead save, undead at or below CR threshold are destroyed;
+        threshold scales 1/2 to 1 to 2 to 3 to 4 by level
+  Success: Turn Undead action description shows current destroy threshold at character level
+  Status: MISSING
+
+Divine Intervention (lv10)
+  Goal: Once per long rest; success if d100 roll <= cleric level
+  Success: "Divine Intervention" in Actions with long-rest usage counter;
+           clicking rolls d100 and shows pass/fail vs cleric level
+  Status: MISSING
+
+Divine Strike (all domains, lv8 / lv14)
+  Goal: Once per turn, weapon hit adds 1d8 domain damage type (2d8 at lv14)
+  BLOCKED BY: no per-turn toggle system
+  Success: One-use toggle appears after a weapon attack; adds +1d8 [type] to damage;
+           marks spent for that turn
+  Status: DISPLAY ONLY (see Architecture Gaps in SECTION 3)
+
+Life Domain
+  Status: DONE (Channel Divinity shown; armor prof applied)
+
+Light Domain
+  Status: DISPLAY ONLY
+
+Trickery Domain
+  Status: DISPLAY ONLY
+
+Knowledge Domain
+  Status: DISPLAY ONLY
+
+Nature Domain
+  Status: DONE (armor prof applied); DISPLAY ONLY (features)
+
+Tempest Domain
+  Status: DONE (armor prof applied); DISPLAY ONLY (Channel)
+
+War Domain - War Priest (lv1)
+  Goal: Bonus-action weapon attack when casting a spell; uses = WIS mod per long rest
+  Success: "War Priest Attack" in Bonus Actions with WIS-mod usage counter;
+           recharges on long rest
+  Status: DONE (armor prof); DISPLAY ONLY (War Priest feature)
+
+Death Domain
+  Status: DONE (armor prof applied); DISPLAY ONLY
+
+Arcana Domain
+  Status: DISPLAY ONLY
+
+Forge Domain
+  Status: DONE (armor prof); DISPLAY ONLY
+
+Grave Domain
+  Status: DISPLAY ONLY
+
+Order Domain
+  Status: DONE (armor prof); DISPLAY ONLY
+
+Peace Domain - Emboldening Bond
+  Status: MISSING
+
+Twilight Domain - Eyes of Night (lv1)
+  Goal: Darkvision 300ft; action to share with creatures within 10ft; uses = WIS mod / LR
+  Success: Darkvision shown as 300ft; "Eyes of Night" action has WIS-mod usage counter
+  Status: DONE (armor prof); DISPLAY ONLY
+
+
+---- DRUID ----
+
+Circle of the Land - Natural Recovery
+  Status: DISPLAY ONLY
+
+Circle of the Moon - Enhanced Wild Shape
+  Status: DISPLAY ONLY
+
+Circle of Dreams - Balm of the Summer Court
+  Status: MISSING
+
+Circle of the Shepherd - Spirit Totem
+  Status: MISSING
+
+Circle of Spores - Halo of Spores
+  Status: MISSING
+
+Circle of Stars - Star Map + Star Forms
+  Status: MISSING
+
+Circle of Wildfire - Wildfire Spirit
+  Status: MISSING
+
+
+---- MONK ----
+
+Stunning Strike (lv5)
+  Goal: After a hit, spend 1 Ki; target makes CON save DC 8+Prof+WIS or stunned
+  Success: "Stunning Strike" on-hit option after each melee attack; spending deducts
+           1 Ki and shows save DC; stun condition shown on target
+  Status: MISSING
+
+Way of the Open Hand - Open Hand Technique
+  Status: DISPLAY ONLY
+
+Way of Shadow - Shadow Arts spells
+  Status: DISPLAY ONLY
+
+Way of the Four Elements - Elemental Disciplines
+  Status: DISPLAY ONLY
+
+Way of the Sun Soul - Radiant Sun Bolt
+  Status: MISSING
+
+Way of the Drunken Master - Drunken Technique
+  Status: DISPLAY ONLY
+
+Way of the Kensei - Kensei's Shot + Agile Parry
+  Status: MISSING
+
+Way of Mercy - Hand of Healing / Hand of Harm
+  Status: MISSING
+
+Way of the Astral Self - Arms of the Astral Self
+  Status: MISSING
+
+
+---- PALADIN ----
+
+Aura of Protection (lv6 / 18)
+  Goal: Creatures within 10ft (20ft at lv18) add CHA mod (min +1) to all saving throws
+  Success: Saving throw display notes "+[CHA mod] (Aura)" for every save type;
+           aura range shown on feature card
+  BLOCKED BY: saving throw display component needs a conditional annotation
+  Status: MISSING
+
+Oath of Devotion - Sacred Weapon + Turn the Unholy
+  Status: DISPLAY ONLY
+
+Oath of the Ancients - Nature's Wrath + Turn the Faithless
+  Status: DISPLAY ONLY
+
+Oath of Vengeance - Vow of Enmity + Abjure Enemy
+  Status: DISPLAY ONLY
+
+Oath of Conquest - Conquering Presence + Guided Strike
+  Status: DISPLAY ONLY
+
+Oath of Redemption - Emissary of Peace + Rebuke the Violent
+  Status: DISPLAY ONLY
+
+Oath of Glory - Inspiring Smite + Peerless Athlete
+  Status: DISPLAY ONLY
+
+Oath of the Watchers - Abjure the Extraplanar
+  Status: DISPLAY ONLY
+
+Oathbreaker - Animate Dead + Aura of Hate
+  Status: DISPLAY ONLY
+
+
+---- RANGER ----
+
+Hunter - Hunter's Prey
+  Status: DISPLAY ONLY
+
+Beast Master - Ranger's Companion
+  Status: MISSING
+
+Gloom Stalker - Dread Ambusher + darkvision + initiative bonus
+  Status: DISPLAY ONLY
+
+Horizon Walker - Planar Warrior
+  Status: MISSING
+
+Monster Slayer - Hunter's Sense + Slayer's Prey
+  Status: MISSING
+
+Fey Wanderer - Otherworldly Glamour (+CHA to INT/WIS/CHA)
+  Status: MISSING
+
+Swarmkeeper - Gathered Swarm
+  Status: MISSING
+
+Drakewarden - Drake Companion
+  Status: MISSING
+
+
+---- ROGUE ----
+
+Swashbuckler - Rakish Audacity
+  Goal: Sneak Attack applies without an adjacent ally when in one-on-one engagement
+  Success: Sneak Attack triggers for Swashbuckler without the "adjacent ally" condition
+           when the one-on-one requirement is met
+  Status: DISPLAY ONLY
+
+Thief - Fast Hands + Use Magic Device
+  Status: DISPLAY ONLY
+
+Assassin - Assassinate
+  Status: DISPLAY ONLY
+
+Arcane Trickster - Mage Hand Legerdemain + Wizard spells
+  Status: DISPLAY ONLY
+
+Inquisitive - Ear for Deceit + Eye for Detail
+  Status: DISPLAY ONLY
+
+Mastermind - Master of Tactics
+  Status: DISPLAY ONLY
+
+Scout - Skirmisher + Survivalist
+  Status: DISPLAY ONLY
+
+Swashbuckler - Fancy Footwork + Rakish Audacity
+  Status: DISPLAY ONLY
+
+Phantom - Wails from the Grave
+  Status: MISSING
+
+Soulknife - Psychic Blades + Psi-Bolstered Knack
+  Status: MISSING
+
+
+---- SORCERER ----
+
+Metamagic (lv3)
+  Goal: Spend sorcery points to modify spells:
+        Careful (protect allies), Distant (x2 range), Empowered (reroll damage),
+        Extended (x2 duration), Heightened (disadv on first save),
+        Quickened (cast as bonus action), Subtle (no V/S), Twinned (second target)
+  BLOCKED BY: no active-spell-casting flow state
+  Success: Two chosen Metamagic options appear as toggles when casting;
+           each deducts correct SP cost; Quickened changes cast time to bonus action;
+           Twinned requires a valid second target
+  Status: DISPLAY ONLY
+
+Draconic Bloodline - unarmored AC (13+DEX) + +1 HP/level
+  Status: DONE (unarmored AC formula applied)
+
+Wild Magic - Wild Magic Surge
+  Status: DISPLAY ONLY
+
+Divine Soul - Cleric spell access
+  Status: DISPLAY ONLY
+
+Shadow Magic - Eyes of the Dark + Strength of the Grave
+  Status: DISPLAY ONLY
+
+Storm Sorcery - Wind Speaker + Tempestuous Magic
+  Status: DISPLAY ONLY
+
+Aberrant Mind - Telepathic Speech + expanded spell list
+  Status: DISPLAY ONLY
+
+Clockwork Soul - Restore Balance + expanded spells
+  Status: DISPLAY ONLY
+
+
+---- WARLOCK ----
+
+Pact Boon (lv3)
+  Goal:
+    Blade: summon pact weapon (magical, CHA mod to attack/damage)
+    Chain: display familiar type in features panel
+    Tome: add 3 user-chosen cross-class cantrips to spellIds
+  DEPENDS ON: pactBoon field wiring (see SECTION 3)
+  Success:
+    Pact of the Blade: pact weapon in attack list using CHA
+    Pact of the Tome: 3 user-selected cross-class cantrips added
+    Pact of the Chain: familiar type noted
+  Status: DISPLAY ONLY (field exists; wiring incomplete)
+
+Mystic Arcanum (lv11 / 13 / 15 / 17)
+  Goal: Free cast of one 6th/7th/8th/9th-level spell; each usable once per long rest
+  Success: Each Arcanum spell in spell list with its own long-rest counter;
+           casting does not spend a pact slot
+  Status: MISSING
+
+The Archfey - Fey Presence + Misty Escape
+  Status: DISPLAY ONLY
+
+The Fiend - Dark One's Blessing + expanded spells
+  Status: DISPLAY ONLY
+
+The Great Old One - Telepathy + Awakened Mind
+  Status: DISPLAY ONLY
+
+The Celestial - Healing Light
+  Status: DISPLAY ONLY
+
+The Hexblade - Hexblade's Curse + Hex Warrior (CHA to weapon attacks)
+  Status: DISPLAY ONLY
+
+The Fathomless - Tentacle of the Deeps + Gift of the Sea
+  Status: MISSING
+
+The Genie - Genie's Vessel
+  Status: MISSING
+
+The Undead - Form of Dread
+  Status: MISSING
+
+
+---- WIZARD ----
+
+Arcane Recovery (lv1)
+  Goal: Once per long rest after short rest; recover spell slots with combined
+        level <= half wizard level (rounded up)
+  Success: Short rest shows "Arcane Recovery" option; user picks slots up to cap;
+           marks unavailable until long rest
+  Status: MISSING
+
+School of Abjuration - Arcane Ward
+  Status: MISSING
+
+School of Conjuration - Benign Transposition
+  Status: DISPLAY ONLY
+
+School of Divination - Portent
+  Status: MISSING
+
+School of Enchantment - Hypnotic Gaze
+  Status: DISPLAY ONLY
+
+School of Evocation - Sculpt Spells
+  Status: DISPLAY ONLY
+
+School of Illusion - Improved Minor Illusion
+  Status: DISPLAY ONLY
+
+School of Necromancy - Grim Harvest
+  Status: MISSING
+
+School of Transmutation - Transmuter's Stone
+  Status: MISSING
+
+Bladesinging - Bladesong (lv2)
+  Goal: Bonus action to activate (INT mod uses / long rest); while active:
+        +INT mod to AC, +10ft speed, advantage on Acrobatics, +INT mod to concentration saves
+  BLOCKED BY: no proficiency/advantage system for skills; no concentration save display
+  Success: Bladesong toggle deducts a use; active state shows "+[INT mod] AC",
+           "+10 speed", "Acrobatics Adv", "Conc +[INT mod]"; deactivates on
+           shield / medium-heavy armor / two-handed weapon
+  Status: MISSING (AC and speed wired; Acrobatics adv and concentration save missing)
+
+Order of Scribes - Awakened Spellbook
+  Status: MISSING
+
+Chronurgy Magic - Chronal Shift
+  Status: MISSING
+
+Graviturgy Magic - Adjust Density
+  Status: MISSING
+
+War Magic - Arcane Deflection
+  Status: MISSING
+
+
+---- ARTIFICER ----
+
+Infuse Item - infusion display (lv2)
+  Goal: Items with active infusions show badge listing infusion name and effect
+  DEPENDS ON: infusionsData.ts (already exists; exports INFUSIONS, INFUSION_BY_ID)
+  Success: Equipment panel shows infusion badges; clicking shows effect summary
+  Status: MISSING
+
+Flash of Genius (lv7)
+  Goal: Reaction; add INT mod to ability check or saving throw within 30ft;
+        uses = INT mod per long rest
+  Success: "Flash of Genius" reaction in Actions with INT-mod usage counter
+  Status: MISSING
+
+Spell-Storing Item (lv11)
+  Goal: Store a 1st/2nd-level Artificer spell in an item after long rest;
+        bearer may cast it up to 2xINT mod times
+  Success: "Spell-Storing Item" slot in equipment; charge counter (max 2xINT mod);
+           refreshes after long rest
+  Status: MISSING
+
+Alchemist - Experimental Elixir
+  Status: MISSING
+
+Armorer - Armor Model (Guardian / Infiltrator)
+  Status: MISSING
+
+Artillerist - Eldritch Cannon
+  Status: MISSING
+
+Battle Smith - Steel Defender + INT weapon attacks
+  Status: MISSING
+
+
+========================================================================
+SECTION 3 — DATA FILES: STATUS AND ACTIONS REQUIRED
+========================================================================
+
+All items below have been audited against the current codebase.
+Each entry shows the actual status and the action Codex must take.
+
+
+---- CLEANUP REQUIRED: THREE DEAD DUPLICATE FILES ----
+
+The following files were created with weaker schemas by an earlier pass.
+Richer pre-existing files with the same data are already in use by the
+codebase. The dead files must be deleted and must never be recreated.
+
+DELETE: src/renderer/src/shared/data/maneuverData.ts
+  Reason: Superseded by maneuversData.ts (in use by ActionDetailPanel.tsx).
+  maneuversData.ts has 16 entries (including commander's-strike which
+  maneuverData.ts was missing), richer ManeuverDef interface with dmgType,
+  lookup map MANEUVER_BY_ID, and maneuversKnown() progression function.
+  No file imports maneuverData.ts. It is dead code.
+  Action: Remove-Item src/renderer/src/shared/data/maneuverData.ts
+
+DELETE: src/renderer/src/shared/data/arcaneShot.ts
+  Reason: Superseded by arcaneShotsData.ts (in use by ActionDetailPanel.tsx).
+  arcaneShotsData.ts has richer ArcaneShotDef interface with dice and dmgType
+  fields needed for damage computation, plus ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION,
+  and arcaneShotsKnown() function.
+  No file imports arcaneShot.ts. It is dead code.
+  Action: Remove-Item src/renderer/src/shared/data/arcaneShot.ts
+
+DELETE: src/renderer/src/shared/data/infusionData.ts
+  Reason: Superseded by infusionsData.ts (in use by ActionDetailPanel.tsx).
+  infusionsData.ts has 16 entries vs 8, richer InfusionDef interface, plus
+  INFUSION_BY_ID, maxInfusionsKnown(), and maxInfusionsActive() functions.
+  No file imports infusionData.ts. It is dead code.
+  Action: Remove-Item src/renderer/src/shared/data/infusionData.ts
+
+Verify after deletion: run "npm run typecheck"; no new errors should appear.
+If any error appears in a file you did not touch, STOP and report it.
+
+
+---- FILES ALREADY IN USE (reference only, no action needed) ----
+
+src/renderer/src/shared/data/maneuversData.ts
+  Status: COMPLETE. Exports MANEUVERS (16 entries), MANEUVER_BY_ID,
+          MANEUVER_PROGRESSION, maneuversKnown(). Used by ActionDetailPanel.
+  Used by features: Battle Master Combat Superiority (SECTION 2).
+
+src/renderer/src/shared/data/arcaneShotsData.ts
+  Status: COMPLETE. Exports ARCANE_SHOTS (8 entries), ARCANE_SHOT_BY_ID,
+          ARCANE_SHOT_PROGRESSION, arcaneShotsKnown(). Used by ActionDetailPanel.
+  Used by features: Arcane Archer Arcane Shot (SECTION 2).
+
+src/renderer/src/shared/data/infusionsData.ts
+  Status: COMPLETE. Exports INFUSIONS (16 entries), INFUSION_BY_ID,
+          maxInfusionsKnown(), maxInfusionsActive(). Used by ActionDetailPanel.
+  Used by features: Artificer Infuse Item (SECTION 2).
+
+
+---- FILES CREATED CORRECTLY, NOT YET WIRED ----
+
+The following files were created with the correct schema and content.
+They are not yet imported by any feature component.
+Do NOT recreate or modify them. They will be imported when the
+corresponding features in SECTION 2 are implemented.
+
+src/renderer/src/shared/data/wildSurgeTable.ts
+  Status: CREATED. Exports wildSurgeTable (8 entries: WildSurgeEntry[]).
+  Fields: roll (number), name (string), description (string).
+  Waiting for: Wild Magic Barbarian Wild Surge feature implementation.
+
+src/renderer/src/shared/data/psiWarriorData.ts
+  Status: CREATED. Exports psiWarriorAbilities (6 entries: PsiWarriorAbility[]).
+  Fields: id, name, diceCost, unlockLevel, description.
+  Waiting for: Psi Warrior Psionic Power feature implementation.
+
+src/renderer/src/shared/data/runeData.ts
+  Status: CREATED. Exports runes (6 entries: Rune[]).
+  Fields: id, name, passiveBonus, activatedEffect, activationType, recharge.
+  Waiting for: Rune Knight Rune Carver feature implementation.
+
+
+---- CHARACTER TYPE FIELDS: ALREADY DONE ----
+
+1. chosenTotem?: 'bear' | 'eagle' | 'wolf'
+   Status: ALREADY IN types.ts at line 125. No action needed.
+
+2. pactBoon?: string
+   Status: ALREADY IN types.ts at line 120. Field exists.
+   Wiring of its effects (Blade / Chain / Tome behaviors) is incomplete;
+   that work belongs to the Warlock feature implementation in SECTION 2.
+
+
+---- ARCHITECTURE GAPS (features blocked until system exists) ----
+
+The following features CANNOT be implemented until a turn/encounter state
+system is built. Mark them as "display only" until then:
+
+  - War Magic (Eldritch Knight lv7/18): requires "cantrip was cast this turn"
+  - Cavalier Unwavering Mark (lv3): requires which enemy is marked and whether
+    it attacked someone other than you
+  - Divine Strike (all domain Clerics lv8/14): requires once-per-turn toggle
+  - Metamagic (Sorcerer lv3): requires active-spell-casting flow state
+
+The following features CANNOT be implemented until display enhancements are built:
+
+  - Paladin Aura of Protection (lv6): saving throw display component needs a
+    conditional "+[CHA mod] (Aura)" annotation next to each saving throw
+    Location to find: the saving throw display in VitalsPanel or AbilitiesPanel
+    (read those files to locate the exact element before modifying)
+
+  - Bladesinger (Wizard): advantage on Acrobatics and +INT mod to concentration
+    saves require a proficiency/advantage annotation system that does not exist
+    in the skills/saves display yet
+
+
+========================================================================
+SECTION 4 — SPELL VISUALIZATION BACKLOG
+========================================================================
+
+Total spells in SPELLS array: 99
+Auto-rendered today (damage/self-buff/debuff-aura templates): 51
+Documented below for future implementation: 48
+
+Templates available today:
+  "damage" — aoeShape + damageType
+  "self-buff" — looping aura on player tile
+  "debuff-aura" — looping aura on each rolled-hit enemy tile
+
+Sprite folders today:
+  earth, fire, lightning, poison, psychic, thunder
+  under: assets/spells/animation/[type]/
+  and:   assets/spells/missiles/magic/[type]/
+
+Impact GIFs available: Blood_Effect.gif, Poof_Effect.gif, Sparks_Effect.gif
+
+For each spell below, the entry explains WHY it is not built and gives a
+concrete implementation proposal for when it is picked up.
+
+
+aid
+  Wanted: soft golden uplift pulsing on up to three ally tiles, +5 max HP
+  Blocker: no ally-tile concept in grid (only player + enemies + bystanders)
+  Proposal: extend computeSpellGrid to return allyPositions; add "buff-allies"
+            template that loops a radiant aura on each ally tile
+
+animate-dead
+  Wanted: corpse silhouette rises from ground next to player
+  Blocker: needs undead sprite and "spawn from ground" two-stage animation
+  Proposal: add /assets/spells/animation/undead/ rise frames; new "summon"
+            template mounting sprite at adjacent tile
+
+booming-blade
+  Wanted: weapon glow on player + thunder ring on enemy that booms if it moves
+  Blocker: conditional two-state effect not supported by single-loop template
+  Proposal: extend debuff-aura to support "trigger frame" (burst on movement)
+
+counterspell
+  Wanted: beam from caster intercepting incoming spell mid-flight
+  Blocker: requires concept of an "incoming spell" object on the grid
+  Proposal: add phantom enemy-caster sprite and incoming missile; counter-beam
+            intercepts at midpoint
+
+cure-wounds
+  Wanted: green/holy sparkle on touched ally tile, +HP shimmer rising
+  Blocker: no green heal sprite + no ally tiles
+  Proposal: add /assets/spells/animation/heal/ green/gold frames; allyPositions
+            to grid; new "heal-single" template
+
+dancing-lights
+  Wanted: up to four torch-sized motes hovering around grid, weaving slowly
+  Blocker: needs free-floating sprites with independent paths (not tile-bound)
+  Proposal: new free-positioned "dancing-mote" overlay with rAF-driven paths
+
+darkness
+  Wanted: black sphere fills 15ft radius zone, swallowing tiles
+  Blocker: needs near-opaque dark sprite (all current sprites are bright)
+  Proposal: add "darkness" sprite (semi-opaque black); reuse AOE wave template
+            with vizDamageType: 'darkness'
+
+death-ward
+  Wanted: gold halo on ally that flickers when triggered (1 HP save)
+  Blocker: no ally tiles; trigger-flash is two-state effect
+  Proposal: ally-tile concept + trigger overlay (burst on top of looping halo)
+
+detect-magic
+  Wanted: 30ft scan ring with arrows pointing at magical objects
+  Blocker: non-combat UI; needs "magical" tagging on grid sprites
+  Proposal: out-of-combat helper view listing detected items
+
+detect-thoughts
+  Wanted: thought bubble icon floating above player while active
+  Blocker: non-combat UI; no speech/thought-bubble primitive
+  Proposal: simple SVG overlay anchored to player tile
+
+enlarge-reduce
+  Wanted: target sprite scales to 200% (enlarge) or 50% (reduce) over 0.5s
+  Blocker: needs per-target scale transform on existing sprites
+  Proposal: per-target transform:scale() driven by spell metadata;
+            pair with vizCategory: 'debuff-aura' for wrapping aura
+
+entangle
+  Wanted: vines erupt from ground in 20ft square, writhe, restraining inside
+  Blocker: needs "vine" sprite
+  Proposal: add /assets/spells/animation/vines/ 8-frame loop; reuse AOE wave
+            template with aoeShape:'cube', aoeSize:20, vizDamageType:'earth'
+
+fly
+  Wanted: touched ally lifts off, gains 60ft fly speed
+  Blocker: sprites are all ground-tile bound
+  Proposal: add "flying" modifier: transform:translateY(-8px) + wing overlay;
+            pair with ally-tile work
+
+fog-cloud
+  Wanted: 20ft sphere of grey fog billowing over chosen tiles
+  Blocker: no grey/fog sprite
+  Proposal: add /assets/spells/animation/fog/ 8-frame loop; aoeShape:'sphere',
+            vizDamageType:'fog'
+
+greater-invisibility
+  Wanted: target fades to ~20% opacity, stays invisible
+  Blocker: needs per-target opacity override
+  Proposal: new vizCategory:'self-invisible'; render at low opacity for duration
+
+green-flame-blade
+  Wanted: weapon glow on player + green flame leap from primary to secondary enemy
+  Blocker: chained two-target animation not modeled
+  Proposal: extend debuff-aura with optional "chain to nearest other" overlay;
+            vizDamageType:'fire'
+
+guidance
+  Wanted: tiny d4 icon floating above touched ally for duration
+  Blocker: no ally tile; no die-icon primitive
+  Proposal: SVG d4 overlay anchored to ally tile; pair with ally-tile work
+
+healing-word
+  Wanted: same as cure-wounds but at range (bonus action)
+  Blocker: same as cure-wounds (no heal sprite + no ally tiles)
+  Proposal: shared "heal-single" template with cure-wounds
+
+hypnotic-pattern
+  Wanted: swirling rainbow fills 30ft cube; creatures inside dazed
+  Blocker: no swirling/iridescent sprite
+  Proposal: add /assets/spells/animation/swirl/ frames; aoeShape:'cube',
+            aoeSize:30, vizDamageType:'swirl'
+
+intellect-fortress
+  Wanted: helm-shaped glow on targeted ally
+  Blocker: no ally tile; no helm sprite
+  Proposal: extend ally-tile work; psychic self-buff variant on allies
+
+invisibility
+  Wanted: target fades to ~20% opacity, breaks on attack/cast
+  Blocker: needs sprite opacity override + "breaks on attack" toggle
+  Proposal: shared with greater-invisibility minus the permanence rule
+
+jump
+  Wanted: small upward-arrow halo on touched ally
+  Blocker: no ally tiles; low priority
+  Proposal: could retag as self-buff with vizDamageType:'force' on caster
+
+lesser-restoration
+  Wanted: green sparkle on ally + condition icons dropping away
+  Blocker: no heal sprite + no condition-icon UI on tiles
+  Proposal: shared heal template + condition-icon overlay system
+
+light
+  Wanted: glow on touched object (no enemy interaction)
+  Blocker: no object/item sprite on grid
+  Proposal: static caster halo for visualization only
+
+longstrider
+  Wanted: faint speed-line trail behind touched ally
+  Blocker: no ally tiles; low priority
+  Proposal: retag as self-buff with vizDamageType:'force' on caster
+
+mage-hand
+  Wanted: spectral hand hovering 30ft from player, drifting between positions
+  Blocker: needs free-moving hand sprite not bound to a target tile
+  Proposal: add /assets/spells/animation/hand/ sprite; render at player-relative
+            offset with gentle bob
+
+magic-weapon
+  Wanted: touched weapon glows with +1/+2/+3 rank halo
+  Blocker: no weapon sprite on grid; needs rank indicator
+  Proposal: weapon-icon overlay on caster tile with numeric badge
+
+mass-cure-wounds
+  Wanted: 30ft green/holy wave healing every ally inside
+  Blocker: no heal sprite + no ally tiles
+  Proposal: shared heal template; AOE wave with green sprite folder
+
+mass-healing-word
+  Wanted: soft chime visual over up to 6 ally tiles
+  Blocker: same as mass-cure-wounds
+  Proposal: shared heal template
+
+minor-illusion
+  Wanted: shimmering placeholder shape within 30ft
+  Blocker: needs generic "illusion" sprite
+  Proposal: translucent shape overlay; low priority
+
+misty-step
+  Wanted: silver mist envelops player; vanishes; reappears at new tile
+  Blocker: needs two-position teleport animation
+  Proposal: new "teleport" template: fade out at posA, vapor at destination,
+            fade in; needs chosen destination tile
+
+prayer-of-healing
+  Wanted: slow holy aura over up to 6 ally tiles within 30ft
+  Blocker: same as mass-cure-wounds
+  Proposal: shared heal template
+
+prestidigitation
+  Wanted: tiny magical flourish (sparkle, puff, color shift)
+  Blocker: too varied; needs randomized sub-effect picker
+  Proposal: low priority; static self-buff flourish with vizDamageType:'psychic'
+
+raise-dead
+  Wanted: large resurrection animation; body rises; glow ascends
+  Blocker: same as revivify but more elaborate; out-of-combat
+  Proposal: shared with revivify resurrection template
+
+revivify
+  Wanted: downward beam onto downed creature, lifting them to 1 HP
+  Blocker: needs "downed" creature sprite + downward beam primitive
+  Proposal: new "resurrection" template; one-shot (not looping);
+            pair with downed-ally concept
+
+sanctuary
+  Wanted: shimmer barrier around warded ally
+  Blocker: no ally tiles
+  Proposal: extend self-buff to optionally render on ally tile
+
+shillelagh
+  Wanted: glowing nature haze around caster's weapon for duration
+  Blocker: no weapon-icon overlay on caster tile
+  Proposal: retag as self-buff with vizDamageType:'earth'; weapon-shape glow
+            would read more clearly
+
+silence
+  Wanted: grey shimmer dome (20ft sphere) over chosen point
+  Blocker: no grey/shimmer sprite
+  Proposal: AOE wave template with custom "silence" sprite folder
+
+silvery-barbs
+  Wanted: swirl over enemy (force reroll) + buff swirl over ally (advantage)
+  Blocker: needs two targets in different states; no ally tile
+  Proposal: combined debuff-aura + buff-allies instance; one-shot not looping
+
+sleep
+  Wanted: Z's float over multiple enemies in 20ft area; affected enemies fall
+  Blocker: needs "Z" overlay sprite distinct from magical-energy sprites
+  Proposal: add /assets/spells/animation/sleep/ (Z frames); reuse debuff-aura
+            with attackType:'auto-hit'
+
+spare-the-dying
+  Wanted: soft green pulse on downed ally tile
+  Blocker: no heal sprite + no downed-ally state
+  Proposal: shared with healing template; needs downed-ally rendering
+
+spike-growth
+  Wanted: 20ft radius camouflaged thorns; movement triggers piercing
+  Blocker: needs thorn/spike sprite and movement-triggered damage effect
+  Proposal: add /assets/spells/animation/spikes/ frames; reuse AOE wave
+
+spiritual-weapon
+  Wanted: floating spectral weapon next to player, striking nearby enemy
+  Blocker: needs animated weapon sprite moving between positions on cycle
+  Proposal: new "floating-weapon" template; tile-anchored weapon sprite +
+            attack-strike cycle
+
+summon-beast
+  Wanted: bestial spirit appears in unoccupied space, acts independently
+  Blocker: needs beast sprite + summoned-creature placement system
+  Proposal: new "summon" template; creature sprite next to player, idles
+
+summon-fey
+  Wanted: same as summon-beast but fey sprite
+  Blocker: same as summon-beast
+  Proposal: shared summon template; different sprite per spirit type
+
+thaumaturgy
+  Wanted: randomly chosen minor wonder (booming voice, flickering flames, etc.)
+  Blocker: too many sub-effects; each needs animation
+  Proposal: low priority; small "minor flourish" loop
+
+vortex-warp
+  Wanted: swirl on enemy; flash as they reappear at new tile
+  Blocker: forced-teleport on enemy not modeled
+  Proposal: extend "teleport" template to work on enemy tiles
+
+wall-of-force
+  Wanted: translucent rectangle snaps into existence
+  Blocker: needs multi-tile rectangle render and translucent material
+  Proposal: new "wall" template; SVG/div spanning chosen tile line with shimmer
+
+
+========================================================================
+SECTION 5 — SPELL ANIMATION BACKLOG (GIFs AND VIZ CATEGORY)
+========================================================================
+
+---- SPELLS NEEDING NEW GIF ASSETS OR NEW vizCategory ----
+
+  Mage Hand
+    Current: no visualization
+    Needed: portal opens on caster tile; spectral hand floats toward target cell
+
+  Disguise Self
+    Current: self-buff 'force' aura (generic blue shimmer)
+    Needed: player sprite morphs — shimmer/dissolve on caster tile
+
+  Jump
+    Current: self-buff 'speed' aura
+    Needed: player sprite leaps to a distant cell (player-movement animation)
+
+  Misty Step
+    Current: no visualization
+    Needed: player blinks out; silvery mist; reappears at far cell
+
+  Longstrider
+    Current: self-buff 'speed' aura (same as Jump)
+    Needed: persistent speed-boost shimmer distinct from Jump
+
+  Thunderclap
+    Current: not in dataset
+    Needed: add spell; self-centered sphere; thunder ripple outward
+
+
+---- SPELLS NEEDING ALLY TARGET (heal direction) ----
+
+A new vizCategory "heal-ally" is needed.
+Current "heal" puts aura on caster tile.
+These spells target an ally — aura should appear on ally tile in lower half
+of grid, not on caster.
+Grid layout: one "ally" token in lower row, caster in upper row.
+
+  Cure Wounds — heal aura on ally tile
+  Healing Word — heal aura on ally tile (ranged 60ft)
+  Prayer of Healing — heal aura across multiple ally tiles
+  Revivify — ally tile at 0 HP; revive effect
+  Mass Cure Wounds — heal aura across multiple ally tiles
+  Raise Dead — ally tile on ground; rise-up effect
+
+Code changes needed to implement heal-ally:
+  1. Add vizCategory: 'heal-ally' to SpellEntry union type in spellData.ts
+     File: src/renderer/src/shared/data/spellData.ts
+     Find the vizCategory union type and add 'heal-ally' as a valid value.
+     STOP if the vizCategory union type location is not found in that file.
+
+  2. Add "ally grid mode" to computeSpellGrid in SpellVisualization.tsx (or
+     the file that exports computeSpellGrid — verify location before editing)
+     When spell.vizCategory === 'heal-ally':
+       Player (caster) at top, ally token at bottom (enemy-row position)
+       Heal aura plays on ally token tile, not caster tile
+
+  3. Add isHealAlly branch to SpellVisualization.tsx similar to isHeal but
+     targeting ally position
+
+  4. Add new gifSpriteMap entries in animationAssets.ts for new keys.
+     File to check: src/renderer/src/features/spells/ (find animationAssets.ts)
+     STOP if the file does not exist.
+
+
+---- SPELLS NEEDING PLAYER-MOVEMENT ANIMATION ----
+
+These spells move or transform the caster in a way the grid does not
+currently represent:
+
+  Jump — caster hops to a far cell; animate player sprite position change
+  Misty Step — blink teleport; caster disappears, reappears at target cell
+  Dimension Door — same as Misty Step but with a "passenger" token
+  Gaseous Form — player sprite becomes translucent/cloud-like (persistent)
+  Fly — player sprite hovers / lifts off ground (persistent)
+
+
+---- SPELLS WITH MISLEADING ANIMATION TINT ----
+
+  Blink — current: 'force' (blue-white) / ok but could use blink/teleport asset
+  Disguise Self — current: 'force' / should use 'illusion' with purple/teal tint
+  Mirror Image — current: 'mirror' (key exists; confirm mirror_aura.gif exists
+                  in the correct folder before marking done)
+  Sanctuary — current: 'defense' (same as Shield/Mage Armor) / could use holy shield
+
+
+---- NEW GIF ASSETS NEEDED ----
+
+All new GIFs go in the folder shown and need a key added to animationAssets.ts.
+
+  assets/spells/aura/buff/
+    disguise_shimmer_aura.gif  — for Disguise Self
+    blink_aura.gif             — for Blink / Misty Step
+
+  assets/spells/effects/terrain/
+    thunder_ripple.gif         — for Thunderclap / Thunderwave supplement
+
+  assets/spells/aura/buff/
+    heal_ally_aura.gif         — for ally-targeted heals
+                                  (different from heal_aura.gif)
+
+
+========================================================================
+SECTION 6 — ASSET SPECIFICATIONS
+========================================================================
+
+All sprite files target 22x22 px. image-rendering: pixelated.
+
+
+---- ICONS FOLDER: src/renderer/public/assets/spells/icons/ ----
+
+Purpose: Static UI overlays anchored to a tile or character.
+         Single-tile, non-looping (or 4-frame tiny loops).
+         Decorative or informational overlays only.
+         Combat effects go in aura/, effects/, or animation/ instead.
+
+Files needed and their spell coverage:
+
+  d4_floating.svg
+    Spell: guidance
+    Render template: icon overlay anchored above ally tile
+
+  thought_bubble.svg
+    Spell: detect-thoughts
+    Render template: icon overlay anchored to player tile
+
+  magic_scan.svg
+    Spell: detect-magic
+    Render template: icon overlay centred on player, large ring
+
+  light_glow.svg
+    Spell: light
+    Render template: icon overlay anchored to chosen tile/object
+
+  mote_warm.gif
+    Spell: dancing-lights (x2 of this variant)
+    Render template: free-positioned mote (up to 4 around the grid)
+
+  mote_cool.gif
+    Spell: dancing-lights (x2 of this variant)
+    Render template: free-positioned mote
+
+  flourish_sparkle.gif
+    Spells: prestidigitation, thaumaturgy
+    Render template: one-shot icon overlay
+    Reuse rule: this gif is reusable across any minor-utility cantrip;
+                do not add per-cantrip variants
+
+Reuse rule for condition icons: future condition-icon UI goes here too.
+  Naming convention: condition_blinded.svg, condition_paralyzed.svg, etc.
+  Do not create these until the condition-icon system is built.
+
+
+---- BUFF AURA FOLDER: src/renderer/public/assets/spells/aura/buff/ ----
+
+Purpose: Looping auras on a single tile (player or ally) for buff spell duration.
+         Maps to vizCategory: 'self-buff' or future ally-tile equivalent.
+
+Files needed:
+
+  damage_aura.gif   8-frame loop   Red/orange bubble; angular, aggressive
+  frost_aura.gif    8-frame loop   Frost crystals forming/dissolving; cyan/white
+
+Spell coverage using these files:
+
+  defense_aura.gif (already exists):
+    shield, mage-armor, death-ward, sanctuary, intellect-fortress
+
+  damage_aura.gif:
+    hex (caster side), hunter-s-mark (caster side),
+    booming-blade (caster side), green-flame-blade (caster side)
+
+  speed_aura.gif (already exists):
+    haste, longstrider, jump, fly (paired with CSS translateY)
+
+  heal_aura.gif (already exists):
+    aid
+
+  holy_aura.gif (already exists):
+    bless, divine-favor, guidance
+
+  frost_aura.gif:
+    armor-of-agathys
+
+  mirror_aura.gif (already exists):
+    mirror-image
+
+  weapon_glow_aura.gif (already exists or needs creation):
+    magic-weapon, shillelagh
+
+Reuse rules:
+  When a self-buff lacks a perfectly matching sprite, fall back through
+  defense to holy to damage based on spell description emphasis.
+  Many self-buff spells resolve through vizDamageType palette via
+  /assets/spells/animation/[damage_type]/*.png; those don't need files here.
+  This folder only holds effect-themed auras for spells whose damage type
+  does not match their visual flavour.
+  Do NOT add per-spell files. If a new spell needs an aura, pick the
+  closest existing one.
+
+
+---- DEBUFF AURA FOLDER: src/renderer/public/assets/spells/aura/debuff/ ----
+
+Purpose: Looping auras on each rolled-hit enemy tile for debuff/control spells.
+         Maps to vizCategory: 'debuff-aura'.
+
+Files needed:
+
+  restrain_aura.gif       8-frame loop   Shaky black tendrils wrapping around
+  illuminated_aura.gif    8-frame loop   Soft outline glow; Faerie Fire colours
+                                         (light blue/green/violet; pick one)
+  transformed_aura.gif    8-frame loop   Bubbling/morphing distortion; shape change
+  blinded_aura.gif        8-frame loop   Closed-eyes overlay at head + greyscale shimmer
+
+Spell coverage:
+
+  marked_aura.gif (already tagged):
+    hex, hunter-s-mark, silvery-barbs (enemy side)
+
+  paralyzed_aura.gif (already tagged psychic):
+    hold-person, hold-monster
+
+  slowed_aura.gif (already tagged psychic):
+    slow
+
+  charmed_aura.gif (already tagged psychic):
+    suggestion, dominate-person, confusion
+
+  illuminated_aura.gif:
+    faerie-fire
+
+  transformed_aura.gif:
+    polymorph
+
+  blinded_aura.gif:
+    blindness-deafness
+
+  asleep_aura.gif (already tagged):
+    sleep   — also needs vizCategory:'debuff-aura' added in spellData.ts
+
+  banished_aura.gif (already tagged force):
+    banishment
+
+  frightened_aura.gif:
+    wrathful-smite (target side)
+
+  restrain_aura.gif:
+    (assign to entangle, grasping arrow, and any future restraining effects)
+
+Reuse rules:
+  New condition-type debuffs map to the closest existing aura.
+  Resolver routes vizDamageType to a sprite when value matches a filename stem
+  (e.g., 'paralyzed', 'charmed'); otherwise falls back to
+  /assets/spells/animation/[damage_type]/.
+  Do not add a new aura unless none of the existing ones can represent it.
+  Save-passed targets do NOT get an aura; render shows pass/Sparks_Effect.gif.
+
+
+---- SUMMON EFFECTS: src/renderer/public/assets/spells/effects/summon/ ----
+
+Purpose: Sprites for spells/abilities that bring a creature, object, or weapon
+         into existence.
+         Every creature summon = universal portal_open opener + entity idle loop.
+         Object summons (Mage Hand, Spiritual Weapon, Unseen Servant) skip the
+         portal and mount their idle loop directly.
+
+All files: 22x22 px, image-rendering: pixelated.
+Multi-frame files may render larger but display at 22px.
+Use one file per template named after the template id (snake_case).
+
+Shared root files:
+  portal_open_*.png   6-frame one-shot png sequence
+    Concentric expanding arcane rings.
+    Reused before every creature-type summon.
+
+Subfolder: creature/
+  skeleton.png            png sequence 4 one-shot   Bones assembling
+  zombie.png              png sequence 4 one-shot   Corpse rising slowly
+  beast_land.png          png sequence 4 one-shot   Brown/green bestial spirit
+  beast_air.png           png sequence 4 one-shot   White/blue air-form
+  beast_water.png         png sequence 4 one-shot   Cyan/teal water-form
+  fey_spirit.png          png sequence 4 one-shot   Shimmering fey silhouette
+
+Subfolder: elemental/
+  mephit_steam.png        png sequence 4 one-shot   Wispy steam vapour rising
+  mephit_dust.png         png sequence 4 one-shot   Sandy particle cloud
+  mephit_ice.png          png sequence 4 one-shot   Frost crystals forming
+  mephit_magma.png        png sequence 4 one-shot   Lava droplets coalescing
+  mephit_mud.png          png sequence 4 one-shot   Mud bubbling upward
+  mephit_smoke.png        png sequence 4 one-shot   Black smoke billowing
+  myrmidon_air.png        png sequence 4 one-shot   Armoured air elemental forming
+  myrmidon_fire.png       png sequence 4 one-shot   Armoured fire elemental forming
+  water_weird.png         png sequence 4 one-shot   Serpentine water shape rising
+  gargoyle.png            png sequence 4 one-shot   Stone figure cracking to life
+  spirit_air.png          png sequence 4 one-shot   Translucent air whirlwind
+  spirit_fire.png         png sequence 4 one-shot   Translucent fire column
+
+Subfolder: construct/
+  spiritual_weapon.gif    gif 8 looped              Spectral weapon orbiting;
+                                                     no portal opener - appears directly
+  steel_defender.png      png sequence 4 one-shot   Metal dog assembling from parts
+  tiny_servant.png        png sequence 4 one-shot   Small animated object
+  homunculus.png          png sequence 4 one-shot   Tiny winged figure from gem
+  dancing_item.png        png sequence 4 one-shot   Object lifting and glowing
+
+Subfolder: structure/
+  cannon_flamethrower.png png sequence 4 one-shot   Cannon with fire nozzle
+  cannon_ballista.png     png sequence 4 one-shot   Cannon with force barrel
+  cannon_protector.png    png sequence 4 one-shot   Cannon with glowing aura
+
+Subfolder: celestial/
+  guardian_of_faith.png   png sequence 4 one-shot   Radiant armoured figure in light
+  celestial_avenger.png   png sequence 4 one-shot   Winged spirit with radiant bow
+
+Subfolder: undead/
+  flaming_skull.png       png sequence 4 one-shot   Skull wreathed in fire rising
+
+Subfolder: fey/
+  fey_mirthful.png        png sequence 4 one-shot   Pink/sparkle fey silhouette
+  fey_fuming.png          png sequence 4 one-shot   Red/angry fey silhouette
+  fey_tricksy.png         png sequence 4 one-shot   Green/mischievous fey silhouette
+
+Subfolder: monstrosity/
+  shadowspawn_fury.png    png sequence 4 one-shot   Dark monstrosity from shadow
+
+Subfolder: aberration/
+  slaad.png               png sequence 4 one-shot   Froglike entity through rift
+
+Subfolder: beast/
+  familiar_owl.png        png sequence 4 one-shot   Owl from arcane dust
+
+Subfolder: dragon/
+  drake_companion.png     png sequence 4 one-shot   Small drake hatching/forming
+
+Subfolder: spectral/
+  mage_hand.gif           gif 8 looped              Translucent hand drifting;
+                                                     no portal opener
+
+Subfolder: spirit/
+  unseen_servant.gif      gif 8 looped              Subtle ripple/distortion
+
+Subfolder: void/
+  (reserved for void-type summons; none currently in templates)
+
+Subfolder: other/
+  (catch-all for homebrew or unclassified summons)
+
+
+---- WALL EFFECTS: src/renderer/public/assets/spells/effects/wall/ ----
+
+Purpose: Multi-tile barriers. Unlike aura/ and terrain/, walls render as a
+         SINGLE element spanning multiple tiles, not as per-tile loops.
+
+Files needed:
+  wall_force.gif    SVG preferred so wall can stretch to any panel count
+                    without pixelation.
+                    Style: translucent rectangular panel; faint blue/white
+                    edge highlight; stretchable/tileable across wall length.
+
+Spell coverage:
+  wall-of-force — wall_force.svg — new template vizCategory:'wall'
+    The wall renderer needs a tile range + facing parameter.
+
+Reuse rules:
+  Each future wall spell adds one file here (wall_fire.gif, wall_ice.gif,
+  wall_stone.png, etc.).
+  Wall sprites must be single stretchable elements, not per-tile loops.
+  If a wall deals damage on contact (like Wall of Fire), add the damage VFX
+  via the existing /animation/[damage_type]/ folder, not here.
+  This folder is for the barrier silhouette only.
+
+
+========================================================================
+SECTION 7 — V2 ARCHITECTURE AND DESIGN BLUEPRINT
+========================================================================
+
+This section is a reference document for the planned V2 redesign.
+It does not replace SECTION 1 (immediate backlog) or SECTION 2 (class features).
+Implement items in Sections 1-6 first. Reference this section when
+planning larger architectural changes.
+
+
+---- V1 STATE ASSESSMENT ----
+
+What V1 has:
+  - Functional D&D 5e character sheet covering full character lifecycle
+  - Solid rules engine and broad SRD data coverage
+
+Structural debt:
+  - CharacterView.tsx is monolithic (1000+ lines); every change is high-risk
+  - store.ts conflates IPC, game logic, schema migration, and state mutation
+  - Spell selection on level-up is missing (breaks caster progression)
+  - Spellbook management panel is missing
+  - Spell data for levels 6-9 is absent
+  - No undo, no export, no validation on core gameplay inputs
+
+
+---- V2 GOALS ----
+
+  - Modular feature-sliced codebase (each panel independently testable)
+  - Complete missing features: spell selection on level-up, spellbook,
+    levels 6-9 spells
+  - Introduce command pattern (all HP/slot/resource mutations undoable)
+  - Improve UX: dice roller + export
+  - Design system (shared primitives eliminate CSS duplication)
+  - Zod validation on all inputs
+  - Full unit test coverage on domain logic
+
+
+---- V2 TECHNOLOGY STACK ----
+
+  Shell:      Electron (retain)
+  UI:         React 19 + Vite (retain)
+  Language:   TypeScript 6 (retain)
+  State:      Zustand 5 split into slices
+  Validation: Zod 4 full schema coverage
+  Testing:    Vitest + React Testing Library
+  Component:  Storybook
+  CSS:        Module CSS + shared design tokens
+  IPC:        Dedicated IPC service layer (DONE - see codex_plan.txt header)
+
+
+---- V2 FEATURE MODULES ----
+
+Module A — Character Management
+  A1: Character selection screen (list, create, delete)
+  A2: 4-step creation wizard (Basics, Scores, Equipment, Spells)
+  A3: Ability score assignment (Standard Array, Point Buy, Roll 4d6)
+  A4: Race and class selection with subclass support
+  A5: Background selection (grants skill proficiencies)
+  A6: Disk persistence via Electron IPC (DONE via storage adapter)
+  A7: Schema migration on load (legacy field normalization)
+
+Module B — Character Identity and Header
+  B1: 2x4 identity grid (DONE)
+  B2: XP inline editor with level-up threshold detection (DONE)
+  B3: Inspiration pip counter 0-3
+  B4: Back-to-select navigation (DONE)
+  B5: Rest panel trigger button (DONE)
+
+Module C — Combat Vitals (all DONE)
+
+Module D — Ability Scores and Derived Stats (all DONE)
+
+Module E — Weapons and Attacks (all DONE)
+
+Module F — Actions (PARTIALLY DONE — see SECTION 2)
+
+Module G — Spells
+  G1-G6: DONE
+  G7: Spell selection on level-up — MISSING (see SECTION 1 priority 2 area)
+  G8: Spellbook management panel — MISSING
+  G9: Spell data levels 6-9 — MISSING
+
+Module H — Resources (DONE)
+
+Module I — Rest (DONE)
+
+Module J — Progression (DONE)
+
+Module K — Conditions (DONE)
+
+
+---- V2 TARGET DIRECTORY STRUCTURE ----
+
+src/
+  electron/
+    main/
+      index.ts                  IPC host, window, file I/O
+    preload/
+      index.ts                  contextBridge to window globals
+
+  renderer/
+    src/
+      main.tsx                  React entry point
+      app/
+        App.tsx                 Route: SelectScreen to CharacterView
+        global.css              CSS custom properties (design tokens)
+        store/
+          characterSlice.ts     Character CRUD + rest + level-up
+          uiSlice.ts            Panel open/close, active tabs, undo stack
+          index.ts              Combined Zustand store
+
+      domain/
+        rules/
+          combat.ts             computeAC, computeAttackBonus, isProficient,
+                                getAvailableActions, getSpecialAttacks
+          spells.ts             computeSpellSaveDC, computeSpellAttackBonus,
+                                defaultSpellSlots, spellcastingAbility,
+                                getSpellsLearnedOnLevelUp, getPreparedMax
+          progression.ts        profBonus, xpForLevel, xpForNextLevel,
+                                computeMaxHP, isAsiLevel
+          resources.ts          getResourceDefaults, applyShortRest, applyLongRest
+          skills.ts             skillBonus, savingThrowBonus, passivePerception
+        migrations/
+          index.ts              migrateCharacter(raw) returns Character
+          v1_to_v2.ts           hasShield to shieldId, add schemaVersion
+          v2_baseline.ts        addDefaultFields for missing keys
+        validation/
+          CharacterSchema.ts    Zod schema for full Character type
+
+      entities/
+        character/types.ts      Character, AbilityScores, HitPoints, etc.
+        class/types.ts          ClassDef, ResourceDef, FeatureDef
+        condition/types.ts      ActiveCondition
+        spell/types.ts          SpellEntry
+        weapon/types.ts         Weapon, WeaponDef
+
+      services/
+        ipc.ts                  (DONE - uses storage adapter)
+        storageAdapter.ts       (DONE)
+
+      features/
+        character-select/
+          CharacterSelectScreen.tsx
+          CharacterCard.tsx
+          CreateWizard/
+            CreateWizard.tsx
+            StepBasics.tsx
+            StepScores.tsx
+            StepEquipment.tsx
+            StepSpells.tsx
+        character-header/       (DONE)
+        vitals/                 (DONE)
+        abilities/              (DONE)
+        combat/                 (DONE)
+        spells/
+          SpellsPanel.tsx
+          SpellbookView.tsx             NEW
+          PreparedSpellsList.tsx        NEW
+          SpellSlotTracker.tsx
+          SpellList.tsx
+          SpellCard.tsx
+          SpellModal.tsx
+          ConcentrationBanner.tsx
+          SpellSelectionModal.tsx       NEW (level-up spell pick)
+        resources/              (DONE)
+        conditions/             (DONE)
+        features-panel/         (DONE)
+        level-up/               (DONE except SpellSelectionStep)
+        rest/                   (DONE)
+        dice-roller/            (DONE)
+        notes/
+          NotesPanel.tsx                NEW
+
+      shared/
+        ui/
+          tokens.css            Design token definitions
+          Pip.tsx               Reusable pip indicator
+          StatBlock.tsx         Reusable stat display
+          InlineEdit.tsx        Click-to-edit number/text
+          Modal.tsx             Base modal wrapper
+          Badge.tsx             Level/type badges
+          SearchInput.tsx       Debounced search field
+          Tooltip.tsx           Hover tooltip
+          Toast.tsx             Notification toasts
+        hooks/
+          useCharacter.ts       Selector: active character from store
+          useDerivedStats.ts    Computed: AC, HP max, spell DC, etc.
+          useUndo.ts            Undo stack management
+          useKeyboard.ts        Global keyboard shortcuts
+        utils/
+          dice.ts               rollDice(count, sides, mod)
+          format.ts             formatModifier(n): "+3" / "-1"
+          ids.ts                generateId(): UUID
+
+
+---- V2 DATA MODEL ----
+
+Character V2 interface additions / changes:
+
+  id: string                               UUID v4
+  schemaVersion: number                    NEW: 2 for V2
+  createdAt: string                        NEW: ISO timestamp
+  updatedAt: string                        NEW: ISO timestamp
+
+  name: string                             1-50 chars
+  playerName: string                       default ""
+  alignment: Alignment                     9-value enum (lawful-good, etc.)
+  race: RaceId
+  classId: ClassId
+  subclassId: SubclassId | null            RENAMED from subclass (was subclass?: string)
+  background: BackgroundId
+  level: number                            1-20
+  experiencePoints: number                 >= 0
+
+  abilityScores: AbilityScores             1-30 each, Zod validated
+  hitPoints: HitPoints
+  speed: number
+  initiative: number
+  proficiencyBonus: number
+
+  equipment: Equipment
+  weapons: Weapon[]                        CHANGED from weapons?: to weapons: (always array)
+  feats: string[]                          CHANGED from feats?: to feats: (always array)
+  bonusHpPerLevel: number                  CHANGED from ?: to required; default 0
+
+  spellIds: string[]
+  preparedSpellIds: string[]               NEW: for Cleric/Druid/Paladin/Wizard
+  spellSlots: Record<number, SlotState>
+  concentrationSpellId: string | null      CHANGED from ?: to | null
+
+  conditionIds: ActiveCondition[]
+  resources: Record<string, ResourceState>
+  deathSaves: DeathSaves
+  inspiration: number                      0-3
+  hitDiceUsed: number
+  notes: string                            NEW: free-text session notes
+
+Equipment V2:
+  armorId: string | null
+  shieldId: string | null                  (hasShield boolean fully removed)
+  items: EquipmentItem[]                   NEW
+
+Weapon V2 new field:
+  isCustom: boolean                        true for user-created weapons
+
+
+---- V2 SCHEMA MIGRATION (v1_to_v2.ts) ----
+
+Fields to rename or add when loading a V1 character:
+
+  schemaVersion: 2
+  createdAt: new Date().toISOString()
+  updatedAt: new Date().toISOString()
+  subclassId: char.subclass ?? null
+  concentrationSpellId: char.concentrationSpellId ?? null
+  weapons: char.weapons ?? []
+  feats: char.feats ?? []
+  bonusHpPerLevel: char.bonusHpPerLevel ?? 0
+  preparedSpellIds: []
+  notes: ''
+  equipment.items: []
+  equipment.shieldId: (char.equipment.hasShield ? 'shield' : null) if shieldId missing
+
+
+---- V2 ZOD VALIDATION SCHEMA ----
+
+File: src/renderer/src/domain/validation/CharacterSchema.ts (new file)
+Import from 'zod'.
+
+AbilityScoresSchema: each of str/dex/con/int/wis/cha is z.number().int().min(1).max(30)
+HitPointsSchema: current >= 0, max >= 1, temp >= 0
+WeaponSchema: id, name (min 1, max 100), damage regex /^(\d+d\d+([+-]\d+)?|\d+)$/,
+              rangeType enum ('Melee'|'Ranged'|'Melee or Ranged'),
+              category enum, enchantmentBonus int min 0 max 3, isCustom boolean
+
+CharacterSchema: validates all fields of Character V2 as above.
+Export: CharacterSchema (named), Character as z.infer<typeof CharacterSchema>
+
+
+---- V2 USEDERIVEDSTATS HOOK ----
+
+File: src/renderer/src/shared/hooks/useDerivedStats.ts (new file)
+Purpose: Centralize all derived stat computation. No component should compute
+         derived stats independently.
+
+Interface DerivedStats:
+  abilityModifiers: Record<AbilityScore, number>
+  proficiencyBonus: number
+  maxHP: number
+  armorClass: number
+  initiative: number
+  speed: number
+  spellSaveDC: number | null
+  spellAttackBonus: number | null
+  skillBonuses: Record<Skill, number>
+  savingThrowBonuses: Record<AbilityScore, number>
+  passivePerception: number
+  attackBonuses: Record<string, number>     weaponId to computed bonus
+
+Function signature: function useDerivedStats(character: Character): DerivedStats
+All computations memoized with useMemo.
+
+
+---- V2 COMMAND PATTERN (UNDO) ----
+
+File: src/renderer/src/app/store/commands.ts (new file)
+
+Interface CharacterCommand:
+  type: string
+  characterId: string
+  apply: (state: Character) => Character
+  undo: (state: Character) => Character
+  description: string   e.g. "Dealt 12 damage"
+
+uiSlice maintains a stack of the last 10 commands per character.
+Ctrl+Z calls undo() on the top command and pops the stack.
+Every character mutation goes through applyCommand().
+applyCommand() validates the next state with CharacterSchema.safeParse()
+before applying; if invalid, shows an error toast and returns without mutating.
+
+
+---- V2 SPELL SELECTION ON LEVEL-UP (Was Missing) ----
+
+File: src/renderer/src/features/level-up/SpellSelectionStep.tsx (new file)
+
+Purpose: After level increment, if character is a spellcaster, the level-up
+         flow continues to SpellSelectionStep.
+
+Behavior:
+  Shows: how many new cantrips (if any), how many new spells to learn
+  Filter by level, school, concentration
+  Already-known spells are greyed out and non-selectable
+  Confirm: merges new spell IDs into character.spellIds
+
+Class-specific rules:
+  Wizard: +2 spells per level
+  Cleric/Druid: prepared casters; no selection needed; higher slot levels unlock
+  Bard/Ranger/Sorcerer: use class data spellsKnownTable
+  Warlock: use spellsKnownTable; check for new Eldritch Invocations
+
+Edge cases:
+  Non-caster level-up: skip SpellSelectionStep entirely
+  Bard/Sorcerer: one existing spell can be swapped (show "Replace" option)
+
+
+---- V2 SPELLBOOK PANEL (Was Missing) ----
+
+File: src/renderer/src/features/spells/SpellbookView.tsx (new file)
+File: src/renderer/src/features/spells/PreparedSpellsList.tsx (new file)
+
+Access: "Spellbook" tab in center column (alongside Actions tab group)
+
+Two sub-views by class type:
+
+  Known Spells (Bard, Ranger, Sorcerer, Warlock):
+    List of currently known spells with option to swap on level-up
+
+  Prepared Spells (Cleric, Druid, Paladin, Wizard):
+    Total available spells, current prepared count vs max, toggle to mark prepared
+
+Prepared max formulas:
+  Cleric/Druid: WIS modifier + character level
+  Paladin: CHA modifier + floor(paladin level / 2)
+  Wizard: INT modifier + character level
+
+Both sub-views support:
+  Search and filter by level, school, concentration
+  Click any spell: opens spell card modal
+  "Add Spell" button: filtered spell selection (restricted by class + level)
+
+Prepared state resets on long rest (user re-marks).
+
+Edge cases:
+  Wizard with 0 prepared spells: show warning "No spells prepared"
+  Adding spell above current slot level: blocked with explanation
+
+
+---- V2 KEYBOARD SHORTCUTS ----
+
+  R         — Open/close dice roller
+  Ctrl+Z    — Undo last HP/slot/resource change
+  Escape    — Close any open modal/overlay
+  L         — Open/close rest panel
+  1-4       — Switch action tabs (Action/Bonus/Reaction/Class)
+  S         — Switch center column to Spellbook
+  N         — Switch center column to Notes
+
+
+---- V2 ROLLOUT PHASES ----
+
+Phase 1 — Architecture refactor (no new features)
+  Split CharacterView.tsx into feature components
+  Split store.ts into slices
+  services/ipc.ts created (DONE)
+  domain/migrations/ created
+  Add Zod CharacterSchema
+  Set up Vitest + write domain layer tests
+  Result: V1-equivalent behavior, V2 architecture
+
+Phase 2 — Complete missing core features
+  Add SpellSelectionStep to level-up flow
+  Add SpellbookView + PreparedSpellsList
+  Add spell data for levels 6-9
+  Result: Caster gameplay fully functional
+
+Phase 3 — UX improvements
+  Undo stack (command pattern)
+  Ability score validation
+  Error boundaries
+  CSS design tokens
+  Complete ActionDetailPane for all action types
+  Result: Polished, robust gameplay experience
+
+Phase 4 — Export / import
+  JSON export + import
+  Character backup on first V2 launch
+  Result: Data portability
+
+Phase 5 — Supporting features
+  Notes panel
+  Concentration save DC reminder
+  Spell slot upcasting tracker
+  Result: Full session companion
+
+
+---- V2 COMPONENT WRITING RULES ----
+
+1. Max 300 lines per component; extract sub-components if exceeded.
+2. No derived stat computation in JSX; use useDerivedStats() exclusively.
+3. No direct store mutations in event handlers; dispatch a command through
+   store.applyCommand().
+4. No magic strings; use typed enums/constants for all IDs.
+5. Every component wrapped in PanelErrorBoundary except primitive shared/ui
+   components.
+6. No CSS values hardcoded in components; always reference design tokens via
+   var(--color-*), var(--space-*).
+
+
+---- V2 DOMAIN LAYER RULES ----
+
+1. All functions in domain/rules/ are pure; zero React, zero Zustand imports.
+2. Every function has a corresponding Vitest test file (*.test.ts).
+3. Test edge cases: max ability score (30), level 20, 0 HP, no proficiency,
+   magic weapons, shield stacking.
+4. No domain function reads from static data files; data is passed as parameters.
+
+
+---- V2 STATE MANAGEMENT RULES ----
+
+1. characterSlice.ts: Only character data mutations + IPC persistence calls.
+2. uiSlice.ts: Only UI state (open panels, active tabs, undo stack, toasts).
+3. Selectors colocated with features (features/vitals/useVitals.ts).
+4. No useAppStore() calls in leaf components; they receive props from feature
+   root components.
+
+
+---- V2 IPC LAYER RULES ----
+
+1. All IPC calls go through services/ipc.ts (DONE).
+2. Every IPC call is async/await with try/catch; errors show a toast.
+3. Save is debounced 500ms; prevents excessive writes on rapid HP clicks.
+
+
+---- V2 CSS RULES ----
+
+1. All color/spacing/typography from tokens.css; zero hardcoded values.
+2. Module CSS for component-scoped styles.
+3. Shared layout primitives in shared/ui/.
+4. Media queries for tablet layout at max-width: 999px (DONE in CharacterView).
+
+
+---- V2 ACCEPTANCE TEST MATRIX ----
+
+Scenario                  Steps                              Expected
+Create Wizard lv1         Full wizard, create                Correct HP, AC, weapons
+Create Sorcerer lv5       Full wizard including spells        Cantrips + spells + slots
+Level up Fighter to 4     Add XP, Level Up                   ASI modal; +2 ability; HP up
+Level up Wizard to 3      Add XP, Level Up                   SpellSelectionStep shows 2 spells
+Damage + undo             Deal 15 damage, Ctrl+Z             HP restored
+Death saves               Reduce to 0 HP, click 3 fails      Death state shown
+Stabilize                 0 HP, click 3 successes            HP = 1, saves cleared
+Long rest Warlock         Use all pact slots, Long Rest       Slots restored
+Short rest Monk           Use 3 Ki, Short Rest                Ki restored; HP healed
+Prepare spells Cleric     Open Spellbook, mark prepared       preparedSpellIds updated
+Level 7 Fireball          Level to 7, check Spellbook         Fireball available
+Export then import        Export JSON, delete, Import         Character restored exactly
+Bad disk                  Disconnect disk mock, deal damage   Toast error; state unchanged
+
+
+========================================================================
 END OF PLAN
-------------------------------------------------------------------------
+========================================================================

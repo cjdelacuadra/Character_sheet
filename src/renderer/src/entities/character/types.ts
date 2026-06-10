@@ -122,6 +122,7 @@ export interface Character {
   tomeCantrips?: string[]
   chainFamiliarType?: 'imp' | 'pseudodragon' | 'quasit' | 'sprite'
   isRaging?: boolean
+  chosenTotem?: 'bear' | 'eagle' | 'wolf'
   /** Bladesinger (Wizard) — Bladesong active toggle. While active: +INT to AC, +10 ft speed,
    *  advantage on Acrobatics, +INT to Constitution saves for concentration. Only valid while
    *  not in medium/heavy armor, no shield, no two-handed weapon. */
