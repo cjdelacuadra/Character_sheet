@@ -146,6 +146,10 @@ export interface Character {
   activeArtificerInfusions?: string[]
   /** Live summoned creatures/structures owned by this character */
   activeSummons: ActiveSummon[]
+  /** User-authored custom features shown in the Features panel (homebrew, DM grants, notes). */
+  customFeatures?: { name: string; desc: string }[]
+  /** Used-count of limited-use racial actions, keyed by RacialAction.id; reset on rest by recharge. */
+  racialActionUses?: Record<string, number>
   /** Circle of the Land Druid's chosen terrain at level 3 (Circle Spells). */
   circleOfLandTerrain?: 'arctic' | 'coast' | 'desert' | 'forest' | 'grassland' | 'mountain' | 'swamp' | 'underdark'
   notes: string

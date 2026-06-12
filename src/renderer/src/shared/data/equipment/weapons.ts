@@ -3,16 +3,16 @@ export type { WeaponProficiencyCategory, WeaponRangeType, ItemRarity }
 export type { WeaponEquipmentItem }
 export type WeaponDef = WeaponEquipmentItem
 
-const W = '/assets/equipment/sprites/weapons/'
+const W = '/assets/weapons/'
 
 export let WEAPONS: WeaponEquipmentItem[] = [
   // ── Unarmed ──────────────────────────────────────────────────────────────
   { id: 'unarmed',       name: 'Unarmed Strike', kind: 'weapon', damageDie: '1',    damageType: 'bludgeoning', proficiencyCategory: 'Unarmed', rangeType: 'Melee',           properties: [],                                                   isMonkWeapon: true, cost: 0   },
   // ── Simple Melee ─────────────────────────────────────────────────────────
-  { id: 'club',          name: 'Club',           kind: 'weapon', damageDie: '1d4',  damageType: 'bludgeoning', proficiencyCategory: 'Simple',  rangeType: 'Melee',           properties: ['Light'], enchantments: ["fire", "ice", "thunder", "earth", "energy"], isMonkWeapon: true, cost: 1   , sprite: `${W}club.png`},
+  { id: 'club',          name: 'Club',           kind: 'weapon', damageDie: '1d4',  damageType: 'bludgeoning', proficiencyCategory: 'Simple',  rangeType: 'Melee',           properties: ['Light'], enchantments: ["fire", "cold", "thunder", "acid", "lightning"], isMonkWeapon: true, cost: 1   , sprite: `${W}club.png`},
   { id: 'dagger',        name: 'Dagger',         kind: 'weapon', damageDie: '1d4',  damageType: 'piercing',    proficiencyCategory: 'Simple',  rangeType: 'Melee or Ranged', properties: ['Finesse', 'Light', 'Thrown (range 20/60)'],          isMonkWeapon: true, cost: 2   , sprite: `${W}dagger.png`},
   { id: 'greatclub',     name: 'Greatclub',      kind: 'weapon', damageDie: '1d8',  damageType: 'bludgeoning', proficiencyCategory: 'Simple',  rangeType: 'Melee',           properties: ['Two-Handed'],                                                           cost: 2   , sprite: `${W}greatclub.png`},
-  { id: 'handaxe',       name: 'Handaxe',        kind: 'weapon', damageDie: '1d6',  damageType: 'slashing',    proficiencyCategory: 'Simple',  rangeType: 'Melee or Ranged', properties: ['Light', 'Thrown (range 20/60)'], enchantments: ["fire", "ice", "thunder", "earth", "energy"],  cost: 5   , sprite: `${W}handaxe.png`},
+  { id: 'handaxe',       name: 'Handaxe',        kind: 'weapon', damageDie: '1d6',  damageType: 'slashing',    proficiencyCategory: 'Simple',  rangeType: 'Melee or Ranged', properties: ['Light', 'Thrown (range 20/60)'], enchantments: ["fire", "cold", "thunder", "acid", "lightning"],  cost: 5   , sprite: `${W}handaxe.png`},
   { id: 'javelin',       name: 'Javelin',        kind: 'weapon', damageDie: '1d6',  damageType: 'piercing',    proficiencyCategory: 'Simple',  rangeType: 'Melee or Ranged', properties: ['Thrown (range 30/120)'],                            isMonkWeapon: true, cost: 5   , sprite: `${W}javelin.png`},
   { id: 'lightHammer',   name: 'Light Hammer',   kind: 'weapon', damageDie: '1d4',  damageType: 'bludgeoning', proficiencyCategory: 'Simple',  rangeType: 'Melee or Ranged', properties: ['Light', 'Thrown (range 20/60)'],                                         cost: 2   , sprite: `${W}light hammer.png`},
   { id: 'mace',          name: 'Mace',           kind: 'weapon', damageDie: '1d6',  damageType: 'bludgeoning', proficiencyCategory: 'Simple',  rangeType: 'Melee',           properties: [],                                                   isMonkWeapon: true, cost: 5   , sprite: `${W}mace.png`},

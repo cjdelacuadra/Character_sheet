@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { getClassFeatures, type FeatureEntry } from '@/shared/data/classFeaturesData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
@@ -8,7 +9,7 @@ import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
 import styles from './FeaturesPanel.module.css'
 
-type SourcedFeature = FeatureEntry & { source: 'class' | 'race' }
+type SourcedFeature = FeatureEntry & { source: 'class' | 'race' | 'custom'; customIndex?: number }
 
 const FIGHTING_STYLE_DATA: Record<string, { label: string; desc: string }> = {
   archery:             { label: 'Archery',             desc: 'You gain a +2 bonus to attack rolls you make with ranged weapons.' },
@@ -28,11 +29,27 @@ const SUBCLASS_FEATURE_NAMES = new Set([
 
 interface Props {
   character: Character
+  update: (patch: Partial<Character>) => void
   selectedFeature: FeatureEntry | null
   onSelectFeature: (f: FeatureEntry | null) => void
 }
 
-export function FeaturesPanel({ character: char, selectedFeature, onSelectFeature }: Props) {
+export function FeaturesPanel({ character: char, update, selectedFeature, onSelectFeature }: Props) {
+  const [addOpen, setAddOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+
+  const customFeatures = char.customFeatures ?? []
+  function addFeature() {
+    const name = newName.trim()
+    if (!name) return
+    update({ customFeatures: [...customFeatures, { name, desc: newDesc.trim() }] })
+    setNewName(''); setNewDesc(''); setAddOpen(false)
+  }
+  function removeFeature(index: number) {
+    update({ customFeatures: customFeatures.filter((_, i) => i !== index) })
+  }
+
   // ── Class features ──────────────────────────────────────────────────────
   const baseFeatures = getClassFeatures(char.classId, char.level)
   const fsData = char.fightingStyle ? FIGHTING_STYLE_DATA[char.fightingStyle] : null
@@ -106,17 +123,45 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
     raceFeatures.unshift({ level: 0, source: 'race' as const, name: bgDef.feature, desc: `Background: ${bgDef.label}` })
   }
 
-  // ── Merge: race traits first (level 0), then class by level ────────────
+  // ── Custom (user-added) features ────────────────────────────────────────
+  const customSourced: SourcedFeature[] = customFeatures.map((f, i) => ({
+    level: 0, source: 'custom' as const, name: f.name, desc: f.desc, customIndex: i,
+  }))
+
+  // ── Merge: race traits first (level 0), then class by level, then custom ──
   const features: SourcedFeature[] = [
     ...raceFeatures,
     ...classFeatures.sort((a, b) => a.level - b.level),
+    ...customSourced,
   ]
 
   return (
     <section className={styles.section}>
       <div className={styles.sectionHead}>
         <span className={styles.sectionLabel}>Features</span>
+        <button className={styles.addBtn} onClick={() => setAddOpen(v => !v)}>
+          {addOpen ? 'Cancel' : '+ Add Feature'}
+        </button>
       </div>
+      {addOpen && (
+        <div className={styles.addForm}>
+          <input
+            className={styles.addInput}
+            placeholder="Feature name"
+            value={newName}
+            autoFocus
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addFeature() }}
+          />
+          <textarea
+            className={styles.addTextarea}
+            placeholder="Description (optional)"
+            value={newDesc}
+            onChange={e => setNewDesc(e.target.value)}
+          />
+          <button className={styles.addSave} onClick={addFeature} disabled={!newName.trim()}>Save Feature</button>
+        </div>
+      )}
       {features.length === 0 ? (
         <span className={styles.emptyNote}>No features at this level.</span>
       ) : (
@@ -139,12 +184,19 @@ export function FeaturesPanel({ character: char, selectedFeature, onSelectFeatur
                     )}
                   </span>
                   <span className={styles.featureLevel}>
-                    <span className={f.source === 'race' ? styles.badgeRace : styles.badgeClass}>
-                      {f.source === 'race' ? 'RACE' : 'CLASS'}
+                    <span className={f.source === 'race' ? styles.badgeRace : f.source === 'custom' ? styles.badgeCustom : styles.badgeClass}>
+                      {f.source === 'race' ? 'RACE' : f.source === 'custom' ? 'CUSTOM' : 'CLASS'}
                     </span>
                     {f.level > 0 && <span>Lvl {f.level}</span>}
                   </span>
                 </button>
+                {f.source === 'custom' && f.customIndex !== undefined && (
+                  <button
+                    className={styles.featureRemove}
+                    title="Remove feature"
+                    onClick={() => removeFeature(f.customIndex!)}
+                  >×</button>
+                )}
               </div>
             )
           })}

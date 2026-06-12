@@ -3,7 +3,9 @@
 .sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
 .addBtn { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
 .addBtn:hover { border-color: var(--accent); color: var(--accent); }
-.conditionPicker { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-2); border-radius: 6px; }
+.conditionPicker { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; background: var(--surface-2); border-radius: 6px; max-height: 180px; overflow-y: auto; }
+.buffSearch { width: 100%; font-size: 11px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); outline: none; }
+.buffSearch:focus { border-color: var(--accent); }
 .condOpt { padding: 3px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
 .condOpt:hover { border-color: var(--accent); }
 .condOptActive { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }

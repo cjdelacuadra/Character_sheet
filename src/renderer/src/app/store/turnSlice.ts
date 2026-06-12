@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from './characterSlice'
+import { SPELL_BY_ID, endsAtStartOfNextTurn } from '@/shared/data/spellData'
 
 export type EconomyType = 'action' | 'bonus' | 'reaction'
 
@@ -157,10 +158,14 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
       charPatch.conditionIds = baseConds.filter(c => !decisions.conditionsToDrop.includes(c.conditionId))
     }
 
-    if (ts.endOfTurnBuffIds.length > 0) {
-      const buffs = char.activeBuffSpells ?? []
-      charPatch.activeBuffSpells = buffs.filter(id => !ts.endOfTurnBuffIds.includes(id))
-    }
+    // Drop active buffs that should end at the start of the next turn: those explicitly
+    // registered this turn, OR any active 1-round spell (e.g. Booming Blade) detected by its
+    // duration — so 1-turn buffs always clear, regardless of how they were cast.
+    const buffs = char.activeBuffSpells ?? []
+    const remainingBuffs = buffs.filter(id =>
+      !ts.endOfTurnBuffIds.includes(id) && !endsAtStartOfNextTurn(SPELL_BY_ID[id] ?? { duration: '' })
+    )
+    if (remainingBuffs.length !== buffs.length) charPatch.activeBuffSpells = remainingBuffs
 
     if (decisions.dropRage && char.isRaging) charPatch.isRaging = false
     if (decisions.dropBladesong && char.isBladesinging) charPatch.isBladesinging = false

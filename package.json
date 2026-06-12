@@ -13,7 +13,31 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:csv": "tsx scripts/gen-equipment-csv.mts"
+    "gen:csv": "tsx scripts/gen-equipment-csv.mts",
+    "dist": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.charactersheet.app",
+    "productName": "Character Sheet",
+    "compression": "maximum",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "src/renderer/public/**"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "repository": {
     "type": "git",
@@ -34,6 +58,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^42.2.0",
+    "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "typescript": "^6.0.3",
     "vite": "^7.3.3",
@@ -43,12 +68,9 @@
     "@capacitor/core": "^7.6.6",
     "@capacitor/filesystem": "^7.1.8",
     "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
     "papaparse": "^5.5.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "zod": "^4.4.3",
     "zustand": "^5.0.13"
   }
 }

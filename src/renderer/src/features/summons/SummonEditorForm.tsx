@@ -1,6 +1,16 @@
 import { useState } from 'react'
+import type { AbilityScore, AbilityScores } from '@/entities/character/types'
 import type { SummonAttack, SummonTemplate, SummonType } from '@/entities/summon/types'
 import styles from './SummonEditorForm.module.css'
+
+const ABILITY_KEYS: { key: AbilityScore; label: string }[] = [
+  { key: 'str', label: 'STR' }, { key: 'dex', label: 'DEX' }, { key: 'con', label: 'CON' },
+  { key: 'int', label: 'INT' }, { key: 'wis', label: 'WIS' }, { key: 'cha', label: 'CHA' },
+]
+const SAVE_LABELS: { key: AbilityScore; label: string }[] = [
+  { key: 'str', label: 'Strength' }, { key: 'dex', label: 'Dexterity' }, { key: 'con', label: 'Constitution' },
+  { key: 'int', label: 'Intelligence' }, { key: 'wis', label: 'Wisdom' }, { key: 'cha', label: 'Charisma' },
+]
 
 const DAMAGE_PATTERN = /^\d+d\d+([+-]\d+)?$|^\d+$|^—$/
 const TYPES: SummonType[] = ['creature', 'structure', 'object']
@@ -36,6 +46,14 @@ export function SummonEditorForm({ initial, onSave, onCancel }: Props) {
   const [bonusActions, setBonusActions] = useState(String(initial?.actionEconomy.bonusActions ?? 1))
   const [reactions, setReactions] = useState(String(initial?.actionEconomy.reactions ?? 1))
   const [attacks, setAttacks] = useState<FormAttack[]>(initial?.attacks.map(toFormAttack) ?? [])
+  const [abilityScores, setAbilityScores] = useState<AbilityScores>(
+    initial?.abilityScores ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+  )
+  const [proficiencyBonus, setProficiencyBonus] = useState(String(initial?.proficiencyBonus ?? 2))
+  const [usesCasterPB, setUsesCasterPB] = useState(initial?.usesCasterPB ?? false)
+  const [savingThrowProficiencies, setSavingThrowProficiencies] = useState<AbilityScore[]>(
+    initial?.savingThrowProficiencies ?? []
+  )
   const [spells, setSpells] = useState((initial?.spells ?? []).join(', '))
   const [defaultNotes, setDefaultNotes] = useState(initial?.defaultNotes ?? '')
   const [error, setError] = useState<string | null>(null)
@@ -97,6 +115,10 @@ export function SummonEditorForm({ initial, onSave, onCancel }: Props) {
       },
       spells: cleanedSpells.length > 0 ? cleanedSpells : undefined,
       defaultNotes: defaultNotes.trim() || undefined,
+      abilityScores,
+      savingThrowProficiencies: savingThrowProficiencies.length > 0 ? savingThrowProficiencies : undefined,
+      proficiencyBonus: parseInt(proficiencyBonus, 10) || 2,
+      usesCasterPB: usesCasterPB || undefined,
     }
     onSave(template)
   }
@@ -134,6 +156,53 @@ export function SummonEditorForm({ initial, onSave, onCancel }: Props) {
           <span>Initiative mod</span>
           <input className={styles.input} type="number" value={initiativeMod} onChange={e => setInitiativeMod(e.target.value)} />
         </label>
+      </div>
+
+      <div className={styles.abilityScoresSection}>
+        <span className={styles.sectionLabel}>Ability Scores</span>
+        <div className={styles.abilityScoresGrid}>
+          {ABILITY_KEYS.map(({ key, label }) => (
+            <label key={key} className={styles.abilityScoreField}>
+              <span>{label}</span>
+              <input
+                className={styles.abilityScoreInput}
+                type="number"
+                min={1} max={30}
+                value={abilityScores[key]}
+                onChange={e => setAbilityScores(prev => ({ ...prev, [key]: parseInt(e.target.value, 10) || 10 }))}
+              />
+            </label>
+          ))}
+        </div>
+        <div className={styles.pbRow}>
+          <label className={styles.economyField}>
+            <span>Prof Bonus</span>
+            <input className={styles.economyInput} type="number" min={2} max={6} value={proficiencyBonus} onChange={e => setProficiencyBonus(e.target.value)} />
+          </label>
+          <label className={styles.checkField}>
+            <input type="checkbox" checked={usesCasterPB} onChange={e => setUsesCasterPB(e.target.checked)} />
+            <span>Scales with caster PB</span>
+          </label>
+        </div>
+        <div className={styles.savesGrid}>
+          <span className={styles.savesLabel}>Saving Throw Proficiencies</span>
+          <div className={styles.savesCheckboxes}>
+            {SAVE_LABELS.map(({ key, label }) => (
+              <label key={key} className={styles.checkField}>
+                <input
+                  type="checkbox"
+                  checked={savingThrowProficiencies.includes(key)}
+                  onChange={e => setSavingThrowProficiencies(
+                    e.target.checked
+                      ? [...savingThrowProficiencies, key]
+                      : savingThrowProficiencies.filter(k => k !== key)
+                  )}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className={styles.economyRow}>

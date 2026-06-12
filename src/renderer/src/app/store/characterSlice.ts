@@ -76,7 +76,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
 
   setActiveCharacter: (id) => {
     set({ activeCharacterId: id })
-    get().initTurnState(id)
+    get().initTurnState?.(id)
   },
 
   exitCharacter: () => set({ activeCharacterId: null }),
@@ -159,6 +159,12 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         }
       }
 
+      // Recharge short-rest racial actions (e.g. Breath Weapon, Shift, Fey Step, Hidden Step).
+      const newRacialUses = { ...(char.racialActionUses ?? {}) }
+      for (const a of RACE_BY_ID[char.race]?.racialActions ?? []) {
+        if (a.recharge === 'short') delete newRacialUses[a.id]
+      }
+
       let newSlots = char.spellSlots
       if (char.classId === 'Warlock') {
         newSlots = Object.fromEntries(
@@ -174,9 +180,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         resources: newResources,
         spellSlots: newSlots,
         superiorityDiceUsed: 0,
+        racialActionUses: newRacialUses,
       }
       ipcService.save(id, updated)
-      get().initTurnState(id)
+      get().initTurnState?.(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },
@@ -213,9 +220,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         activeSummons: [],
         isRaging: false,
         isBladesinging: false,
+        racialActionUses: {},
       }
       ipcService.save(id, updated)
-      get().initTurnState(id)
+      get().initTurnState?.(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },
@@ -308,7 +316,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
           : (char.completedAsiChoices ?? {}),
       }
       ipcService.save(id, updated)
-      get().initTurnState(id)
+      get().initTurnState?.(id)
       return { characters: { ...state.characters, [id]: updated } }
     })
   },
@@ -544,6 +552,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         actionEconomy: { ...tpl.actionEconomy },
         spells: tpl.spells ? [...tpl.spells] : undefined,
         resources: tpl.resources ? tpl.resources.map(r => ({ ...r })) : undefined,
+        abilityScores: tpl.abilityScores ? { ...tpl.abilityScores } : undefined,
+        savingThrowProficiencies: tpl.savingThrowProficiencies ? [...tpl.savingThrowProficiencies] : undefined,
+        proficiencyBonus: tpl.proficiencyBonus,
+        usesCasterPB: tpl.usesCasterPB,
       }
 
       const concentration = source?.spellId

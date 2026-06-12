@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
-import { SPELLS } from '@/shared/data/spellData'
+import { SPELLS, SPELL_BY_ID } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeSpellLevelUpConfig } from '@/domain/rules'
@@ -15,13 +15,24 @@ interface Props {
   title?: string
   forceSpellDelta?: number
   forceCantripDelta?: number
+  /**
+   * Prepared-caster mode (Cleric/Druid/Paladin/Artificer): pick which spells to PREPARE from the
+   * full class list (not "learn"). Pre-selects the currently-prepared leveled spells, caps at the
+   * total prepare limit (pass via forceSpellDelta), and onConfirm receives the full prepared set.
+   */
+  prepareMode?: boolean
 }
 
-export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, panelMode = false, title, forceSpellDelta, forceCantripDelta }: Props) {
+export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, panelMode = false, title, forceSpellDelta, forceCantripDelta, prepareMode = false }: Props) {
   const classDef = CLASS_BY_ID[character.classId]
   const [search, setSearch] = useState('')
-  // Only newly selected spells — existing spellIds are merged by the store on confirm
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Learn mode: only newly selected spells (merged into spellIds on confirm).
+  // Prepare mode: pre-seed with the currently-prepared leveled spells (the full set is replaced).
+  const [selected, setSelected] = useState<Set<string>>(
+    prepareMode
+      ? new Set(character.preparedSpellIds.filter(id => (SPELL_BY_ID[id]?.level ?? 0) > 0))
+      : new Set()
+  )
 
   const subclassDef = character.subclass ? SUBCLASS_BY_ID[character.subclass] : undefined
   if (!classDef && !subclassDef?.spellsKnownTable) return null
@@ -29,16 +40,18 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, p
   const oldLevel = newLevel - 1
   const { spellsDelta, cantripsDelta, maxSlotLevel } = computeSpellLevelUpConfig(classDef!, oldLevel, newLevel, character.subclass ?? undefined)
 
-  const maxCantrips = forceCantripDelta ?? cantripsDelta
+  // Prepare mode focuses on leveled spells (cantrips are still learned via the normal flow).
+  const maxCantrips = prepareMode ? 0 : (forceCantripDelta ?? cantripsDelta)
   const maxSpells = forceSpellDelta ?? spellsDelta
 
   const selectedCantrips = [...selected].filter(id => SPELLS.find(s => s.id === id)?.level === 0)
   const selectedSpells   = [...selected].filter(id => { const s = SPELLS.find(sp => sp.id === id); return s && s.level > 0 })
 
-  // Already-known spells must not appear in the picker
+  // In learn mode, already-known spells must not appear. In prepare mode the whole class list is
+  // selectable (prepared casters prepare from their entire list).
   const spellClassId = subclassDef?.spellListClassId ?? character.classId
   const knownIds = new Set(character.spellIds)
-  const classSpells = SPELLS.filter(s => s.classes.includes(spellClassId) && !knownIds.has(s.id))
+  const classSpells = SPELLS.filter(s => s.classes.includes(spellClassId) && (prepareMode || !knownIds.has(s.id)))
 
   function toggle(id: string, level: number) {
     const isCantrip = level === 0
@@ -59,7 +72,7 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, p
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <div className={styles.titleBlock}>
-            <span className={styles.title}>{title ?? `Level ${newLevel} — Pick Your Spells`}</span>
+            <span className={styles.title}>{title ?? (prepareMode ? `Prepare Spells — Level ${newLevel}` : `Level ${newLevel} — Pick Your Spells`)}</span>
             <span className={styles.subtitle}>
               {maxCantrips > 0 && `${selectedCantrips.length}/${maxCantrips} cantrips`}
               {maxCantrips > 0 && maxSpells > 0 && ' · '}
@@ -128,7 +141,7 @@ export function SpellSelectionStep({ character, newLevel, onConfirm, onCancel, p
         <div className={styles.footer}>
           <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
           <button className={styles.confirmBtn} onClick={() => onConfirm([...selected])}>
-            Confirm &amp; Level Up
+            {prepareMode ? 'Save Prepared Spells' : 'Confirm & Level Up'}
           </button>
         </div>
       </div>

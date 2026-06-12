@@ -108,11 +108,14 @@ function hpColor(current: number, max: number) {
 type Step = 'basics' | 'scores' | 'equipment' | 'spells'
 type ScoreMethod = 'standard' | 'pointbuy' | 'roll'
 
-interface Basics { name: string; playerName: string; alignment: string; race: string; classId: string; subclass?: string; background: string; level: number }
+interface Basics { name: string; playerName: string; alignment: string; race: string; classId: string; subclass?: string; background: string; level: number; startingGold: number }
+
+/** Default starting gold for a given level: 10 + 10 per level (campaigns can override). */
+function defaultStartingGold(level: number): number { return 10 + 10 * level }
 
 function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Character | Character[]) => void }) {
   const [step, setStep] = useState<Step>('basics')
-  const [basics, setBasics] = useState<Basics>({ name: '', playerName: '', alignment: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1 })
+  const [basics, setBasics] = useState<Basics>({ name: '', playerName: '', alignment: '', race: 'Human', classId: 'Fighter', subclass: undefined, background: 'Soldier', level: 1, startingGold: defaultStartingGold(1) })
 
   // Step 2 state
   const [method, setMethod] = useState<ScoreMethod>('standard')
@@ -240,9 +243,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       bonusDamageType: w.bonusDamageType ?? w.enchantment ?? undefined,
     }))
 
-    const armorCost  = armorId !== 'none' ? (GEAR_BY_ID[armorId]?.cost ?? 0) : 0
-    const shieldCost = shieldId ? (GEAR_BY_ID[shieldId]?.cost ?? 0) : 0
-    const equipCost  = armorCost + shieldCost
+    // Creation equipment is a free starting kit — starting gold comes from the selector.
 
     const now = new Date().toISOString()
     return {
@@ -296,7 +297,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       feats: chosenFeat ? [chosenFeat] : [],
       fightingStyle: chosenFightingStyle,
       completedAsiLevels: [],
-      gold: isTestMode ? 10000 : Math.max(100 - equipCost, 10),
+      gold: isTestMode ? 10000 : basics.startingGold,
       ownedItemIds: [],
       activeSummons: [],
       circleOfLandTerrain: basics.subclass === 'CircleOfTheLand' && basics.level >= 3 ? chosenLandTerrain : undefined,
@@ -506,8 +507,14 @@ function StepBasics({ value, onChange, onNext, onCancel }: {
                 const opts = SUBCLASSES_BY_CLASS[value.classId] ?? []
                 const required = opts.length > 0 && opts[0].unlocksAtLevel <= newLevel
                 const newSubclass = required && !value.subclass ? opts[0].id : value.subclass
-                onChange({ ...value, level: newLevel, subclass: newSubclass })
+                // Resync the starting-gold default to the new level (override it afterward if desired).
+                onChange({ ...value, level: newLevel, subclass: newSubclass, startingGold: defaultStartingGold(newLevel) })
               }} />
+          </label>
+          <label className={styles.field}>
+            <span>Starting Gold</span>
+            <input className={styles.input} type="number" min={0} value={value.startingGold}
+              onChange={e => set('startingGold', Math.max(0, Number(e.target.value)))} />
           </label>
         </div>
         {/* Race preview */}
@@ -639,10 +646,19 @@ function StepScores({
   const canContinue = (method === 'standard' ? stdComplete : method === 'pointbuy' ? true : rollComplete) && freePointsDone && featDone && featAbilityDone
 
   function getPreview(k: AbilityScore): number | null {
-    const bonus = racialBonus(k)
-    if (method === 'standard') return stdAssign[k] !== undefined ? stdAssign[k]! + bonus : null
-    if (method === 'pointbuy') return pbScores[k] + bonus
-    return rollAssign[k] !== undefined ? rolled[rollAssign[k]!] + bonus : null
+    // Base score for the chosen method
+    let base: number | null
+    if (method === 'standard') base = stdAssign[k] !== undefined ? stdAssign[k]! : null
+    else if (method === 'pointbuy') base = pbScores[k]
+    else base = rollAssign[k] !== undefined ? rolled[rollAssign[k]!] : null
+    if (base === null) return null
+    // Mirror getScores(): fixed racial bonus + free racial picks (Half-Elf +1×2) + feat bonuses
+    let score = base + racialBonus(k)
+    if (freeAbilityPicks.includes(k)) score += 1
+    const featDef = chosenFeat ? FEAT_BY_ID[chosenFeat] : undefined
+    if (featDef?.abilityBonus?.[k]) score += featDef.abilityBonus[k]!
+    if (featDef?.abilityChoice && chosenFeatAbility === k) score = Math.min(20, score + 1)
+    return score
   }
 
   return (
@@ -853,6 +869,9 @@ function StepEquipment({
   const ac = computeAC({ abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass })
   const maxHp = computeMaxHP(basics.classId, basics.level, scores.con, bonusHpPerLevel)
   const speed = computeSpeed(basics.race)
+  // computeInitiative already returns the modifier — format the sign directly. (Wrapping it in
+  // modStr() re-applied the score→mod formula, turning DEX 11's +0 into mod(0) = -5.)
+  const initiativeMod = computeInitiative(scores, basics.classId, basics.level, profBonus(basics.level), [], basics.subclass)
   const raceDef = RACE_BY_ID[basics.race]
   const subclassDef = basics.subclass ? SUBCLASS_BY_ID[basics.subclass] : undefined
 
@@ -959,7 +978,7 @@ function StepEquipment({
         <StatPreviewChip label="Max HP" value={maxHp} sub={bonusHpPerLevel ? `d${classDef?.hitDie} + CON + ${bonusHpPerLevel}/lvl` : `d${classDef?.hitDie} + CON×${basics.level}`} />
         <StatPreviewChip label="AC" value={ac} sub={armorId === 'none' ? 'unarmored' : (GEAR_BY_ID[armorId]?.name ?? '')} />
         <StatPreviewChip label="Speed" value={`${speed}ft`} sub={raceDef?.label ?? basics.race} />
-        <StatPreviewChip label="Initiative" value={modStr(computeInitiative(scores, basics.classId, basics.level, profBonus(basics.level), [], basics.subclass))} sub="Initiative" />
+        <StatPreviewChip label="Initiative" value={initiativeMod >= 0 ? `+${initiativeMod}` : `${initiativeMod}`} sub="Initiative" />
         <StatPreviewChip label="Prof." value={`+${profBonus(basics.level)}`} sub={`level ${basics.level}`} />
       </div>
 

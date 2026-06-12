@@ -9,4 +9,11 @@
 .resourcePipFull { background: var(--accent); border-color: var(--accent); }
 .resourcePipEmpty { background: var(--surface-3); }
 .resourceCount { font-size: 11px; color: var(--text-muted); margin-left: 4px; }
+.resourcePool { display: flex; align-items: center; gap: 4px; flex: 1; }
+.poolBtn { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+.poolBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.poolBtn:disabled { opacity: .35; cursor: default; }
+.poolInput { width: 36px; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; background: var(--surface-3); border: 1px solid var(--border); border-radius: 4px; padding: 2px 0; outline: none; }
+.poolInput:focus { border-color: var(--accent); }
+.poolTotal { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .resourceRecovery { font-size: 9px; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; }

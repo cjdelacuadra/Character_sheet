@@ -3,8 +3,9 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeACFull, computeSpeedFull, computeDarkvision, mod } from '@/shared/data/charCalculations'
+import { computeACFull, computeSpeedFull, computeDarkvision, computeInitiativeFull, applyHpDelta, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
+import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DeathSaveDetailPanel } from '@/features/detail-panel/DeathSaveDetailPanel'
 import styles from './VitalsPanel.module.css'
 
@@ -21,7 +22,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const [hpEdit, setHpEdit] = useState<string | null>(null)
   const [tempHpEdit, setTempHpEdit] = useState<string | null>(null)
   const [armorOpen, setArmorOpen] = useState(false)
-  const [fieldEdit, setFieldEdit] = useState<{ field: 'speed' | 'initiative'; value: string } | null>(null)
+  const [fieldEdit, setFieldEdit] = useState<{ field: 'speed'; value: string } | null>(null)
   const [deathDialogOpen, setDeathDialogOpen] = useState(false)
   const [deathDetailOpen, setDeathDetailOpen] = useState(false)
 
@@ -68,14 +69,18 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   }
 
   function applyHp(delta: number) {
-    if (delta < 0 && hp.temp > 0) {
-      const remaining = hp.temp + delta
-      if (remaining >= 0) { onTempHp(remaining); return }
-      onTempHp(0)
-      update({ hitPoints: { ...hp, current: Math.max(0, hp.current + remaining) } })
-    } else {
-      update({ hitPoints: { ...hp, current: Math.min(hp.max, Math.max(0, hp.current + delta)) } })
+    // Compute temp + current together and write them in ONE update, so the temp-HP depletion
+    // isn't clobbered by a second write that spreads a stale `hp` (the original double-write bug).
+    const next = applyHpDelta(hp, delta)
+    const patch: Partial<Character> = { hitPoints: { ...hp, current: next.current, temp: next.temp } }
+    // Damage that consumes ALL temp HP ends the spell buffs that provided it
+    // (False Life, Armor of Agathys, Heroism, Polymorph, …) — drop them from active buffs.
+    if (delta < 0 && hp.temp > 0 && next.temp === 0) {
+      const buffs = char.activeBuffSpells ?? []
+      const remaining = buffs.filter(id => { const s = SPELL_BY_ID[id]; return !(s?.grantsTempHp || s?.tempHpBuff) })
+      if (remaining.length !== buffs.length) patch.activeBuffSpells = remaining
     }
+    update(patch)
   }
 
   function tickSave(type: 'successes' | 'failures') {
@@ -96,10 +101,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   function commitFieldEdit() {
     if (!fieldEdit) { setFieldEdit(null); return }
     const v = parseInt(fieldEdit.value, 10)
-    if (!isNaN(v)) {
-      if (fieldEdit.field === 'speed') update({ speed: Math.max(0, v) })
-      else update({ initiative: v })
-    }
+    if (!isNaN(v)) update({ speed: Math.max(0, v) })
     setFieldEdit(null)
   }
 
@@ -115,25 +117,8 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
           <span className={styles.topStatVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
           <span className={styles.topStatLabel}>Armor Class</span>
         </div>
-        <div
-          className={`${styles.topStatBox} ${styles.topStatEditable}`}
-          onClick={() => fieldEdit?.field !== 'initiative' && setFieldEdit({ field: 'initiative', value: String(char.initiative) })}
-          title="Click to edit"
-        >
-          {fieldEdit?.field === 'initiative' ? (
-            <input
-              className={styles.statEditInput}
-              type="number"
-              value={fieldEdit.value}
-              autoFocus
-              onClick={e => e.stopPropagation()}
-              onChange={e => setFieldEdit({ field: 'initiative', value: e.target.value })}
-              onBlur={commitFieldEdit}
-              onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit() }}
-            />
-          ) : (
-            <span className={styles.topStatVal}>{fmtMod(char.initiative)}</span>
-          )}
+        <div className={styles.topStatBox} title="Derived from DEX + feats/class">
+          <span className={styles.topStatVal}>{fmtMod(computeInitiativeFull(char))}</span>
           <span className={styles.topStatLabel}>Initiative</span>
         </div>
         <div

@@ -65,13 +65,23 @@ interface Props {
 }
 
 export function ShopPanel({ character: char, onClose, filterKind: filterKindProp }: Props) {
-  const buyItem     = useAppStore(s => s.buyItem)
-  const sellItem    = useAppStore(s => s.sellItem)
-  const customItems = useAppStore(s => s.customItems)
+  const buyItem        = useAppStore(s => s.buyItem)
+  const sellItem       = useAppStore(s => s.sellItem)
+  const customItems    = useAppStore(s => s.customItems)
+  const updateCharacter = useAppStore(s => s.updateCharacter)
 
   const [sellQueue,  setSellQueue]  = useState<string[]>([])
   const [buyQueue,   setBuyQueue]   = useState<string[]>([])
   const [sortBy,     setSortBy]     = useState<SortBy>('cost')
+  const [goldEdit,   setGoldEdit]   = useState<string | null>(null)
+
+  function commitGoldEdit() {
+    if (goldEdit !== null) {
+      const v = parseInt(goldEdit, 10)
+      if (!isNaN(v)) updateCharacter(char.id, { gold: Math.max(0, v) })
+    }
+    setGoldEdit(null)
+  }
 
   const filterKind = filterKindProp !== undefined ? filterKindProp : null
   const [previewId,  setPreviewId]  = useState<string | null>(null)
@@ -172,7 +182,22 @@ export function ShopPanel({ character: char, onClose, filterKind: filterKindProp
           <option value="name">Name</option>
           <option value="rarity">Rarity</option>
         </select>
-        <span className={styles.gold}>💰 {char.gold} gp</span>
+        {goldEdit !== null ? (
+          <span className={styles.gold}>💰{' '}
+            <input
+              className={styles.goldInput}
+              type="number"
+              min={0}
+              value={goldEdit}
+              autoFocus
+              onChange={e => setGoldEdit(e.target.value)}
+              onBlur={commitGoldEdit}
+              onKeyDown={e => { if (e.key === 'Enter') commitGoldEdit() }}
+            /> gp
+          </span>
+        ) : (
+          <span className={styles.gold} onClick={() => setGoldEdit(String(char.gold))} title="Click to edit" style={{ cursor: 'pointer' }}>💰 {char.gold} gp</span>
+        )}
         <button className={styles.closeBtn} onClick={onClose}>✕</button>
       </div>
 

@@ -1,0 +1,15 @@
+.section { display: flex; flex-direction: column; gap: 6px; }
+.sectionHead { display: flex; justify-content: space-between; align-items: center; }
+.sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.list { display: flex; flex-direction: column; gap: 4px; }
+.card { border: 1px solid var(--border); border-radius: 5px; overflow: hidden; background: var(--surface-2); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; }
+.head:hover { background: var(--surface-3); }
+.name { flex: 1; font-size: 12px; font-weight: 500; color: var(--text); }
+.meta { display: flex; align-items: center; gap: 6px; }
+.uses { font-size: 10px; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+.costBadge { font-size: 9px; font-weight: 700; letter-spacing: .4px; background: var(--surface-3); border-radius: 3px; padding: 1px 5px; color: var(--text-muted); }
+.desc { padding: 0 8px 6px; margin: 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.useBtn { margin: 0 8px 8px; align-self: flex-start; padding: 3px 12px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--accent); background: var(--accent); color: var(--text-on-accent, #fff); cursor: pointer; }
+.useBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.useBtn:disabled { opacity: .4; cursor: default; background: var(--surface-3); border-color: var(--border); color: var(--text-muted); }

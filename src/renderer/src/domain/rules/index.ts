@@ -510,7 +510,8 @@ export function getAvailableActions(character: Character): ActionDef[] {
 export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {
   const abilityMod = mod(abilityScore)
   if (classId === 'Paladin') return Math.max(1, Math.floor(level / 2) + abilityMod)
-  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard') return Math.max(1, level + abilityMod)
+  // Cleric/Druid/Wizard/Artificer prepare (level + spellcasting modifier).
+  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard' || classId === 'Artificer') return Math.max(1, level + abilityMod)
   return 0
 }
 
@@ -605,7 +606,7 @@ export function getSpecialAttacks(character: Character): SpecialAttack[] {
   if (classId === 'Paladin' && level >= 2) {
     attacks.push({
       name: 'Divine Smite',
-      dice: '2d8 radiant',
+      dice: '2d8',
       note: 'On hit: expend spell slot for extra radiant damage',
       condition: '+1d8 per slot level above 1st (max 5d8); +1d8 vs undead/fiends',
     })
@@ -666,7 +667,7 @@ export function getWeaponSpecialAttacks(character: Character, weapon: Weapon): S
       note: 'Adv on first STR attack; attackers gain adv vs you' })
   }
   if (classId === 'Paladin' && level >= 2 && isMelee) {
-    attacks.push({ name: 'Divine Smite', dice: '2d8 radiant',
+    attacks.push({ name: 'Divine Smite', dice: '2d8',
       note: 'Expend a spell slot on hit (+1d8/level above 1st, max 5d8)' })
   }
   if (feats.includes('greatWeaponMaster') && isHeavy && isMelee) {

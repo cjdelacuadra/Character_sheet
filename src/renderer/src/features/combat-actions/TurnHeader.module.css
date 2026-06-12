@@ -2,21 +2,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 8px 12px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  flex-shrink: 0;
+  /* Allow the header to reflow on narrow viewports (the parent column is overflow:hidden,
+     so an unwrappable row gets clipped). The Next-Turn button drops below the economy row. */
+  flex-wrap: wrap;
 }
 
 .economyRow {
   display: flex;
-  gap: 10px;
+  gap: 8px 10px;
   flex: 1;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
   min-width: 0;
 }

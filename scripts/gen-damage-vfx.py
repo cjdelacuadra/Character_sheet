@@ -43,6 +43,19 @@ TYPES = ["fire", "cold", "lightning", "thunder", "acid",
          "poison", "necrotic", "radiant", "force", "psychic"]
 
 
+# ── helpers ────────────────────────────────────────────────────────────────────
+def rotate_cw(fr: F) -> F:
+    """Return a new W×W frame rotated 90° clockwise.
+    Formula: new(W-1-y, x) = old(x, y)  →  tip moves from right-center to bottom-center.
+    """
+    n = fr.w  # square canvas
+    out = F(n, n)
+    for y in range(n):
+        for x in range(n):
+            out.set(n - 1 - y, x, fr.px[y * n + x])
+    return out
+
+
 # ── missiles ───────────────────────────────────────────────────────────────────
 # Each type has a distinct silhouette readable at 22px display size.
 # Orientation: missiles point RIGHT (positive-x direction). CSS rotate() handles
@@ -51,35 +64,35 @@ def draw_missile(f, i, N, t):
     ph = 2 * math.pi * i / N
 
     if t == "fire":
-        # Flame teardrop — round bright head (right), tapering glow tail with licks (left)
-        disc(f, C + 2*S, C, 5*S, 1, density=0.4)       # outer body haze
-        disc(f, C + 2*S, C, 3.5*S, 2)                  # main body
-        disc(f, C + 3*S, C, 2*S, 3)                    # leading shoulder
-        disc(f, C + 5*S, C, 1.2*S, 4)                  # bright tip
-        disc(f, C + 6.5*S, C, 0.5*S, 4)                # tip pixel
-        # Trailing flame licks — 3 licks flickering height
-        for k in range(3):
-            lick_y = (k - 1) * 2.2*S + math.sin(ph + k * 1.4) * 1.4*S
-            lick_x = C - (1.5 + k * 1.2) * S
-            disc(f, lick_x, C + lick_y, (1.2 - k * 0.3) * S, 3 if k == 0 else 2)
+        # Flame teardrop — round bright head (right), single coherent wavy tail (no worms)
+        disc(f, C + 2*S, C, 5*S, 1, density=0.4)        # outer body haze
+        disc(f, C + 2*S, C, 3.5*S, 2)                   # main body
+        disc(f, C + 3*S, C, 2*S, 3)                     # leading shoulder
+        disc(f, C + 5*S, C, 1.2*S, 4)                   # bright tip
+        disc(f, C + 6.5*S, C, 0.5*S, 4)                 # tip pixel
+        # Trailing tail — all parts share one flicker offset so they move as one flame
+        flick = math.sin(ph) * S
+        disc(f, C - 1*S, C + flick * 0.3, 2.2*S, 2)    # tail root (widest)
+        disc(f, C - 3*S, C + flick * 0.65, 1.4*S, 2)   # mid tail
+        disc(f, C - 5*S, C + flick, 0.7*S, 1)           # tail tip (narrowest)
+        line(f, C, C, C - 5*S, C + flick, 3)            # hot streak through tail
 
     elif t == "cold":
-        # Faceted ice shard — elongated crystal pointing right with inner facets
-        disc(f, C, C, 3.5*S, 1, density=0.5)            # outer glow
-        disc(f, C + 1*S, C, 2.5*S, 2)                   # shard body (offset right)
-        disc(f, C + 6*S, C, 1.2*S, 4)                   # sharp leading tip
-        disc(f, C + 7.5*S, C, 0.5*S, 4)                 # tip pixel
-        disc(f, C - 5*S, C, 0.8*S, 2)                   # blunt trailing end
-        # 4 facet lines radiating through shard interior
-        for k in range(4):
-            a = k * math.pi / 2
-            line(f, C + math.cos(a)*0.5*S, C + math.sin(a)*0.5*S,
-                 C + math.cos(a)*2.5*S, C + math.sin(a)*2.5*S,
-                 4 if k == 0 else 2)
-        # Orbiting sparkle near tip
-        sx = C + 6.5*S + math.cos(ph) * 1.8*S
-        sy = C + math.sin(ph) * 1.8*S
-        disc(f, sx, sy, 0.6*S, 4)
+        # Icicle — elongated tapered crystal, NOT a radial star
+        disc(f, C, C, 4*S, 1, density=0.35)              # frost aura
+        disc(f, C + 1*S, C, 3*S, 2)                      # icicle body
+        disc(f, C + 3*S, C, 2*S, 3)                      # bright front half
+        disc(f, C + 6*S, C, 0.8*S, 4)                    # sharp leading point
+        disc(f, C + 7.5*S, C, 0.3*S, 4)                  # tip pixel
+        disc(f, C - 4.5*S, C, 0.6*S, 2)                  # blunt trailing end
+        # Internal facets: two diagonal slashes (×-pattern) through icicle body
+        for sign in (1, -1):
+            line(f, C - 1.5*S, C + sign * 1.4*S,
+                 C + 3.5*S, C - sign * 1.4*S, 4)
+        # Frost sparkles at tail end — 4 tiny points in diamond, pulsing
+        sp = (0.7 + 0.5 * math.sin(ph)) * S
+        for sdx, sdy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            disc(f, C - 4.5*S + sdx * sp, C + sdy * sp, 0.35*S, 4)
 
     elif t == "lightning":
         # Jagged zigzag bolt — 5-point S-curve spanning full canvas width
@@ -222,25 +235,41 @@ def draw_area(f, i, N, t):
     ph = 2 * math.pi * i / N
     freq = 1.0 / S  # spatial frequency: keeps patterns same coarseness relative to canvas
     if t == "fire":
-        for bx_raw in (5, 10, 15):
+        # Three flame tongues — disc-based so they read as solid fire, not worms.
+        # Each tongue tapers from a wide hot base to a narrow bright tip.
+        # Only the TIP sways; the base stays fixed.
+        for k, bx_raw in enumerate((4, 9, 14)):
             bx = bx_raw * S
-            h = int((9 + (0.5 + 0.5 * math.sin(ph + bx_raw)) * 6) * S)
-            for k in range(h):
-                xx = bx + math.sin(ph*2 + k*freq*0.5 + bx_raw) * 1.2*S * (k/h)
-                idx = 4 if k >= h - int(2*S) else (3 if k >= h - int(5*S) else 2)
-                f.set(xx, W-1-k, idx)
-                if k < h - int(5*S) and k % max(1, int(2*S)) == 0:
-                    f.set(xx - S, W-1-k, 1)
+            flame_h = (8 + 0.6 * math.sin(ph + k * 1.8)) * S
+            sway = math.sin(ph * 1.5 + k * 2.1) * 1.6*S
+            steps = int(flame_h)
+            for step in range(steps):
+                ratio = step / steps            # 0 = base, 1 = tip
+                cx = bx + sway * (ratio ** 2)  # sway accelerates toward tip
+                cy = W - 1.0 - step
+                r = (2.0 - 1.5 * ratio) * S    # wide base, narrow tip
+                col = 4 if ratio > 0.75 else (3 if ratio > 0.4 else 2)
+                disc(f, cx, cy, r, col)
+            disc(f, bx, float(W - 1), 3*S, 1, density=0.4)  # base glow
     elif t == "cold":
-        dens = 0.3 + 0.7 * (0.5 + 0.5 * math.cos(ph))
-        L = int((2 + 7 * dens) * S)
-        for dx, dy in [(0,-1),(1,0),(0,1),(-1,0),(0.7,0.7),(-0.7,-0.7),(0.7,-0.7),(-0.7,0.7)]:
-            nd = math.hypot(dx, dy)
-            nx, ny = dx/nd, dy/nd
-            for k in range(1, L):
-                f.set(C + nx*k, C + ny*k, 3 if k > int(2*S) else 2)
-        disc(f, C, C, 1.6*S, 4)
-        f.set(C + math.cos(ph)*5*S, C + math.sin(ph)*5*S, 4)
+        # 6-arm snowflake (60° apart) with branching side arms — distinct from radiant's 8 rays
+        pulse = 0.5 + 0.5 * math.cos(ph)
+        arm_r = int((5 + 3 * pulse) * S)
+        for arm in range(6):
+            a = arm * math.pi / 3
+            for k in range(1, arm_r):
+                col = 4 if k < int(1.5*S) else (3 if k < int(3*S) else 2)
+                f.set(C + math.cos(a) * k, C + math.sin(a) * k, col)
+            # Two side branches at 40% and 65% along each arm
+            for br_frac in (0.4, 0.65):
+                br_r = arm_r * br_frac
+                br_len = arm_r * 0.28
+                for br_sign in (1, -1):
+                    br_a = a + br_sign * math.pi / 6
+                    for k in range(1, int(br_len)):
+                        f.set(C + math.cos(a)*br_r + math.cos(br_a)*k,
+                              C + math.sin(a)*br_r + math.sin(br_a)*k, 3)
+        disc(f, C, C, 1.4*S, 4)
     elif t == "lightning":
         for arm in range(3):
             base = ph + arm * 2 * math.pi / 3
@@ -406,6 +435,8 @@ def build(entry):
         fr = F(W, W)
         draw(fr, i, n)
         frames.append(fr)
+    if rel.startswith("missiles/"):
+        frames = [rotate_cw(fr) for fr in frames]
     return rel, frames, pal, loop, dur
 
 

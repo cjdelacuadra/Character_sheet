@@ -7,9 +7,104 @@ import {
   xpForNextLevel,
   xpForLevel,
   getAvailableActions,
+  computePreparedSpellCount,
 } from '@/domain/rules'
+import { endsAtStartOfNextTurn, isBuffConditionSpell, SPELL_BY_ID } from '@/shared/data/spellData'
+import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
+import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import type { Weapon } from '@/entities/character/types'
 import { makeChar } from './helpers'
+
+// ── Racial action formula / use resolvers ────────────────────────────────────
+
+describe('resolveRacialFormula', () => {
+  // level 5 → prof +3; CON 16 → +3
+  const char = makeChar({ level: 5, abilityScores: { str: 10, dex: 10, con: 16, int: 10, wis: 10, cha: 10 } })
+  it('resolves "level"', () => expect(resolveRacialFormula('level', char)).toBe(5))
+  it('resolves "conmod"', () => expect(resolveRacialFormula('conmod', char)).toBe(3))
+  it('resolves "prof"', () => expect(resolveRacialFormula('prof', char)).toBe(3))
+  it('resolves "prof+prof" (≈2× proficiency)', () => expect(resolveRacialFormula('prof+prof', char)).toBe(6))
+  it('resolves a flat number', () => expect(resolveRacialFormula('5', char)).toBe(5))
+})
+
+describe('resolveRacialMaxUses', () => {
+  it("'prof' → proficiency bonus", () => expect(resolveRacialMaxUses('prof', 5)).toBe(3))
+  it('number → itself', () => expect(resolveRacialMaxUses(2, 5)).toBe(2))
+  it('undefined → 1', () => expect(resolveRacialMaxUses(undefined, 5)).toBe(1))
+})
+
+describe('race data', () => {
+  it('first-batch races exist with correct ability bonuses', () => {
+    expect(RACE_BY_ID['Goliath'].abilityBonus).toEqual({ str: 2, con: 1 })
+    expect(RACE_BY_ID['Aarakocra'].abilityBonus).toEqual({ dex: 2, wis: 1 })
+    expect(RACE_BY_ID['FireGenasi'].abilityBonus).toEqual({ con: 2, int: 1 })
+  })
+  it('Dragonborn has a Breath Weapon racial action', () => {
+    expect(RACE_BY_ID['Dragonborn'].racialActions?.some(a => a.id === 'breath-weapon')).toBe(true)
+  })
+  it('every racialSpells reference resolves to a real spell', () => {
+    for (const race of Object.values(RACE_BY_ID)) {
+      for (const ids of Object.values(race.racialSpells ?? {})) {
+        for (const id of ids ?? []) expect(SPELL_BY_ID[id], `${race.id} → ${id}`).toBeTruthy()
+      }
+    }
+  })
+})
+
+// ── Buff-condition spells ────────────────────────────────────────────────────
+
+describe('isBuffConditionSpell', () => {
+  it('Mage Armor (setsBaseAC) is a buff condition', () => expect(isBuffConditionSpell(SPELL_BY_ID['mage-armor'])).toBe(true))
+  it('Bless (self-buff) is a buff condition', () => expect(isBuffConditionSpell(SPELL_BY_ID['bless'])).toBe(true))
+  it('Longstrider (self-buff) is a buff condition', () => expect(isBuffConditionSpell(SPELL_BY_ID['longstrider'])).toBe(true))
+  it("Hunter's Mark (attackBuff) is a buff condition", () => expect(isBuffConditionSpell(SPELL_BY_ID['hunter-s-mark'])).toBe(true))
+  it('a damage spell (Fireball) is NOT a buff condition', () => expect(isBuffConditionSpell(SPELL_BY_ID['fireball'])).toBe(false))
+})
+
+// ── Temp-HP buffs (dropped when temp HP is fully consumed) ───────────────────
+
+describe('temp-HP buff markers', () => {
+  // Drop logic keys on grantsTempHp OR tempHpBuff.
+  const isTempHpBuff = (id: string) => !!(SPELL_BY_ID[id]?.grantsTempHp || SPELL_BY_ID[id]?.tempHpBuff)
+  it.each(['false-life', 'armor-of-agathys', 'heroism', 'polymorph'])(
+    '"%s" is flagged as a temp-HP buff',
+    (id) => expect(isTempHpBuff(id)).toBe(true)
+  )
+  it('Bless is NOT a temp-HP buff', () => expect(isTempHpBuff('bless')).toBe(false))
+  it('Armor of Agathys grants 5 temp HP on cast', () => expect(SPELL_BY_ID['armor-of-agathys'].grantsTempHp).toBe('5'))
+})
+
+// ── Summon templates (every summon spell must resolve to a template) ─────────
+
+describe('summon templates exist for summon spells', () => {
+  it.each(['steed', 'undead-spirit', 'shadow-spirit', 'skeleton', 'beast-spirit', 'fey-spirit'])(
+    'template "%s" is defined',
+    (id) => expect(SUMMON_TEMPLATE_BY_ID[id]).toBeTruthy()
+  )
+})
+
+// ── Prepared spell count ─────────────────────────────────────────────────────
+
+describe('computePreparedSpellCount', () => {
+  // abilityScore 16 → mod +3
+  it('Cleric level 5, WIS 16: level + mod = 8', () => expect(computePreparedSpellCount('Cleric', 5, 16)).toBe(8))
+  it('Wizard level 1, INT 16: level + mod = 4', () => expect(computePreparedSpellCount('Wizard', 1, 16)).toBe(4))
+  it('Artificer level 5, INT 16: level + mod = 8 (was 0 before fix)', () => expect(computePreparedSpellCount('Artificer', 5, 16)).toBe(8))
+  it('Paladin level 4, CHA 16: half-level + mod = 5', () => expect(computePreparedSpellCount('Paladin', 4, 16)).toBe(5))
+  it('non-preparer (Bard) returns 0', () => expect(computePreparedSpellCount('Bard', 5, 16)).toBe(0))
+  it('floors at minimum 1 when mod is very negative', () => expect(computePreparedSpellCount('Cleric', 1, 6)).toBe(1)) // 1 + (-2) = -1 → 1
+})
+
+// ── Short-duration spell auto-dismiss detection ──────────────────────────────
+
+describe('endsAtStartOfNextTurn', () => {
+  it('Booming Blade (duration "1 round") returns true', () => expect(endsAtStartOfNextTurn(SPELL_BY_ID['booming-blade'])).toBe(true))
+  it('Green-Flame Blade returns true', () => expect(endsAtStartOfNextTurn(SPELL_BY_ID['green-flame-blade'])).toBe(true))
+  it('detects "until the start of your next turn" text', () => expect(endsAtStartOfNextTurn({ duration: 'Until the start of your next turn' })).toBe(true))
+  it('a 1-hour spell (Mage Armor / False Life style) returns false', () => expect(endsAtStartOfNextTurn({ duration: '8 hours' })).toBe(false))
+  it('an instantaneous spell returns false', () => expect(endsAtStartOfNextTurn({ duration: 'Instantaneous' })).toBe(false))
+})
 
 // ── Spellcasting ─────────────────────────────────────────────────────────────
 

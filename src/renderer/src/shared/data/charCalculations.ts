@@ -5,9 +5,30 @@ import { GEAR_BY_ID } from './equipment/gear'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'
+import { SPELL_BY_ID } from './spellData'
 
 export function mod(score: number): number {
+  // Guard against undefined/NaN scores (e.g. a partial AbilityScores object) so a missing
+  // value yields a neutral +0 instead of a garbage modifier like -5 (= mod(0)).
+  if (!Number.isFinite(score)) return 0
   return Math.floor((score - 10) / 2)
+}
+
+/**
+ * Applies an HP delta with D&D 5e temporary-HP rules and returns the resulting { current, temp }.
+ * Damage (delta < 0) is absorbed by temp HP first, which depletes; any overflow spills into real HP.
+ * Healing (delta >= 0) goes to real HP only, capped at max. Temp HP never goes below 0; current is [0, max].
+ */
+export function applyHpDelta(
+  hp: { current: number; max: number; temp: number },
+  delta: number,
+): { current: number; temp: number } {
+  if (delta < 0 && hp.temp > 0) {
+    const remaining = hp.temp + delta // < 0 means the hit overflowed temp HP into real HP
+    if (remaining >= 0) return { current: hp.current, temp: remaining }
+    return { current: Math.max(0, hp.current + remaining), temp: 0 }
+  }
+  return { current: Math.min(hp.max, Math.max(0, hp.current + delta)), temp: hp.temp }
 }
 
 export function profBonus(level: number): number {
@@ -34,6 +55,7 @@ export function computeAC(char: {
   subclass?: string
   fightingStyle?: string
   isBladesinging?: boolean
+  activeBuffSpells?: string[]
 }, abilityBonus?: Partial<Record<AbilityScore, number>>): number {
   const { abilityScores, equipment, classId, race, subclass } = char
   const ab = abilityBonus ?? {}
@@ -58,11 +80,23 @@ export function computeAC(char: {
   if (subclassDef?.unarmoredAC) unarmoredFormulas.push(subclassDef.unarmoredAC(dexMod, conMod, wisMod))
   if (classId === 'Barbarian') unarmoredFormulas.push(10 + dexMod + conMod)
   else if (classId === 'Monk')  unarmoredFormulas.push(10 + dexMod + wisMod)
-  const unarmoredBase = Math.max(...unarmoredFormulas)
-  const unarmoredAC = unarmoredBase + shield
 
   const armorId = equipment.armorId ?? 'none'
   const armor = GEAR_BY_ID[armorId]
+
+  // Mage Armor (and similar AC-setting buffs): while active and wearing no body armor,
+  // base AC becomes setsBaseAC + DEX mod. Added to the unarmored formula set so it competes
+  // via the usual "best formula wins" max (and is naturally ignored once real armor is worn).
+  const noBodyArmor = armorId === 'none' || !armor || armor.baseAC === undefined
+  if (noBodyArmor) {
+    for (const spellId of char.activeBuffSpells ?? []) {
+      const setsBaseAC = SPELL_BY_ID[spellId]?.setsBaseAC
+      if (setsBaseAC !== undefined) unarmoredFormulas.push(setsBaseAC + dexMod)
+    }
+  }
+
+  const unarmoredBase = Math.max(...unarmoredFormulas)
+  const unarmoredAC = unarmoredBase + shield
 
   // Bladesong (Wizard Bladesinger): +INT mod (min +1) to AC while active. Conditions: no
   // medium/heavy armor and no shield. Light armor and one-handed melee are allowed.

@@ -1,3 +1,5 @@
+import type { AbilityScore, AbilityScores } from '@/entities/character/types'
+
 export type SummonType = 'creature' | 'spectral' | 'undead' | 'spirit' | 'celestial' | 'homebrew' | 'structure' | 'object' | 'construct' | 'monstrosity' | 'fey' | 'aberration' | "elemental"  | "beast"  | "void" | "dragon" | 'other'
 
 export interface SummonAttack {
@@ -32,6 +34,10 @@ export interface SummonTemplate {
   spells?: string[]      // free-text spell names/notes
   resources?: { name: string; total: number }[]
   defaultNotes?: string
+  abilityScores?: AbilityScores
+  savingThrowProficiencies?: AbilityScore[]
+  proficiencyBonus?: number   // default 2 when absent
+  usesCasterPB?: boolean      // true → PB scales with summoner's PB
 }
 
 /** Locked snapshot of a template, taken when a summon is created. */
@@ -46,6 +52,10 @@ export interface SummonBase {
   actionEconomy: ActionEconomy
   spells?: string[]
   resources?: { name: string; total: number }[]
+  abilityScores?: AbilityScores
+  savingThrowProficiencies?: AbilityScore[]
+  proficiencyBonus?: number
+  usesCasterPB?: boolean
 }
 
 /** Live instance owned by a character. `base` is locked; only runtime state changes. */

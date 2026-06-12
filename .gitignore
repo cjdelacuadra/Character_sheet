@@ -1,10 +1,15 @@
 node_modules
 out
 dist
+release/
 .DS_Store
 tsconfig.*.tsbuildinfo
 characters/
 .xlsx
+
+# Dev-only asset previews/scratch (regenerate montages with the scripts' --montage flag)
+.montage/
+.render/
 
 # OSRS item sprite dumps (raw dump + organised copy — run gen-items-metadata.mjs)
 # src/renderer/public/assets/*

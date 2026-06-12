@@ -19,6 +19,8 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'shortbow', name: 'Shortbow', toHit: '+4', damage: '1d6+2', damageType: 'piercing', notes: 'range 80/320' },
     ],
     defaultNotes: 'Vulnerable to bludgeoning. Obeys verbal commands.',
+    abilityScores: { str: 10, dex: 14, con: 15, int: 6, wis: 8, cha: 5 },
+    proficiencyBonus: 2,
   },
   {
     id: 'zombie',
@@ -34,6 +36,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'slam', name: 'Slam', toHit: '+3', damage: '1d6+1', damageType: 'bludgeoning' },
     ],
     defaultNotes: 'Undead Fortitude: drops to 1 HP on a CON save (DC 5 + damage) unless radiant/crit.',
+    abilityScores: { str: 13, dex: 6, con: 16, int: 3, wis: 6, cha: 5 },
+    savingThrowProficiencies: ['wis'],
+    proficiencyBonus: 2,
   },
   {
     id: 'eldritch-cannon-flamethrower',
@@ -50,6 +55,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'flame', name: 'Flamethrower', toHit: 'DC = spell save', damage: '2d8', damageType: 'fire', notes: '15-ft cone, Dex save for half' },
     ],
     defaultNotes: 'Activated as a bonus action by its creator.',
+    abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    proficiencyBonus: 2,
+    usesCasterPB: true,
   },
   {
     id: 'eldritch-cannon-force-ballista',
@@ -66,6 +74,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'ballista', name: 'Force Ballista', toHit: 'spell attack', damage: '2d8', damageType: 'force', notes: 'range 120 ft, push 5 ft' },
     ],
     defaultNotes: 'Activated as a bonus action by its creator.',
+    abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    proficiencyBonus: 2,
+    usesCasterPB: true,
   },
   {
     id: 'eldritch-cannon-protector',
@@ -96,6 +107,62 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'maul', name: 'Maul', toHit: 'spell atk', damage: '1d8 + spell mod', damageType: 'piercing', notes: '+1d8 per slot above 3rd' },
     ],
     defaultNotes: 'Summon Beast (concentration). Acts on your turn after you command it (no action).',
+    abilityScores: { str: 18, dex: 11, con: 16, int: 4, wis: 14, cha: 5 },
+    savingThrowProficiencies: ['dex', 'con'],
+    usesCasterPB: true,
+  },
+  {
+    id: 'steed',
+    name: 'Steed (Warhorse)',
+    type: 'creature',
+    source: 'spell',
+    maxHp: 19,
+    ac: 11,
+    speed: '60 ft',
+    initiativeMod: 1,
+    actionEconomy: { actions: 1, bonusActions: 1, reactions: 1 },
+    attacks: [
+      { id: 'hooves', name: 'Hooves', toHit: '+6', damage: '2d6+4', damageType: 'bludgeoning' },
+    ],
+    defaultNotes: 'Find Steed. Forms: warhorse, pony, camel, elk, or mastiff (celestial, fey, or fiend). Telepathic bond within 1 mile.',
+    abilityScores: { str: 18, dex: 12, con: 13, int: 6, wis: 12, cha: 7 },
+    proficiencyBonus: 2,
+  },
+  {
+    id: 'undead-spirit',
+    name: 'Undead Spirit (Skeletal)',
+    type: 'creature',
+    source: 'spell',
+    maxHp: 30,
+    maxHpFormula: '30 + 10 per slot above 3rd',
+    ac: 11,
+    speed: '30 ft',
+    initiativeMod: 3,
+    actionEconomy: { actions: 1, bonusActions: 1, reactions: 1 },
+    attacks: [
+      { id: 'grave-bolt', name: 'Grave Bolt', toHit: 'spell atk', damage: '2d4 + spell mod', damageType: 'necrotic', notes: 'ranged 150 ft; multiattack = ½ spell level (rounded down)' },
+    ],
+    defaultNotes: 'Summon Undead (concentration). Forms: Ghostly (fly 40, incorporeal), Putrid (poison aura), Skeletal (ranged). +1d6 per slot above 3rd.',
+    abilityScores: { str: 12, dex: 16, con: 15, int: 4, wis: 10, cha: 16 },
+    usesCasterPB: true,
+  },
+  {
+    id: 'shadow-spirit',
+    name: 'Shadow Spirit (Fury)',
+    type: 'creature',
+    source: 'spell',
+    maxHp: 25,
+    maxHpFormula: '25 + 10 per slot above 3rd',
+    ac: 11,
+    speed: '40 ft',
+    initiativeMod: 3,
+    actionEconomy: { actions: 1, bonusActions: 1, reactions: 1 },
+    attacks: [
+      { id: 'shadow-slam', name: 'Shadow Slam', toHit: 'spell atk', damage: '2d6 + spell mod', damageType: 'psychic', notes: 'multiattack = ½ spell level (rounded down)' },
+    ],
+    defaultNotes: 'Summon Shadowspawn (concentration). Forms: Fury (extra psychic), Despair (frightening aura), Fear. Darkvision 120 ft. +1d6 per slot above 3rd.',
+    abilityScores: { str: 13, dex: 16, con: 15, int: 4, wis: 10, cha: 16 },
+    usesCasterPB: true,
   },
   {
     id: 'spiritual-weapon',
@@ -120,7 +187,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'force'
       }
     ],
-    defaultNotes: 'Can be moved and attacked with using a bonus action.'
+    defaultNotes: 'Can be moved and attacked with using a bonus action.',
+    abilityScores: { str: 12, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    usesCasterPB: true,
   },
   {
     id: "steel-defender",
@@ -146,7 +215,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: "force"
       }
     ],
-    defaultNotes: "Can impose disadvantage with Deflect Attack reaction."
+    defaultNotes: "Can impose disadvantage with Deflect Attack reaction.",
+    abilityScores: { str: 14, dex: 12, con: 14, int: 4, wis: 10, cha: 6 },
+    proficiencyBonus: 3,
   },
   {
     id: "familiar-owl",
@@ -163,7 +234,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       reactions: 1
     },
     attacks: [],
-    defaultNotes: "Cannot attack. Can deliver touch spells and use Help action."
+    defaultNotes: "Cannot attack. Can deliver touch spells and use Help action.",
+    abilityScores: { str: 3, dex: 13, con: 8, int: 2, wis: 12, cha: 7 },
+    proficiencyBonus: 2,
   },
   {
     id: "drake-companion",
@@ -189,7 +262,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: "piercing"
       }
     ],
-    defaultNotes: "Its damage type depends on the drake's essence."
+    defaultNotes: "Its damage type depends on the drake's essence.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-red",
@@ -203,7 +279,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "fire" }],
-    defaultNotes: "Red drake — fire damage."
+    defaultNotes: "Red drake — fire damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-blue",
@@ -217,7 +296,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "lightning" }],
-    defaultNotes: "Blue drake — lightning damage."
+    defaultNotes: "Blue drake — lightning damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-green",
@@ -231,7 +313,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "poison" }],
-    defaultNotes: "Green drake — poison damage."
+    defaultNotes: "Green drake — poison damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-black",
@@ -245,7 +330,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "acid" }],
-    defaultNotes: "Black drake — acid damage."
+    defaultNotes: "Black drake — acid damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-white",
@@ -259,7 +347,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "cold" }],
-    defaultNotes: "White drake — cold damage."
+    defaultNotes: "White drake — cold damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-gold",
@@ -273,7 +364,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "fire" }],
-    defaultNotes: "Gold drake — fire damage."
+    defaultNotes: "Gold drake — fire damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-silver",
@@ -287,7 +381,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "cold" }],
-    defaultNotes: "Silver drake — cold damage."
+    defaultNotes: "Silver drake — cold damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-bronze",
@@ -301,7 +398,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "lightning" }],
-    defaultNotes: "Bronze drake — lightning damage."
+    defaultNotes: "Bronze drake — lightning damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-copper",
@@ -315,7 +415,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "acid" }],
-    defaultNotes: "Copper drake — acid damage."
+    defaultNotes: "Copper drake — acid damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "drake-brass",
@@ -329,7 +432,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     initiativeMod: 1,
     actionEconomy: { actions: 1, bonusActions: 0, reactions: 1 },
     attacks: [{ id: "rend", name: "Rend", toHit: "PB + spell modifier", damage: "1d6+PB", damageType: "fire" }],
-    defaultNotes: "Brass drake — fire damage."
+    defaultNotes: "Brass drake — fire damage.",
+    abilityScores: { str: 16, dex: 12, con: 15, int: 8, wis: 8, cha: 8 },
+    savingThrowProficiencies: ['str', 'cha'],
+    usesCasterPB: true,
   },
   {
     id: "shadowspawn-fury",
@@ -355,7 +461,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: "cold"
       }
     ],
-    defaultNotes: "Targets frightened of it take extra pressure from attacks."
+    defaultNotes: "Targets frightened of it take extra pressure from attacks.",
+    abilityScores: { str: 16, dex: 13, con: 15, int: 4, wis: 10, cha: 4 },
+    usesCasterPB: true,
   },
   {
     id: "aberration-spawn-slaad",
@@ -381,7 +489,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: "slashing"
       }
     ],
-    defaultNotes: "Regenerates HP at the start of its turn."
+    defaultNotes: "Regenerates HP at the start of its turn.",
+    abilityScores: { str: 15, dex: 12, con: 16, int: 6, wis: 10, cha: 8 },
+    savingThrowProficiencies: ['con'],
+    usesCasterPB: true,
   },
   {
     id: 'fey-spirit',
@@ -398,6 +509,8 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'fey-strike', name: 'Fey Strike', toHit: 'spell atk', damage: '2d6 + 3 + spell mod', damageType: 'force', notes: '+1d6 per slot above 3rd' },
     ],
     defaultNotes: 'Summon Fey (concentration). Mood (Fuming/Mirthful/Tricksy) grants a rider effect.',
+    abilityScores: { str: 13, dex: 16, con: 14, int: 14, wis: 11, cha: 16 },
+    usesCasterPB: true,
   },
  {
     id: 'mage-hand',
@@ -414,7 +527,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       reactions: 0,
     },
     attacks: [],
-    defaultNotes: 'Can manipulate objects up to 10 pounds.'
+    defaultNotes: 'Can manipulate objects up to 10 pounds.',
+    abilityScores: { str: 2, dex: 10, con: 10, int: 10, wis: 10, cha: 5 },
+    usesCasterPB: true,
   },
 
   {
@@ -432,7 +547,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       reactions: 0,
     },
     attacks: [],
-    defaultNotes: 'Mindless invisible force that performs simple tasks.'
+    defaultNotes: 'Mindless invisible force that performs simple tasks.',
+    abilityScores: { str: 2, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -458,7 +575,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'bludgeoning',
       }
     ],
-    defaultNotes: 'Animated object created from a Tiny nonmagical item.'
+    defaultNotes: 'Animated object created from a Tiny nonmagical item.',
+    abilityScores: { str: 4, dex: 16, con: 10, int: 2, wis: 10, cha: 1 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -485,7 +604,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'force',
       }
     ],
-    defaultNotes: 'Can channel touch spells through its reaction.'
+    defaultNotes: 'Can channel touch spells through its reaction.',
+    abilityScores: { str: 4, dex: 15, con: 12, int: 10, wis: 10, cha: 7 },
+    proficiencyBonus: 2,
   },
   {
     id: 'steam-mephit',
@@ -518,7 +639,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: '15-ft cone',
       }
     ],
-    defaultNotes: 'Death Burst deals fire damage in a small radius.'
+    defaultNotes: 'Death Burst deals fire damage in a small radius.',
+    abilityScores: { str: 5, dex: 11, con: 10, int: 11, wis: 10, cha: 12 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -552,7 +675,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: '15-ft cone, blinds on failed save',
       }
     ],
-    defaultNotes: 'Death Burst can blind nearby creatures.'
+    defaultNotes: 'Death Burst can blind nearby creatures.',
+    abilityScores: { str: 5, dex: 14, con: 10, int: 9, wis: 11, cha: 10 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -586,7 +711,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: '15-ft cone',
       }
     ],
-    defaultNotes: 'Death Burst deals cold damage nearby.'
+    defaultNotes: 'Death Burst deals cold damage nearby.',
+    abilityScores: { str: 7, dex: 13, con: 10, int: 9, wis: 11, cha: 12 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -620,7 +747,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: '15-ft cone',
       }
     ],
-    defaultNotes: 'Death Burst deals fire damage in 10-ft radius.'
+    defaultNotes: 'Death Burst deals fire damage in 10-ft radius.',
+    abilityScores: { str: 10, dex: 8, con: 12, int: 7, wis: 8, cha: 10 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -654,7 +783,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: 'Restrains targets in 15-ft cone',
       }
     ],
-    defaultNotes: 'Can restrain enemies with sticky mud.'
+    defaultNotes: 'Can restrain enemies with sticky mud.',
+    abilityScores: { str: 8, dex: 12, con: 11, int: 9, wis: 11, cha: 7 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -688,7 +819,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: '15-ft cone',
       }
     ],
-    defaultNotes: 'Death Burst creates a smoke cloud.'
+    defaultNotes: 'Death Burst creates a smoke cloud.',
+    abilityScores: { str: 6, dex: 14, con: 12, int: 10, wis: 10, cha: 11 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -714,7 +847,11 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'bludgeoning',
       }
     ],
-    defaultNotes: 'Immune to lightning, poison, and exhaustion.'
+    defaultNotes: 'Immune to lightning, poison, and exhaustion.',
+    abilityScores: { str: 18, dex: 14, con: 14, int: 11, wis: 11, cha: 11 },
+    savingThrowProficiencies: ['str', 'dex', 'con'],
+    proficiencyBonus: 3,
+    usesCasterPB: true,
   },
 
   {
@@ -740,7 +877,11 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'fire',
       }
     ],
-    defaultNotes: 'Ignites flammable objects on contact.'
+    defaultNotes: 'Ignites flammable objects on contact.',
+    abilityScores: { str: 18, dex: 13, con: 16, int: 9, wis: 11, cha: 13 },
+    savingThrowProficiencies: ['str', 'dex', 'con'],
+    proficiencyBonus: 3,
+    usesCasterPB: true,
   },
 
   {
@@ -767,7 +908,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: 'grapple escape DC 13',
       }
     ],
-    defaultNotes: 'Invisible while fully submerged in water.'
+    defaultNotes: 'Invisible while fully submerged in water.',
+    abilityScores: { str: 17, dex: 16, con: 13, int: 9, wis: 14, cha: 7 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -800,7 +943,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'slashing',
       }
     ],
-    defaultNotes: 'Can remain motionless and appear indistinguishable from stone.'
+    defaultNotes: 'Can remain motionless and appear indistinguishable from stone.',
+    abilityScores: { str: 15, dex: 11, con: 16, int: 6, wis: 11, cha: 7 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -827,7 +972,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'force',
       }
     ],
-    defaultNotes: 'Created using Performance of Creation.'
+    defaultNotes: 'Created using Performance of Creation.',
+    abilityScores: { str: 18, dex: 14, con: 16, int: 4, wis: 10, cha: 6 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -853,7 +1000,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'radiant',
       }
     ],
-    defaultNotes: 'Deals damage when enemies move within 10 ft.'
+    defaultNotes: 'Deals damage when enemies move within 10 ft.',
+    abilityScores: { str: 16, dex: 10, con: 16, int: 10, wis: 14, cha: 13 },
+    proficiencyBonus: 3,
   },
   {
     id: 'floating-skull',
@@ -878,7 +1027,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'fire',
       }
     ],
-    defaultNotes: 'Immune to fire and poison.'
+    defaultNotes: 'Immune to fire and poison.',
+    abilityScores: { str: 1, dex: 17, con: 14, int: 13, wis: 13, cha: 11 },
+    savingThrowProficiencies: ['dex', 'int', 'wis', 'cha'],
+    proficiencyBonus: 3,
   },
 
   {
@@ -905,7 +1057,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'thunder',
       }
     ],
-    defaultNotes: 'Can fly and move through small openings.'
+    defaultNotes: 'Can fly and move through small openings.',
+    abilityScores: { str: 14, dex: 20, con: 14, int: 6, wis: 10, cha: 6 },
+    usesCasterPB: true,
   },
 
   {
@@ -932,7 +1086,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'fire',
       }
     ],
-    defaultNotes: 'Ignites flammable objects not being worn or carried.'
+    defaultNotes: 'Ignites flammable objects not being worn or carried.',
+    abilityScores: { str: 14, dex: 10, con: 14, int: 6, wis: 10, cha: 6 },
+    usesCasterPB: true,
   },
 
   {
@@ -959,7 +1115,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         damageType: 'force',
       }
     ],
-    defaultNotes: 'Can charm nearby creatures with Fey Step.'
+    defaultNotes: 'Can charm nearby creatures with Fey Step.',
+    abilityScores: { str: 13, dex: 16, con: 14, int: 14, wis: 11, cha: 16 },
+    usesCasterPB: true,
   },
 
   {
@@ -987,7 +1145,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
         notes: 'range 150/600'
       }
     ],
-    defaultNotes: 'Heals allies whenever it casts healing magic.'
+    defaultNotes: 'Heals allies whenever it casts healing magic.',
+    abilityScores: { str: 16, dex: 14, con: 16, int: 10, wis: 14, cha: 14 },
+    savingThrowProficiencies: ['wis', 'cha'],
+    usesCasterPB: true,
   },
 
   {
@@ -1003,7 +1164,10 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     attacks: [
       { id: 'sting', name: 'Sting', toHit: '+5', damage: '1d4+3 piercing + 3d6 poison', damageType: 'piercing' },
     ],
-    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.'
+    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.',
+    abilityScores: { str: 6, dex: 17, con: 13, int: 11, wis: 12, cha: 14 },
+    savingThrowProficiencies: ['wis', 'cha'],
+    proficiencyBonus: 2,
   },
 
   {
@@ -1020,7 +1184,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
       { id: 'sting', name: 'Sting', toHit: '+4', damage: '1d4+2 piercing + 3d6 poison', damageType: 'piercing' },
       { id: 'bite', name: 'Bite', toHit: '+4', damage: '1d4+2 piercing', damageType: 'piercing' },
     ],
-    defaultNotes: 'Pact Chain familiar. Can sense nearby poison and magic.'
+    defaultNotes: 'Pact Chain familiar. Can sense nearby poison and magic.',
+    abilityScores: { str: 6, dex: 15, con: 13, int: 10, wis: 12, cha: 10 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -1036,7 +1202,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     attacks: [
       { id: 'claws', name: 'Claws', toHit: '+4', damage: '1d4+3 slashing + 1d4 poison', damageType: 'slashing' },
     ],
-    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.'
+    defaultNotes: 'Pact Chain familiar. Poison damage uses your spell save DC.',
+    abilityScores: { str: 5, dex: 17, con: 10, int: 7, wis: 10, cha: 10 },
+    proficiencyBonus: 2,
   },
 
   {
@@ -1052,7 +1220,9 @@ export let SUMMON_TEMPLATES: SummonTemplate[] = [
     attacks: [
       { id: 'longbow', name: 'Longbow', toHit: '+6', damage: '1 piercing + sleep poison', damageType: 'piercing', notes: 'Poison: target must succeed on CON save or fall unconscious for 1 minute' },
     ],
-    defaultNotes: 'Pact Chain familiar. Can cast Invisibility on itself.'
+    defaultNotes: 'Pact Chain familiar. Can cast Invisibility on itself.',
+    abilityScores: { str: 2, dex: 18, con: 10, int: 14, wis: 13, cha: 11 },
+    proficiencyBonus: 2,
   },
 ]
 

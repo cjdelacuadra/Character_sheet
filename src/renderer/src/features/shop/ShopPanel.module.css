@@ -45,6 +45,19 @@
   flex-shrink: 0;
 }
 
+.goldInput {
+  width: 64px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--surface-3, var(--bg-elevated));
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+}
+
 .closeBtn {
   background: transparent;
   border: 1px solid var(--border);

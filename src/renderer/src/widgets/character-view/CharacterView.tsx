@@ -3,7 +3,7 @@ import { useAppStore } from '@/app/store'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASSES_BY_CLASS, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { xpForNextLevel, computeSpellLevelUpConfig, spellsKnownAt } from '@/domain/rules'
+import { xpForNextLevel, computeSpellLevelUpConfig, spellsKnownAt, computePreparedSpellCount } from '@/domain/rules'
 import { SPELLS, SPELL_BY_ID } from '@/shared/data/spellData'
 
 import { CharacterHeader } from '@/features/character-header/CharacterHeader'
@@ -14,6 +14,7 @@ import { ConditionsPanel } from '@/features/conditions/ConditionsPanel'
 import { SummonsPanel } from '@/features/summons/SummonsPanel'
 import { SummonDetailPanel } from '@/features/summons/SummonDetailPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
+import { RacialActionsPanel } from '@/features/racial-actions/RacialActionsPanel'
 import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
 import { TurnHeader } from '@/features/combat-actions/TurnHeader'
@@ -50,6 +51,10 @@ export function CharacterView() {
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
   const [spellValidationDeficit, setSpellValidationDeficit] = useState<{ spells: number; cantrips: number } | null>(null)
   const [nextTurnOpen, setNextTurnOpen] = useState(false)
+  // ASI levels the character passed (e.g. created at level 7) but never got to choose. Drives a catch-up prompt.
+  const [asiCatchUpQueue, setAsiCatchUpQueue] = useState<number[]>([])
+  // Prepared casters (Cleric/Druid/Paladin/Artificer) who can prepare more spells than they have.
+  const [prepareStepOpen, setPrepareStepOpen] = useState(false)
 
   // Validate known-spell count when selecting a character (handles post-update migrations)
   useEffect(() => {
@@ -58,6 +63,17 @@ export function CharacterView() {
     if (!c) return
     const cls = CLASS_BY_ID[c.classId]
     const sub = c.subclass ? SUBCLASS_BY_ID[c.subclass] : undefined
+
+    // Prepared casters: prompt to prepare leveled spells up to the current limit if under-prepared
+    // (e.g. after a level-up raised the limit). Known casters fall through to the deficit check below.
+    const castAbility = sub?.spellcastingAbility ?? cls?.spellcastingAbility
+    const hasSlots = Object.values(c.spellSlots).some(s => (s as { total: number }).total > 0)
+    if (cls?.prepareSpells && castAbility && hasSlots) {
+      const limit = computePreparedSpellCount(c.classId, c.level, c.abilityScores[castAbility])
+      const preparedLeveled = c.preparedSpellIds.filter(id => (SPELL_BY_ID[id]?.level ?? 0) > 0).length
+      if (preparedLeveled < limit) { setPrepareStepOpen(true); return }
+    }
+
     const spellTable = sub?.spellsKnownTable ?? cls?.spellsKnownTable
     const cantripTable = sub?.cantripsKnownTable ?? cls?.cantripsKnownTable
     if (!spellTable && !cantripTable) return
@@ -116,6 +132,10 @@ export function CharacterView() {
   if (!char) return null
 
   const classDef = CLASS_BY_ID[char.classId]
+  // ASIs owed by the current level but not yet resolved (e.g. a character created above an ASI level).
+  const outstandingAsi = (classDef?.asiLevels ?? []).filter(
+    l => l <= char.level && !(char.completedAsiLevels ?? []).includes(l)
+  )
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
 
@@ -155,6 +175,12 @@ export function CharacterView() {
         equipOpen={equipOpen}
       />
 
+      {outstandingAsi.length > 0 && asiCatchUpQueue.length === 0 && (
+        <button className={styles.asiBanner} onClick={() => setAsiCatchUpQueue(outstandingAsi)}>
+          ⚑ {outstandingAsi.length} unspent Ability Score Improvement{outstandingAsi.length > 1 ? 's' : ''} (level{outstandingAsi.length > 1 ? 's' : ''} {outstandingAsi.join(', ')}) — click to resolve
+        </button>
+      )}
+
       {restOpen && (
         <RestPanel
           character={char}
@@ -191,8 +217,10 @@ export function CharacterView() {
             selectedDetail={selectedDetail}
             onSelectDetail={(d) => { setSelectedDetail(d); if (d) { setSelectedAction(null); setSelectedFeature(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
           />
+          <RacialActionsPanel character={char} update={update} />
           <FeaturesPanel
             character={char}
+            update={update}
             selectedFeature={selectedFeature}
             onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) }}
           />
@@ -272,6 +300,27 @@ export function CharacterView() {
               onCancel={() => { setSpellOnlyOpen(false); setSpellValidationDeficit(null) }}
             />
           )}
+          {prepareStepOpen && (() => {
+            const sub = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
+            const castAbility = sub?.spellcastingAbility ?? classDef?.spellcastingAbility
+            const limit = castAbility ? computePreparedSpellCount(char.classId, char.level, char.abilityScores[castAbility]) : 0
+            return (
+              <SpellSelectionStep
+                prepareMode
+                character={char}
+                newLevel={char.level}
+                title={`${char.classId} Level ${char.level} — Prepare Spells`}
+                forceSpellDelta={limit}
+                onConfirm={(preparedIds) => {
+                  // Keep prepared cantrips/non-leveled entries, replace the leveled prepared set.
+                  const keptCantrips = char.preparedSpellIds.filter(id => (SPELL_BY_ID[id]?.level ?? 0) === 0)
+                  update({ preparedSpellIds: [...new Set([...keptCantrips, ...preparedIds])] })
+                  setPrepareStepOpen(false)
+                }}
+                onCancel={() => setPrepareStepOpen(false)}
+              />
+            )
+          })()}
           {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && equipOpen && (
             <>
               <EquipmentLayout
@@ -333,6 +382,21 @@ export function CharacterView() {
       </div>
 
       {diceOpen && <DiceRollerOverlay onClose={() => setDiceOpen(false)} />}
+
+      {asiCatchUpQueue.length > 0 && (
+        <LevelUpModal
+          key={asiCatchUpQueue[0]}
+          character={char}
+          newLevel={asiCatchUpQueue[0]}
+          showSpellSelection={false}
+          onConfirm={(choice) => {
+            const [head, ...tail] = asiCatchUpQueue
+            if (choice) applyPendingAsi(char.id, head, choice)
+            setAsiCatchUpQueue(tail)
+          }}
+          onCancel={() => setAsiCatchUpQueue([])}
+        />
+      )}
     </div>
   )
 }

@@ -25,6 +25,18 @@
 .removeAttack { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted); cursor: pointer; }
 .removeAttack:hover { border-color: var(--danger); color: var(--danger); }
 
+.abilityScoresSection { display: flex; flex-direction: column; gap: 6px; }
+.abilityScoresGrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.abilityScoreField { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text-muted); }
+.abilityScoreInput { width: 100%; padding: 3px 2px; font-size: 12px; text-align: center; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); }
+.abilityScoreInput:focus { outline: none; border-color: var(--accent); }
+.pbRow { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.checkField { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.checkField input[type="checkbox"] { cursor: pointer; }
+.savesLabel { font-size: 10px; color: var(--text-muted); }
+.savesGrid { display: flex; flex-direction: column; gap: 4px; }
+.savesCheckboxes { display: flex; flex-wrap: wrap; gap: 8px; }
+
 .error { font-size: 11px; color: var(--danger); }
 
 .formBtns { display: flex; justify-content: flex-end; gap: 8px; }

@@ -1,6 +1,7 @@
 import { equipmentIpc } from '@/services/ipc'
 import type { SummonTemplate } from '@/entities/summon/types'
 import { SUMMON_TEMPLATES, setSummonTemplatesData } from './summonTemplates'
+import { logError } from '@/shared/lib/rendererLogger'
 
 const FILE = 'summonTemplates.json'
 
@@ -43,17 +44,29 @@ export async function loadSummonTemplatesFromDisk(): Promise<void> {
   try {
     const parsed = JSON.parse(raw) as SummonTemplate[]
     if (Array.isArray(parsed)) {
-      // Merge: keep disk entries (preserving user edits), append any new built-in
-      // templates that were added to code since the file was last written.
+      const builtinById = Object.fromEntries(
+        SUMMON_TEMPLATES.filter(t => t.source !== 'custom').map(t => [t.id, t])
+      )
+      // Merge: for built-in templates, fill in any fields added to code since
+      // the file was last written (e.g. abilityScores) while preserving user edits.
+      // Custom templates are kept as-is. Newly added built-ins are appended.
       const diskIds = new Set(parsed.map(t => t.id))
+      const updated = parsed.map(t => {
+        const builtin = builtinById[t.id]
+        if (!builtin) return t
+        return {
+          ...builtin,   // new code fields first (provides missing fields)
+          ...t,         // disk wins for anything the user may have edited
+        }
+      })
       const merged = [
-        ...parsed,
+        ...updated,
         ...SUMMON_TEMPLATES.filter(t => !diskIds.has(t.id)),
       ]
       setSummonTemplatesData(merged)
       if (merged.length > parsed.length) await persist(merged)
     }
   } catch (e) {
-    console.error('[summonLoader] Failed to parse summonTemplates.json, using defaults', e)
+    logError('summonLoader', 'Failed to parse summonTemplates.json, using defaults', e)
   }
 }

@@ -9,6 +9,24 @@
   font-family: var(--font-body, 'Crimson Pro', Georgia, serif);
 }
 
+/* ── PENDING ASI CATCH-UP BANNER ── */
+.asiBanner {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-surface));
+  color: var(--text-primary);
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  cursor: pointer;
+  transition: filter 0.12s;
+}
+.asiBanner:hover { filter: brightness(1.08); }
+
 /* ── HEADER — 2-ROW IDENTITY GRID ── */
 .headerGrid {
   display: grid;

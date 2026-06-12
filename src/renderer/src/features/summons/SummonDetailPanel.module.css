@@ -18,6 +18,18 @@
 .statVal { font-size: 16px; font-weight: 700; color: var(--text); text-align: center; }
 .statLabel { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
 
+.abilityBlock { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--border); padding-top: 6px; }
+.abilityCell { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 2px 0; }
+.abilityCellLabel { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.abilityCellScore { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.abilityCellMod { font-size: 10px; color: var(--text-muted); }
+.savingThrowsHeader { display: flex; align-items: center; gap: 6px; padding: 4px 0 2px; border-top: 1px solid var(--border); margin-top: 2px; }
+.savingThrowsLabel { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.savingThrowsRow { display: grid; grid-template-columns: repeat(6, 1fr); padding-bottom: 4px; }
+.savingThrowChip { display: flex; align-items: center; justify-content: center; padding: 2px 0; color: var(--text-muted); font-size: 10px; }
+.savingThrowProficient { color: var(--accent); font-weight: 700; background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 3px; }
+.scalesNote { font-size: 9px; color: var(--text-muted); font-style: italic; }
+
 .hpRow { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
 .hpCurrentSection { display: flex; flex-direction: column; gap: 2px; }
 .hpMaxLabel { font-size: 10px; color: var(--text-muted); }

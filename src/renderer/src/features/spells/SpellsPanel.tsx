@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
-import { SPELL_BY_ID, SPELLS, computeUpcastDice } from '@/shared/data/spellData'
+import { SPELL_BY_ID, SPELLS, computeUpcastDice, endsAtStartOfNextTurn, isBuffConditionSpell } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID, LAND_CIRCLE_SPELLS } from '@/shared/data/subclassData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import type { EconomyType } from '@/app/store/turnSlice'
+import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
 import styles from './SpellsPanel.module.css'
 
@@ -42,6 +44,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
   const useEconomy = useAppStore(s => s.useEconomy)
+  const registerEndOfTurnBuff = useAppStore(s => s.registerEndOfTurnBuff)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const raceDef = RACE_BY_ID[char.race]
@@ -107,6 +110,24 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     if (castLevel > 0) useSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
+    // Self-effect: temporary HP (e.g. False Life). Temp HP doesn't stack — keep the higher value.
+    if (spell.grantsTempHp) {
+      const upcast = Math.max(0, castLevel - spell.level) * (spell.tempHpPerUpcast ?? 0)
+      const rolled = rollDiceExpr(spell.grantsTempHp) + upcast
+      update({ hitPoints: { ...char.hitPoints, temp: Math.max(char.hitPoints.temp, rolled) } })
+    }
+    // Ongoing buff spells (Bless, Mage Armor, Magic Weapon, Longstrider, …) and short-duration
+    // spells (Booming Blade) are tracked in activeBuffSpells so they appear as condition chips and
+    // their mechanics (AC / attack riders) apply. Short ones auto-dismiss on Next Turn.
+    const shortDuration = endsAtStartOfNextTurn(spell)
+    if (isBuffConditionSpell(spell) || shortDuration) {
+      const buffs = char.activeBuffSpells ?? []
+      if (!buffs.includes(spell.id)) {
+        const next = [...buffs, spell.id]
+        update({ activeBuffSpells: next, armorClass: computeACFull({ ...char, activeBuffSpells: next }) })
+      }
+      if (shortDuration) registerEndOfTurnBuff(char.id, spell.id)
+    }
     const econ = castingTimeToEconomy(spell.castingTime)
     if (econ) useEconomy(char.id, econ)
     setExpandedSpell(null)
@@ -300,16 +321,14 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
         ) : (
           <span className={styles.spellDisabledTip}>No spell slots available.</span>
         )}
-        {canConc && (
+        {/* Concentration auto-starts on cast (castSpell). Only offer to drop it here. */}
+        {canConc && isConc && (
           <button
             className={styles.spellExpandCastBtn}
-            style={{
-              borderColor: isConc ? 'var(--danger)' : undefined,
-              color:       isConc ? 'var(--danger)' : undefined,
-            }}
+            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
             onClick={() => { setConcentration(spell.id); setExpandedSpell(null) }}
           >
-            {isConc ? 'Drop Concentration' : 'Concentrate (no slot)'}
+            Drop Concentration
           </button>
         )}
         {spell.attackBuff && !spell.concentration && (() => {
@@ -325,6 +344,23 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               }}
             >
               {isBuffActive ? 'Deactivate Buff' : 'Mark Active'}
+            </button>
+          )
+        })()}
+        {spell.setsBaseAC !== undefined && (() => {
+          const activeBuffs = char.activeBuffSpells ?? []
+          const isActive = activeBuffs.includes(spell.id)
+          return (
+            <button
+              className={styles.spellExpandCastBtn}
+              style={{ borderColor: isActive ? 'var(--success)' : undefined, color: isActive ? 'var(--success)' : undefined }}
+              onClick={() => {
+                const next = isActive ? activeBuffs.filter(x => x !== spell.id) : [...activeBuffs, spell.id]
+                update({ activeBuffSpells: next, armorClass: computeACFull({ ...char, activeBuffSpells: next }) })
+                setExpandedSpell(null)
+              }}
+            >
+              {isActive ? 'Dismiss (AC)' : 'Activate (AC)'}
             </button>
           )
         })()}

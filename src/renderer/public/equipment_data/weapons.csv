@@ -1,8 +1,8 @@
 id,name,kind,cost,rarity,sprite,damageDie,damageType,proficiencyCategory,rangeType,properties,enchantmentBonus,enchantment,enchantments,bonusDamageDie,bonusDamageType,isMonkWeapon,to_hit_count,to_hit_die,to_hit_flat,dmg_bonus_count,dmg_bonus_die,dmg_bonus_flat,dmg_bonus_type,requiresAttunement,crit_bonus,crit_bonus_type
-club,Club,weapon,1,common,/assets/weapons/club.png,1d4,bludgeoning,Simple,Melee,Light,,,fire|ice|thunder|earth|energy,,,true,,,,,,,,,,
+club,Club,weapon,1,common,/assets/weapons/club.png,1d4,bludgeoning,Simple,Melee,Light,,,fire|cold|thunder|acid|lightning,,,true,,,,,,,,,,
 dagger,Dagger,weapon,2,common,/assets/weapons/dagger.png,1d4,piercing,Simple,Melee or Ranged,Finesse|Light|Thrown (range 20/60),,,,,,true,,,,,,,,,,
 greatclub,Greatclub,weapon,2,common,/assets/weapons/greatclub.png,1d8,bludgeoning,Simple,Melee,Two-Handed,,,,,,,,,,,,,,,,
-handaxe,Handaxe,weapon,5,common,/assets/weapons/handaxe.png,1d6,slashing,Simple,Melee or Ranged,Light|Thrown (range 20/60),,,fire|ice|thunder|earth|energy,,,,,,,,,,,,,
+handaxe,Handaxe,weapon,5,common,/assets/weapons/handaxe.png,1d6,slashing,Simple,Melee or Ranged,Light|Thrown (range 20/60),,,fire|cold|thunder|acid|lightning,,,,,,,,,,,,,
 javelin,Javelin,weapon,5,common,/assets/weapons/javelin.png,1d6,piercing,Simple,Melee or Ranged,Thrown (range 30/120),,,,,,true,,,,,,,,,,
 lightHammer,Light Hammer,weapon,2,common,/assets/weapons/lightHammer.png,1d4,bludgeoning,Simple,Melee or Ranged,Light|Thrown (range 20/60),,,,,,,,,,,,,,,,
 mace,Mace,weapon,5,common,/assets/weapons/mace.png,1d6,bludgeoning,Simple,Melee,,,,,,,true,,,,,,,,,,

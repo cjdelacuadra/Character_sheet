@@ -1,5 +1,25 @@
 import type { AbilityScore, AbilityScores } from '@/entities/character/types'
 
+export type RacialActionCost = 'action' | 'bonus' | 'reaction' | 'free' | 'passive'
+
+/** An active (or notable passive) racial feature, surfaced as a usable action with rest tracking. */
+export interface RacialAction {
+  id: string
+  name: string
+  cost: RacialActionCost
+  /** Feature unlocks at this character level (default 1). */
+  minLevel?: number
+  /** Present ⇒ limited use; absent ⇒ at-will / passive. */
+  recharge?: 'short' | 'long'
+  /** Uses per recharge (default 1 when `recharge` is set). 'prof' = proficiency bonus. */
+  maxUses?: number | 'prof'
+  description: string
+  /** Auto-applied on Use: temp HP from a formula with tokens dice / flat / "level" / "conmod" / "prof". */
+  grantsTempHp?: string
+  /** Auto-applied on Use: self-heal from the same token grammar. */
+  selfHeal?: string
+}
+
 export interface RaceDef {
   id: string
   label: string
@@ -26,6 +46,8 @@ export interface RaceDef {
   racialSpells?: Partial<Record<number, string[]>>
   /** Darkvision range in feet (0 if none) */
   darkvisionRange?: number
+  /** Active/notable racial features surfaced as usable actions (see RacialActionsPanel). */
+  racialActions?: RacialAction[]
 }
 
 export const RACES: RaceDef[] = [
@@ -115,6 +137,10 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', 'Menacing (Intimidation proficiency)', 'Relentless Endurance (drop to 1 HP instead of 0, 1/LR)', 'Savage Attacks (extra crit die)'],
     size: 'medium',
     darkvisionRange: 60,
+    racialActions: [
+      { id: 'relentless-endurance', name: 'Relentless Endurance', cost: 'free', recharge: 'long', maxUses: 1,
+        description: 'When reduced to 0 HP but not killed outright, you can drop to 1 HP instead.' },
+    ],
   },
   {
     id: 'Gnome',
@@ -144,6 +170,10 @@ export const RACES: RaceDef[] = [
     traits: ['Draconic Ancestry (choose element)', 'Breath Weapon (Dex/Con save, 2d6 damage, scales)', 'Damage Resistance (chosen element)'],
     size: 'medium',
     darkvisionRange: 0,
+    racialActions: [
+      { id: 'breath-weapon', name: 'Breath Weapon', cost: 'action', recharge: 'short', maxUses: 1,
+        description: 'Exhale destructive energy in a 15-ft cone or 5×30-ft line (per ancestry). Each creature makes a Dex or Con save (DC 8 + CON mod + prof). Damage: 2d6 (L1–5), 3d6 (6–10), 4d6 (11–15), 5d6 (16+); half on success.' },
+    ],
   },
   {
     id: 'StoutHalfling',
@@ -182,6 +212,10 @@ export const RACES: RaceDef[] = [
     size: 'medium',
     racialSpells: { 1: ['light'] },
     darkvisionRange: 60,
+    racialActions: [
+      { id: 'healing-hands', name: 'Healing Hands', cost: 'action', recharge: 'long', maxUses: 1, selfHeal: 'level',
+        description: 'Touch a creature to restore hit points equal to your level (applied to yourself here).' },
+    ],
   },
   {
     id: 'Kenku',
@@ -200,6 +234,10 @@ export const RACES: RaceDef[] = [
     traits: ['Darkvision 60ft', "Cat's Claws (climb speed 20ft, 1d4 slashing unarmed strike)", 'Feline Agility (double speed until end of turn, then 0 speed until next turn)', "Cat's Talent (proficiency in Perception & Stealth)"],
     size: 'medium',
     darkvisionRange: 60,
+    racialActions: [
+      { id: 'feline-agility', name: 'Feline Agility', cost: 'free',
+        description: 'Double your speed until the end of the turn when you move on your turn. Usable again once you spend a turn moving 0 feet.' },
+    ],
   },
   {
     id: 'Lizardfolk',
@@ -210,6 +248,10 @@ export const RACES: RaceDef[] = [
     naturalAC: (scores) => 13 + Math.floor((scores.dex - 10) / 2),
     size: 'medium',
     darkvisionRange: 0,
+    racialActions: [
+      { id: 'hungry-jaws', name: 'Hungry Jaws', cost: 'bonus', recharge: 'short', maxUses: 1, grantsTempHp: 'conmod',
+        description: 'Make a special bite unarmed strike (1d6 + STR piercing). On a hit you also gain temporary HP equal to your CON modifier (min 1).' },
+    ],
   },
   {
     id: 'Tortle',
@@ -220,6 +262,10 @@ export const RACES: RaceDef[] = [
     naturalAC: () => 17,
     size: 'medium',
     darkvisionRange: 0,
+    racialActions: [
+      { id: 'shell-defense', name: 'Shell Defense', cost: 'action',
+        description: 'Withdraw into your shell: +4 AC (to 21), advantage on STR & CON saves; you are prone, speed 0, can\'t take reactions, disadvantage on DEX saves, and your only action is to emerge.' },
+    ],
   },
   {
     id: 'Warforged',
@@ -251,6 +297,206 @@ export const RACES: RaceDef[] = [
     size: 'medium',
     racialSpells: { 1: ['mage-hand'], 3: ['shield'], 5: ['detect-thoughts'] },
     darkvisionRange: 0,
+  },
+  {
+    id: 'Aarakocra',
+    label: 'Aarakocra',
+    speed: 25,
+    abilityBonus: { dex: 2, wis: 1 },
+    traits: ['Flight (fly speed 50ft; no medium/heavy armor)', 'Talons (1d4 slashing unarmed strike)'],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'flight', name: 'Flight', cost: 'passive',
+        description: 'You have a flying speed of 50 feet. You can\'t use this while wearing medium or heavy armor.' },
+    ],
+  },
+  {
+    id: 'Goliath',
+    label: 'Goliath',
+    speed: 30,
+    abilityBonus: { str: 2, con: 1 },
+    traits: ['Powerful Build (count as one size larger for carrying/lifting)', 'Mountain Born (acclimated to high altitude & cold)', "Stone's Endurance (reaction to reduce damage)"],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'stones-endurance', name: "Stone's Endurance", cost: 'reaction', recharge: 'long', maxUses: 'prof',
+        description: 'When you take damage, reduce it by 1d12 + your CON modifier.' },
+    ],
+  },
+  {
+    id: 'Orc',
+    label: 'Orc',
+    speed: 30,
+    abilityBonus: { str: 2, con: 1 },
+    traits: ['Darkvision 60ft', 'Adrenaline Rush', 'Powerful Build', 'Relentless Endurance (drop to 1 HP instead of 0, 1/LR)'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'adrenaline-rush', name: 'Adrenaline Rush', cost: 'bonus', recharge: 'short', maxUses: 'prof', grantsTempHp: 'prof',
+        description: 'Take the Dash action and gain temporary hit points equal to your proficiency bonus.' },
+      { id: 'relentless-endurance', name: 'Relentless Endurance', cost: 'free', recharge: 'long', maxUses: 1,
+        description: 'When reduced to 0 HP but not killed outright, drop to 1 HP instead.' },
+    ],
+  },
+  {
+    id: 'Goblin',
+    label: 'Goblin',
+    speed: 30,
+    abilityBonus: { dex: 2, con: 1 },
+    traits: ['Darkvision 60ft', 'Fury of the Small', 'Nimble Escape', 'Fey Ancestry (advantage vs charm)'],
+    size: 'small',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'fury-of-the-small', name: 'Fury of the Small', cost: 'free', recharge: 'short', maxUses: 1,
+        description: 'When you hit a creature larger than you, deal extra damage equal to your character level (once per short/long rest).' },
+      { id: 'nimble-escape', name: 'Nimble Escape', cost: 'bonus',
+        description: 'Take the Disengage or Hide action as a bonus action on each of your turns.' },
+    ],
+  },
+  {
+    id: 'Bugbear',
+    label: 'Bugbear',
+    speed: 30,
+    abilityBonus: { str: 2, dex: 1 },
+    traits: ['Darkvision 60ft', 'Long-Limbed (+5ft reach on melee attacks on your turn)', 'Powerful Build', 'Surprise Attack', 'Sneaky (Stealth proficiency)'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'surprise-attack', name: 'Surprise Attack', cost: 'passive',
+        description: 'If you surprise a creature and hit it on your first turn of combat, the attack deals an extra 2d6 damage.' },
+    ],
+  },
+  {
+    id: 'Firbolg',
+    label: 'Firbolg',
+    speed: 30,
+    abilityBonus: { str: 1, wis: 2 },
+    traits: ['Firbolg Magic (Detect Magic & Disguise Self)', 'Hidden Step', 'Powerful Build', 'Speech of Beast and Leaf'],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'hidden-step', name: 'Hidden Step', cost: 'bonus', recharge: 'short', maxUses: 1,
+        description: 'Magically turn invisible until the start of your next turn or until you attack, make a damage roll, or force a saving throw.' },
+    ],
+  },
+  {
+    id: 'AirGenasi',
+    label: 'Genasi (Air)',
+    speed: 30,
+    abilityBonus: { dex: 1, con: 2 },
+    traits: ['Unending Breath (hold breath indefinitely)', 'Mingle with the Wind (Levitate 1/LR)', 'Lightning Resistance'],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'mingle-with-the-wind', name: 'Mingle with the Wind', cost: 'action', recharge: 'long', maxUses: 1,
+        description: 'Cast Levitate on yourself, requiring no material components.' },
+    ],
+  },
+  {
+    id: 'EarthGenasi',
+    label: 'Genasi (Earth)',
+    speed: 30,
+    abilityBonus: { str: 1, con: 2 },
+    traits: ['Earth Walk (move across difficult terrain made of earth/stone without extra cost)', 'Merge with Stone (Pass Without Trace 1/LR)'],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'merge-with-stone', name: 'Merge with Stone', cost: 'action', recharge: 'long', maxUses: 1,
+        description: 'Cast Pass Without Trace, requiring no material components.' },
+    ],
+  },
+  {
+    id: 'FireGenasi',
+    label: 'Genasi (Fire)',
+    speed: 30,
+    abilityBonus: { con: 2, int: 1 },
+    traits: ['Darkvision 60ft', 'Fire Resistance', 'Reach to the Blaze (Produce Flame cantrip; Burning Hands at L3)'],
+    size: 'medium',
+    racialSpells: { 1: ['produce-flame'] },
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'reach-to-the-blaze', name: 'Reach to the Blaze', cost: 'action', recharge: 'long', maxUses: 1, minLevel: 3,
+        description: 'Cast Burning Hands, requiring no material components.' },
+    ],
+  },
+  {
+    id: 'WaterGenasi',
+    label: 'Genasi (Water)',
+    speed: 30,
+    abilityBonus: { con: 2, wis: 1 },
+    traits: ['Swim speed 30ft', 'Amphibious (breathe air and water)', 'Acid Resistance', 'Call to the Wave (Shape Water cantrip; Create or Destroy Water at L3)'],
+    size: 'medium',
+    darkvisionRange: 0,
+    racialActions: [
+      { id: 'call-to-the-wave', name: 'Call to the Wave', cost: 'action', recharge: 'long', maxUses: 1, minLevel: 3,
+        description: 'Cast Create or Destroy Water, requiring no material components. (At will: Shape Water cantrip.)' },
+    ],
+  },
+  {
+    id: 'Eladrin',
+    label: 'Elf (Eladrin)',
+    speed: 30,
+    abilityBonus: { dex: 2, int: 1 },
+    traits: ['Darkvision 60ft', 'Keen Senses', 'Fey Ancestry', 'Trance', 'Fey Step (BA teleport 30ft)'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'fey-step', name: 'Fey Step', cost: 'bonus', recharge: 'short', maxUses: 1,
+        description: 'Magically teleport up to 30 feet to an unoccupied space you can see.' },
+    ],
+  },
+  {
+    id: 'ShifterBeasthide',
+    label: 'Shifter (Beasthide)',
+    speed: 30,
+    abilityBonus: { str: 1, con: 2 },
+    traits: ['Darkvision 60ft', 'Shifting (bonus action transformation)', 'Beasthide: +1 AC and extra temp HP while shifted'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'shift-beasthide', name: 'Shift (Beasthide)', cost: 'bonus', recharge: 'short', maxUses: 'prof', grantsTempHp: 'prof+prof',
+        description: 'For 1 minute, gain temporary hit points (≈2× proficiency bonus) and a +1 bonus to AC while shifted.' },
+    ],
+  },
+  {
+    id: 'ShifterLongtooth',
+    label: 'Shifter (Longtooth)',
+    speed: 30,
+    abilityBonus: { str: 2, dex: 1 },
+    traits: ['Darkvision 60ft', 'Shifting (bonus action transformation)', 'Longtooth: bite attack while shifted'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'shift-longtooth', name: 'Shift (Longtooth)', cost: 'bonus', recharge: 'short', maxUses: 'prof', grantsTempHp: 'prof+prof',
+        description: 'For 1 minute, gain temporary hit points (≈2× proficiency bonus). While shifted you can make a bite attack as a bonus action (1d6 + STR piercing).' },
+    ],
+  },
+  {
+    id: 'ShifterSwiftstride',
+    label: 'Shifter (Swiftstride)',
+    speed: 30,
+    abilityBonus: { dex: 2, cha: 1 },
+    traits: ['Darkvision 60ft', 'Shifting (bonus action transformation)', 'Swiftstride: +10ft speed while shifted; reactive 10ft move'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'shift-swiftstride', name: 'Shift (Swiftstride)', cost: 'bonus', recharge: 'short', maxUses: 'prof', grantsTempHp: 'prof+prof',
+        description: 'For 1 minute, gain temporary hit points (≈2× proficiency bonus) and +10 ft speed. While shifted you can move up to 10 ft as a reaction when a creature ends its turn within 5 ft.' },
+    ],
+  },
+  {
+    id: 'ShifterWildhunt',
+    label: 'Shifter (Wildhunt)',
+    speed: 30,
+    abilityBonus: { dex: 1, wis: 2 },
+    traits: ['Darkvision 60ft', 'Shifting (bonus action transformation)', 'Wildhunt: advantage on WIS checks; no advantage against you while shifted'],
+    size: 'medium',
+    darkvisionRange: 60,
+    racialActions: [
+      { id: 'shift-wildhunt', name: 'Shift (Wildhunt)', cost: 'bonus', recharge: 'short', maxUses: 'prof', grantsTempHp: 'prof+prof',
+        description: 'For 1 minute, gain temporary hit points (≈2× proficiency bonus). While shifted you have advantage on Wisdom checks and no attacker has advantage against you.' },
+    ],
   },
 ]
 

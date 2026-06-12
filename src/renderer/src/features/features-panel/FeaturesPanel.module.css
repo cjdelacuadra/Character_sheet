@@ -3,7 +3,7 @@
 .sectionLabel { font-family: var(--font-display, 'Cinzel', serif); font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
 .emptyNote { font-size: 11px; color: var(--text-muted); font-style: italic; }
 .featureList { display: flex; flex-direction: column; gap: 3px; }
-.featureCard { border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+.featureCard { position: relative; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
 .featureHead {
   display: flex; align-items: center; gap: 6px; padding: 6px 8px; width: 100%;
   background: var(--surface-2); border: none; cursor: pointer; text-align: left;
@@ -18,3 +18,14 @@
 .featureCardSel { border-color: var(--accent) !important; background: rgba(139,124,248,0.06); }
 .featureSub { font-size: 10px; color: var(--accent); display: block; margin-top: 1px; }
 .featureSubRaging { font-size: 10px; color: var(--danger, #ef4444); display: block; margin-top: 1px; }
+.badgeCustom { font-size: 9px; font-weight: 700; letter-spacing: .4px; background: rgba(76,175,125,0.15); border-radius: 3px; padding: 1px 4px; color: var(--success, #4caf7d); }
+.addBtn { padding: 2px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.addBtn:hover { border-color: var(--accent); color: var(--accent); }
+.addForm { display: flex; flex-direction: column; gap: 5px; padding: 7px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; }
+.addInput { font-size: 12px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); outline: none; }
+.addTextarea { font-size: 11px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); outline: none; resize: vertical; min-height: 44px; font-family: inherit; }
+.addInput:focus, .addTextarea:focus { border-color: var(--accent); }
+.addSave { align-self: flex-end; padding: 3px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; border: 1px solid var(--accent); background: var(--accent); color: var(--text-on-accent, #fff); cursor: pointer; }
+.addSave:disabled { opacity: .4; cursor: default; }
+.featureRemove { position: absolute; top: 4px; right: 4px; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0; font-size: 13px; line-height: 1; border: none; border-radius: 3px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.featureRemove:hover { background: var(--danger, #ef4444); color: #fff; }

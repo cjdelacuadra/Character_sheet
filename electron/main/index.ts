@@ -32,7 +32,12 @@ function registerIpc(): void {
   ipcMain.handle('character:load', (_e, id: string) => {
     const p = characterPath(id)
     if (!existsSync(p)) return null
-    return JSON.parse(readFileSync(p, 'utf-8'))
+    try {
+      return JSON.parse(readFileSync(p, 'utf-8'))
+    } catch (err) {
+      writeEntry('character:load', `Failed to parse ${id}.json: ${err instanceof Error ? err.message : String(err)}`)
+      return null
+    }
   })
 
   ipcMain.handle('character:list', () => {

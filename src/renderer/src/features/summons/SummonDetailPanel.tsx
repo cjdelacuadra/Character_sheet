@@ -16,6 +16,9 @@ const ECONOMY: { key: keyof ActiveSummon['economyUsed']; label: string }[] = [
 ]
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
+function abilityMod(score: number) { return Math.floor((score - 10) / 2) }
+
+const ABILITY_SCORES = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const
 
 interface Props {
   summon: ActiveSummon
@@ -130,6 +133,43 @@ export function SummonDetailPanel({ summon: s, onUpdate, onRemove, onNewTurn, on
           <span className={styles.statLabel}>Speed</span>
         </div>
       </div>
+
+      {/* Ability scores + saving throws */}
+      {s.base.abilityScores && (() => {
+        const pb = s.base.proficiencyBonus ?? 2
+        return (
+          <>
+            <div className={styles.abilityBlock}>
+              {ABILITY_SCORES.map(ab => {
+                const score = s.base.abilityScores![ab]
+                const mod = abilityMod(score)
+                return (
+                  <div key={ab} className={styles.abilityCell}>
+                    <span className={styles.abilityCellLabel}>{ab.toUpperCase()}</span>
+                    <span className={styles.abilityCellScore}>{score}</span>
+                    <span className={styles.abilityCellMod}>({fmtMod(mod)})</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className={styles.savingThrowsHeader}>
+              <span className={styles.savingThrowsLabel}>Saving Throws</span>
+              {s.base.usesCasterPB && <span className={styles.scalesNote}>scales with caster</span>}
+            </div>
+            <div className={styles.savingThrowsRow}>
+              {ABILITY_SCORES.map(ab => {
+                const isProficient = s.base.savingThrowProficiencies?.includes(ab) ?? false
+                const bonus = abilityMod(s.base.abilityScores![ab]) + (isProficient ? pb : 0)
+                return (
+                  <span key={ab} className={`${styles.savingThrowChip} ${isProficient ? styles.savingThrowProficient : ''}`}>
+                    {fmtMod(bonus)}
+                  </span>
+                )
+              })}
+            </div>
+          </>
+        )
+      })()}
 
       {/* HP */}
       <div className={styles.hpRow}>

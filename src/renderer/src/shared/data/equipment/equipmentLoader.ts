@@ -3,6 +3,7 @@ import { weaponsToCsv, csvToWeapons, gearToCsv, csvToGear } from './csvCodec'
 import { WEAPONS, setWeaponsData } from './weapons'
 import { GEAR, setGearData } from './gear'
 import { rebuildCatalogue } from './catalogue'
+import { logError } from '@/shared/lib/rendererLogger'
 import type { WeaponEquipmentItem, GearEquipmentItem } from './types'
 
 /** Replaces the item with a matching id, or appends it when the id is new. */
@@ -49,7 +50,7 @@ export async function loadEquipmentFromCsv(): Promise<void> {
     try {
       setWeaponsData(csvToWeapons(weaponsCsv))
     } catch (e) {
-      console.error('[equipmentLoader] Failed to parse weapons.csv, using defaults', e)
+      logError('equipmentLoader', 'Failed to parse weapons.csv, using defaults', e)
     }
   }
 
@@ -61,7 +62,7 @@ export async function loadEquipmentFromCsv(): Promise<void> {
     try {
       setGearData(csvToGear(gearCsv))
     } catch (e) {
-      console.error('[equipmentLoader] Failed to parse gear.csv, using defaults', e)
+      logError('equipmentLoader', 'Failed to parse gear.csv, using defaults', e)
     }
   }
 

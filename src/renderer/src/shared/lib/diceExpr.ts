@@ -30,6 +30,19 @@ function combineDiceTerms(terms: DieTerm[]): DieTerm[] {
     .sort((a, b) => b.face - a.face)
 }
 
+/** Rolls a dice expression (e.g. "1d4+4", "2d6-1") and returns the total (minimum 0). */
+export function rollDiceExpr(expr: string): number {
+  const { dice, flat } = parseDiceExpr(expr)
+  let total = flat
+  for (const { count, face } of dice) {
+    const sign = count < 0 ? -1 : 1
+    for (let i = 0; i < Math.abs(count); i++) {
+      total += sign * (Math.floor(Math.random() * face) + 1)
+    }
+  }
+  return Math.max(0, total)
+}
+
 export function formatToHit(bonus: number, adv: 'n' | 'a' | 'd' = 'n'): string {
   const mod = bonus === 0 ? '' : bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`
   if (adv === 'a') return `max(1d20, 1d20)${mod}`
