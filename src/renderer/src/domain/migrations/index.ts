@@ -1,7 +1,7 @@
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 
-const CURRENT_SCHEMA_VERSION = 10
+const CURRENT_SCHEMA_VERSION = 11
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -106,6 +106,19 @@ function v9_to_v10(char: Partial<Character>): Partial<Character> {
   }
 }
 
+function v10_to_v11(char: Partial<Character>): Partial<Character> {
+  const feats = char.feats ?? []
+  return {
+    ...char,
+    schemaVersion: 11,
+    piercerCritExtraDie: feats.includes('piercer'),
+    crusherCritAdvantage: feats.includes('crusher'),
+    spellSniperDoubleRange: feats.includes('spellSniper') || feats.includes('spell-sniper'),
+    mountedCombatantFlags: feats.includes('mountedCombatant'),
+    featChoices: char.featChoices ?? {},
+  }
+}
+
 function v6_to_v7(char: Partial<Character>): Partial<Character> {
   const eq = char.equipment ?? { armorId: null, hasShield: false, shieldId: null }
   return {
@@ -141,11 +154,13 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 8) data = v7_to_v8(data) as typeof data
   if (version < 9) data = v8_to_v9(data) as typeof data
   if (version < 10) data = v9_to_v10(data) as typeof data
+  if (version < 11) data = v10_to_v11(data) as typeof data
 
   // Safety net: the version-gated backfills above don't re-run for characters already at a
   // newer schema version, so one that somehow lacks ownedItemIds keeps it undefined and crashes
   // every unguarded reader (InventoryGrid/ShopPanel/store actions). Guarantee it's an array.
   data.ownedItemIds = data.ownedItemIds ?? []
+  data.featChoices = data.featChoices ?? {}
 
   return data as Character
 }

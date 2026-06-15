@@ -68,3 +68,4 @@
 
 .equipBadge { font-size: 9px; color: var(--accent); margin-left: 2px; line-height: 1; }
 .advBadge   { font-size: 9px; color: #f0b429; margin-left: 3px; font-weight: 700; line-height: 1; }
+.conditionBadge { font-size: 9px; color: var(--danger); margin-left: 2px; line-height: 1; font-weight: 700; }

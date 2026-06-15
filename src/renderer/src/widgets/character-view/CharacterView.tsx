@@ -33,7 +33,7 @@ import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 import styles from './CharacterView.module.css'
 
 export function CharacterView() {
-  const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, shortRest, longRest, levelUp, applyPendingAsi, setTempHp, summonFromTemplate, removeSummon, updateSummonState, newSummonTurn, clearAllSummons } = useAppStore()
+  const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, addFeat, removeFeat, shortRest, longRest, levelUp, applyPendingAsi, setTempHp, summonFromTemplate, removeSummon, updateSummonState, newSummonTurn, clearAllSummons } = useAppStore()
 
   const [restOpen, setRestOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -221,6 +221,8 @@ export function CharacterView() {
           <FeaturesPanel
             character={char}
             update={update}
+            addFeat={(featId, opts) => addFeat(char.id, featId, opts)}
+            removeFeat={(featId) => removeFeat(char.id, featId)}
             selectedFeature={selectedFeature}
             onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) }}
           />

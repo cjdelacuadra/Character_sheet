@@ -102,7 +102,7 @@ describe('savingThrowBonus', () => {
 })
 
 describe('computeAC unarmored', () => {
-  const noArmor = { armorId: undefined, shieldId: undefined, hasShield: false }
+  const noArmor = { armorId: null, shieldId: null, hasShield: false }
 
   it('Wizard, no race effect: 10 + DEX', () => {
     expect(computeAC({ abilityScores: scores({ dex: 14 }), equipment: noArmor, classId: 'Wizard', race: 'Human' })).toBe(12)

@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { TurnSlice } from './turnSlice'
-import type { Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
+import type { AbilityScore, Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
 import type { ActiveSummon, ActiveSummonRuntime, SummonBase } from '@/entities/summon/types'
 import type { GearEquipmentItem } from '@/shared/data/equipment/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
@@ -36,6 +36,8 @@ export interface CharacterSlice {
   exitCharacter: () => void
   addCharacter: (character: Character) => void
   updateCharacter: (id: string, patch: Partial<Character>) => void
+  addFeat: (id: string, featId: string, opts?: { abilityChoice?: AbilityScore; spellIds?: string[] }) => void
+  removeFeat: (id: string, featId: string) => void
   deleteCharacter: (id: string) => void
   loadFromDisk: () => Promise<void>
   shortRest: (id: string, hdRolled: number) => void
@@ -94,6 +96,92 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
+  },
+
+  addFeat: (id, featId, opts) => {
+    const char = get().characters[id]
+    if (!char || char.feats.includes(featId)) return
+    const def = FEAT_BY_ID[featId]
+    if (!def) return
+    if (def.abilityChoice && (!opts?.abilityChoice || !def.abilityChoice.includes(opts.abilityChoice))) return
+
+    const feats = [...char.feats, featId]
+    const abilityScores: AbilityScores = { ...char.abilityScores }
+    if (def.abilityBonus) {
+      for (const [ab, value] of Object.entries(def.abilityBonus) as [AbilityScore, number][]) {
+        abilityScores[ab] = Math.min(20, abilityScores[ab] + value)
+      }
+    }
+
+    const featChoices = { ...(char.featChoices ?? {}) }
+    if (def.abilityChoice && opts?.abilityChoice) {
+      abilityScores[opts.abilityChoice] = Math.min(20, abilityScores[opts.abilityChoice] + 1)
+      featChoices[featId] = opts.abilityChoice
+    }
+
+    const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+    const toughBonusHp = feats.includes('tough') ? 2 : 0
+    const newMaxHP = computeMaxHP(char.classId, char.level, abilityScores.con, raceBonusHp + toughBonusHp)
+    const hpDiff = newMaxHP - char.hitPoints.max
+    const withFeat: Character = { ...char, feats, abilityScores, featChoices }
+    const patch: Partial<Character> = {
+      feats,
+      abilityScores,
+      featChoices,
+      armorClass: computeACFull(withFeat),
+      initiative: computeInitiativeFull(withFeat),
+      hitPoints: { ...char.hitPoints, max: newMaxHP, current: Math.max(0, char.hitPoints.current + hpDiff) },
+    }
+
+    if (featId === 'piercer') patch.piercerCritExtraDie = true
+    if (featId === 'crusher') patch.crusherCritAdvantage = true
+    if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = true
+    if (featId === 'mountedCombatant') patch.mountedCombatantFlags = true
+    if (opts?.spellIds?.length) patch.spellIds = [...new Set([...char.spellIds, ...opts.spellIds])]
+
+    get().updateCharacter(id, patch)
+  },
+
+  removeFeat: (id, featId) => {
+    const char = get().characters[id]
+    if (!char || !char.feats.includes(featId)) return
+    const def = FEAT_BY_ID[featId]
+
+    const feats = char.feats.filter(f => f !== featId)
+    const abilityScores: AbilityScores = { ...char.abilityScores }
+    if (def?.abilityBonus) {
+      for (const [ab, value] of Object.entries(def.abilityBonus) as [AbilityScore, number][]) {
+        abilityScores[ab] = Math.max(1, abilityScores[ab] - value)
+      }
+    }
+
+    const featChoices = { ...(char.featChoices ?? {}) }
+    const chosen = featChoices[featId]
+    if (chosen) {
+      abilityScores[chosen] = Math.max(1, abilityScores[chosen] - 1)
+      delete featChoices[featId]
+    }
+
+    const raceBonusHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+    const toughBonusHp = feats.includes('tough') ? 2 : 0
+    const newMaxHP = computeMaxHP(char.classId, char.level, abilityScores.con, raceBonusHp + toughBonusHp)
+    const hpDiff = newMaxHP - char.hitPoints.max
+    const withoutFeat: Character = { ...char, feats, abilityScores, featChoices }
+    const patch: Partial<Character> = {
+      feats,
+      abilityScores,
+      featChoices,
+      armorClass: computeACFull(withoutFeat),
+      initiative: computeInitiativeFull(withoutFeat),
+      hitPoints: { ...char.hitPoints, max: newMaxHP, current: Math.max(0, char.hitPoints.current + hpDiff) },
+    }
+
+    if (featId === 'piercer') patch.piercerCritExtraDie = false
+    if (featId === 'crusher') patch.crusherCritAdvantage = false
+    if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = false
+    if (featId === 'mountedCombatant') patch.mountedCombatantFlags = false
+
+    get().updateCharacter(id, patch)
   },
 
   deleteCharacter: (id) => {

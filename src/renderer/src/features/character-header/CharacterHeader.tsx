@@ -99,7 +99,7 @@ export function CharacterHeader({ character: char, update, onLevelUp, onRestTogg
             className={`${styles.drawerBtn}${drawerOpen ? ` ${styles.drawerBtnActive}` : ''}`}
             onClick={onDrawerToggle}
             title="Toggle stats panel"
-          >â˜°</button>
+          >☰</button>
         )}
         <button
           className={`${styles.equipBtn}${equipOpen ? ` ${styles.equipBtnActive}` : ''}`}

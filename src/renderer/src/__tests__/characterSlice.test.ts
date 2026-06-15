@@ -10,12 +10,14 @@ vi.mock('@/services/ipc', () => ({
 }))
 
 import { createStore } from 'zustand/vanilla'
+import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from '@/app/store/characterSlice'
 import { createCharacterSlice } from '@/app/store/characterSlice'
+import { computeACFull, computeInitiativeFull } from '@/shared/data/charCalculations'
 import { makeChar } from './helpers'
 
 function makeStore() {
-  return createStore<CharacterSlice>(createCharacterSlice)
+  return createStore<CharacterSlice>(createCharacterSlice as unknown as StateCreator<CharacterSlice, [], [], CharacterSlice>)
 }
 
 describe('updateCharacter', () => {
@@ -202,5 +204,50 @@ describe('applyPendingAsi', () => {
     store.getState().addCharacter(char)
     store.getState().applyPendingAsi(char.id, 4, { type: 'feat', featId: 'alert' })
     expect(store.getState().characters[char.id].feats).toContain('alert')
+  })
+})
+
+describe('addFeat/removeFeat', () => {
+  it('adds a fixed ability feat and dedupes repeat adds', () => {
+    const store = makeStore()
+    const char = makeChar({ abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+
+    store.getState().addFeat(char.id, 'actor')
+    store.getState().addFeat(char.id, 'actor')
+
+    const updated = store.getState().characters[char.id]
+    expect(updated.feats.filter(f => f === 'actor')).toHaveLength(1)
+    expect(updated.abilityScores.cha).toBe(11)
+    expect(updated.armorClass).toBe(computeACFull(updated))
+    expect(updated.initiative).toBe(computeInitiativeFull(updated))
+  })
+
+  it('records and reverses an ability-choice feat', () => {
+    const store = makeStore()
+    const char = makeChar({ abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })
+    store.getState().addCharacter(char)
+
+    store.getState().addFeat(char.id, 'piercer', { abilityChoice: 'dex' })
+    const withFeat = store.getState().characters[char.id]
+    expect(withFeat.abilityScores.dex).toBe(11)
+    expect(withFeat.featChoices?.piercer).toBe('dex')
+    expect(withFeat.piercerCritExtraDie).toBe(true)
+
+    store.getState().removeFeat(char.id, 'piercer')
+    const removed = store.getState().characters[char.id]
+    expect(removed.abilityScores.dex).toBe(10)
+    expect(removed.featChoices?.piercer).toBeUndefined()
+    expect(removed.piercerCritExtraDie).toBe(false)
+  })
+
+  it('merges feat-granted spell ids without duplication', () => {
+    const store = makeStore()
+    const char = makeChar({ spellIds: ['invisibility'] })
+    store.getState().addCharacter(char)
+
+    store.getState().addFeat(char.id, 'shadow-touched', { abilityChoice: 'cha', spellIds: ['invisibility'] })
+
+    expect(store.getState().characters[char.id].spellIds.filter(id => id === 'invisibility')).toHaveLength(1)
   })
 })

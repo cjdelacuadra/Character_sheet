@@ -3,7 +3,7 @@ import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold } from '@/domain/rules'
+import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
@@ -34,6 +34,12 @@ const SUBCLASS_FEATURE_NAMES = new Set([
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
 
+function spellSniperRange(spell: { id: string; range: string }, enabled?: boolean): string {
+  if (!enabled || !SPELL_ATTACK_IDS.has(spell.id)) return spell.range
+  const doubled = spell.range.replace(/(\d+)\s*ft/g, (_, n: string) => `${Number(n) * 2}ft`)
+  return `${doubled} · Spell Sniper: ignores 1/2 & 3/4 cover`
+}
+
 interface AttackRow {
   id: string
   name: string
@@ -44,6 +50,7 @@ interface AttackRow {
   bonusDmgType: string | null
   disabled?: boolean
   group?: 'melee' | 'ranged' | 'both'
+  note?: string
 }
 
 function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { expr: string; type: string }[] {
@@ -159,7 +166,7 @@ function buildAttackRows(
         : sa.name === 'Divine Smite' ? 'radiant'
         : w.damageType ?? null
     }
-    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType,
+    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType, note: sa.note,
       group: SPECIAL_GROUP[sa.name] ?? 'both' })
   }
 
@@ -1579,7 +1586,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         ].join(' ')}
                         onClick={() => !row.disabled && onToggle(row.id)}
                       >
-                        <td>{row.name}{row.disabled ? ' *' : ''}</td>
+                        <td title={row.note}>{row.name}{row.disabled ? ' *' : ''}{row.note && <span className={styles.diceNote}> note</span>}</td>
                         <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
                         <td style={{ fontSize: '11px', color: (weaponCritMod !== 0 || Object.keys(gearModifierMap).length > 0) ? 'var(--accent)' : 'var(--text-muted)' }}>
                           {(() => {
@@ -1957,7 +1964,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
                 <div style={{ padding: '8px 14px', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 11 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Casting Time</span><span>{spell.castingTime}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spell.range}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spellSniperRange(spell, char.spellSniperDoubleRange)}</span>
                   <span style={{ color: 'var(--text-muted)' }}>Spell Attack</span><span>{fmtMod(computeSpellAttackBonus(char))} to hit</span>
                 </div>
                 <p style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>{spell.description}</p>

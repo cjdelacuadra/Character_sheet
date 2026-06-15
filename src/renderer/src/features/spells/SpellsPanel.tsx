@@ -14,6 +14,12 @@ import styles from './SpellsPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
 
+function spellSniperRange(spell: { id: string; range: string }, enabled?: boolean): string {
+  if (!enabled || !SPELL_ATTACK_IDS.has(spell.id)) return spell.range
+  const doubled = spell.range.replace(/(\d+)\s*ft/g, (_, n: string) => `${Number(n) * 2}ft`)
+  return `${doubled} · Spell Sniper: ignores 1/2 & 3/4 cover`
+}
+
 /** Map a spell's casting time to the action-economy slot it consumes (null = doesn't use a turn action). */
 function castingTimeToEconomy(castingTime: string): EconomyType | null {
   const ct = castingTime.toLowerCase()
@@ -235,7 +241,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       <>
         <dl className={styles.spellExpandMeta}>
           <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
-          <dt>Range</dt><dd>{spell.range}</dd>
+          <dt>Range</dt><dd>{spellSniperRange(spell, char.spellSniperDoubleRange)}</dd>
           <dt>Components</dt><dd>{spell.components}</dd>
           <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
           {spell.saveAbility && (<><dt>Save DC</dt><dd>{spellSaveDC} {spell.saveAbility.toUpperCase()}</dd></>)}

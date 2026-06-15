@@ -676,6 +676,12 @@ export function getWeaponSpecialAttacks(character: Character, weapon: Weapon): S
   if (feats.includes('sharpshooter') && isRanged) {
     attacks.push({ name: 'Sharpshooter', note: '−5 to hit / +10 damage' })
   }
+  if (character.piercerCritExtraDie && (weapon.damageType ?? '').toLowerCase() === 'piercing') {
+    attacks.push({ name: 'Piercer Critical', note: 'On a piercing critical hit, roll one additional weapon damage die.' })
+  }
+  if (character.crusherCritAdvantage && (weapon.damageType ?? '').toLowerCase() === 'bludgeoning') {
+    attacks.push({ name: 'Crusher Critical', note: 'On a bludgeoning critical hit, attacks against the target have advantage until your next turn.' })
+  }
   if (classId === 'Ranger' && spellIds.includes('hunter-s-mark')) {
     attacks.push({ name: "Hunter's Mark", dice: '+1d6', note: 'Per attack on marked target' })
   }

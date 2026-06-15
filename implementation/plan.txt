@@ -1,0 +1,486 @@
+# Implementation Spec (refreshed) — "Clean Conditions & Features" + Stat-Panel Toggle Fix
+
+REFRESH of plan_original_ABC.txt, re-grounded against the code actually on disk
+(2026-06-12). It (1) corrects claims in the original spec that did not match the real
+file layout, (2) re-scopes each deliverable to DONE vs. REMAINING, and (3) RESOLVES the
+Deliverable-B removeFeat inconsistency the prior agent flagged in
+implementation/codex_to_claude.md (now fixed via a persisted `featChoices` map).
+
+NOTE: implementation/plan.txt previously held a single-deliverable "F1" spec (create the
+missing conditionsData.ts to fix a blank screen). That bug is RESOLVED — the file exists.
+This refresh supersedes F1 and restores the full A/B/C scope.
+
+Three independent deliverables, no shared state, mergeable separately:
+  A. Conditions cleanup — categorize every condition and wire (or flag) its effect.
+  B. "Add Feat" button — attach a real feat from the FEATS registry (not via ASI).
+  C. Fix the broken "toggle stats panel" hamburger glyph.
+
+────────────────────────────────────────────────────────────────────────────────
+GROUND-TRUTH CORRECTIONS TO THE ORIGINAL SPEC (read before coding)
+────────────────────────────────────────────────────────────────────────────────
+1. `domain/rules/index.ts` and `shared/data/charCalculations.ts` are TWO DIFFERENT files.
+   The pure helpers the original spec wanted to touch — `mod`, `computeACFull`, `computeAC`,
+   `computeSpeedFull`, `savingThrowBonus`, `skillBonus`, `computeMaxHP`,
+   `computeInitiativeFull`, `computeEquipmentStats` — ALL live in
+   `shared/data/charCalculations.ts`, NOT in `domain/rules/index.ts`.
+   `domain/rules/index.ts` holds `computeAttackBonus`, `computeWeaponDamage`,
+   `computeSpellSaveDC`, `getAvailableActions`, `getSpecialAttacks`, `getWeaponSpecialAttacks`,
+   `xpForLevel`, etc.
+   => Place `computeConditionModifiers` in `shared/data/charCalculations.ts` (same file as the
+      `computeACFull`/`computeSpeedFull` that consume it). Still pure over `Character`; no
+      React/store/IO. CLAUDE.md's "domain/rules" boundary is honored in spirit — all numeric
+      folding stays in the pure calc layer.
+
+2. There is NO pure `computeArmorClass` in `domain/rules`. AC = `computeACFull(char)`
+   (charCalculations.ts:309), which calls `computeAC(...)` + equipment acBonus. `armorClass`
+   is a PERSISTED snapshot recomputed on edits.
+
+3. `computeSpeedFull` (charCalculations.ts:137) currently takes
+   `Pick<Character,'speed'|'equipment'|'isBladesinging'|'subclass'>` — it does NOT receive
+   `conditionIds`. Folding a speed multiplier REQUIRES widening that `Pick` to add `conditionIds`.
+
+4. Save-row total is assembled inline in `features/abilities/AbilitiesPanel.tsx:145`:
+   `const bonus = abilMod + (isProficient ? prof : 0) + equipBonus + auraMod`. That is the exact
+   line where a flat `saveDelta` folds in, with a badge mirroring the existing equip(★, line 162)
+   / aura(✦, line 163) badges.
+
+5. maxHP recompute is NOT a shared helper — it is inlined in AbilitiesPanel.commitEdit (35-43):
+     raceBonusHp  = RACE_BY_ID[race]?.bonusHpPerLevel ?? 0
+     toughBonusHp = feats.includes('tough') ? 2 : 0
+     computeMaxHP(classId, level, scores.con, raceBonusHp + toughBonusHp)
+     ... hitPoints: { ...hp, max:newMaxHP, current: Math.max(0, hp.current + (newMaxHP - hp.max)) }
+   The SAME formula must be reused by addFeat/removeFeat. (`tough` is folded via bonusHpPerLevel
+   here, so routing HP through this one formula avoids double-applying.)
+
+6. Schema is at `CURRENT_SCHEMA_VERSION = 10` (migrations/index.ts:4). Chain ends at
+   `if (version < 10) data = v9_to_v10(data)`. There is NO v10_to_v11 yet. (`v6_to_v7` is declared
+   out of order, after v9_to_v10, but is correctly wired — leave it.) Deliverable B adds 11.
+
+7. Store action is `updateCharacter(id, patch: Partial<Character>)` (characterSlice.ts:91); panels
+   receive it pre-bound as `update(patch)`. `customFeatures` is read in FeaturesPanel.tsx:42 as
+   `char.customFeatures ?? []`, shape `{ name, desc }[]`; remove is by index (49-51).
+
+8. FeatDef real shape (featsData.ts:3): `abilityBonus?: Partial<AbilityScores>`,
+   `abilityChoice?: (keyof AbilityScores)[]`. A choice feat grants +1 to the chosen ability (no
+   numeric amount stored). Feat IDs are inconsistent casing — verified exact ids: 'piercer',
+   'crusher', 'spell-sniper' (kebab), 'mountedCombatant' (camel). Use them verbatim.
+
+────────────────────────────────────────────────────────────────────────────────
+CURRENT STATE ON DISK (what's already implemented)
+────────────────────────────────────────────────────────────────────────────────
+- DELIVERABLE C: DONE. CharacterHeader.tsx:102 already renders a clean `☰` (no `â˜°`
+  mojibake — verified by grep). Only an optional guard test remains.
+- DELIVERABLE A: PARTIAL. New file shared/data/conditionsData.ts exists with the 16 base
+  conditions as typed `CONDITIONS: Condition[]` + `CONDITION_BY_ID`. ConditionsPanel.tsx already
+  drives chips/active-tags off the registry and recomputes/persists `armorClass` on toggle.
+  STILL MISSING vs. spec: (a) `mechanic?` field on ConditionEffect; (b) 5 extra entries
+  (difficult-terrain, silence, slowed, fly, haste); (c) computeConditionModifiers; (d) AC/speed/
+  save wiring; (e) per-condition mechanic tagging; (f) tests. NOTE the current entries each carry
+  ONE effect whose description duplicates the top-level description — when adding mechanics, add
+  a discrete effect per mechanic (see A/Data Model).
+- DELIVERABLE B: NOT STARTED. No "+ Add Feat" button, no addFeat/removeFeat, no NEW flag fields,
+  no featChoices map, no v10_to_v11.
+
+================================================================================
+DELIVERABLE C — Fix "toggle stats panel" hamburger glyph
+================================================================================
+
+## Problem Definition
+- WHAT: Header drawer-toggle button (narrow screens ≤999px) must show `☰` (U+2630), not `â˜°`.
+- INPUTS: none (static JSX glyph).  OUTPUTS: button content is exactly `☰`; no behavior change.
+- CONSTRAINTS: cosmetic; do not touch CSS; button is display:none ≥1000px.
+
+## Status / Remaining
+- ALREADY correct in CharacterHeader.tsx:102 (`>☰</button>`); file is UTF-8; no mojibake found.
+  Functional fix is complete.
+- REMAINING (optional): add a guard test in src/renderer/src/__tests__/ (new
+  characterHeader.test.ts) that reads the source via Node `fs` and asserts it contains `☰` and
+  NOT the byte sequence `â˜°`, so a future Windows-1252 round-trip regresses loudly. No production
+  code changes.
+
+## Validation
+- `npm run typecheck` passes.
+- Manual: shrink window <1000px → clean hamburger; click slides left column + backdrop; ≥1000px
+  the button is hidden and the column is always visible.
+
+================================================================================
+DELIVERABLE A — Conditions cleanup & wiring
+================================================================================
+
+## Problem Definition
+- WHAT (user-facing): The Conditions panel lists status conditions as toggle chips. Today toggling
+  only recomputes AC and most conditions have no numeric effect. Goal: every condition is explicitly
+  categorized buff/debuff/neutral and EITHER (1) changes the stat it should on a static sheet (flat
+  AC delta, speed multiplier, flat save delta), OR (2) shows a player-readable FLAG note describing
+  the manual rule a sheet cannot auto-compute (no targeting/combat engine exists).
+- INPUTS read: `char.conditionIds: ActiveCondition[]` (shape `{ conditionId: string }`),
+  `char.activeBuffSpells?`, `char.armorClass`, `char.speed`, `char.abilityScores`, the conditions
+  registry (`CONDITION_BY_ID`), and the spell-buff path (`SPELL_BY_ID`, `BUFF_CONDITION_SPELLS`),
+  which is UNCHANGED.
+- OUTPUTS: a typed CONDITIONS registry drives the panel; computable conditions feed
+  `computeACFull`/`computeSpeedFull` and the AbilitiesPanel save rows; non-computable ones render as
+  a tag with an effect note. Persisted field that changes: `char.armorClass` (snapshot, already
+  recomputed on toggle). `conditionIds` shape unchanged.
+- CONSTRAINTS (5e RAW per condition — PHB Appendix A; Haste/Slow spells PHB): offline-first;
+  Electron + iOS identical; must not break existing saves (legacy `conditionIds` may hold ids not in
+  the registry).
+
+## Data Model
+File: src/renderer/src/entities/condition/types.ts (CURRENT):
+    ConditionCategory = 'debuff' | 'buff' | 'neutral'
+    ConditionEffect   = { affects: 'ac'|'attack'|'saving-throw'|'speed'|'ability-check'|'other'; description }
+    Condition         = { id; name; category; effects: ConditionEffect[]; description }
+
+NEW (optional, back-compat) — add `mechanic?` to ConditionEffect:
+    mechanic?:
+      | { kind: 'speedMultiplier'; value: number }                       // 0 = speed 0; 0.5 = halved
+      | { kind: 'acDelta';        value: number }                        // ±N flat AC
+      | { kind: 'flatSaveDelta';  ability: AbilityScore; value: number } // ±N flat to one save
+      | { kind: 'flag' }                                                 // manual rule; note only
+Effects without `mechanic`, or with `kind:'flag'`, are display-only flags.
+Import `AbilityScore` from `@/entities/character/types` (where it is exported and widely imported).
+
+File: src/renderer/src/shared/data/conditionsData.ts (EXISTS; EXTEND):
+    export const CONDITIONS: Condition[]                       // 16 base present
+    export const CONDITION_BY_ID: Record<string, Condition>    // present (derived via reduce)
+Add the 5 missing entries AND attach `mechanic` to the computable subset. Give a computable
+condition ONE effect per mechanic (e.g. slowed → 4 effects: acDelta -2; flatSaveDelta(dex,-2);
+speedMultiplier 0.5; a flag effect carrying the prose). Keep RAW prose in effects[].description and
+top-level description. Final registry (id → category, mechanic(s), RAW note):
+
+  blinded         debuff   flag                 "Auto-fail sight checks; attacks vs you ADV, your attacks DIS."
+  charmed         debuff   flag                 "Can't attack the charmer; charmer has ADV on social checks vs you."
+  concentration   neutral  flag                 "Tracks an active concentration spell (see spell panel)."
+  deafened        debuff   flag                 "Auto-fail hearing checks."
+  exhaustion      debuff   flag                 "Level-based penalties (DIS checks @1, half speed @2, …). Track level manually."
+  frightened      debuff   flag                 "DIS on checks/attacks while source in sight; can't move closer."
+  grappled        debuff   speedMultiplier:0    "Speed 0; can't benefit from speed bonuses."
+  incapacitated   debuff   flag                 "No actions or reactions."
+  invisible       buff     flag                 "Attacks vs you DIS; your attacks ADV; heavily obscured."
+  paralyzed       debuff   speedMultiplier:0 + flag  "Incapacitated; auto-fail STR/DEX saves; hits within 5 ft crit."
+  petrified       debuff   speedMultiplier:0 + flag  "Incapacitated; resistance to all damage; auto-fail STR/DEX saves."
+  poisoned        debuff   flag                 "DIS on attack rolls and ability checks."
+  prone           debuff   flag                 "DIS on attacks; melee vs you ADV, ranged vs you DIS; half movement to stand."
+  restrained      debuff   speedMultiplier:0 + flag  "Speed 0; attacks vs you ADV, yours DIS; DIS on DEX saves."
+  stunned         debuff   speedMultiplier:0 + flag  "Incapacitated; auto-fail STR/DEX saves; attacks vs you ADV."
+  unconscious     debuff   speedMultiplier:0 + flag  "Incapacitated, prone, drop everything; hits within 5 ft crit."
+  difficult-terrain  debuff  speedMultiplier:0.5     "Each foot costs 2 — effective speed halved."
+  silence         debuff   flag                 "Can't cast spells with a Verbal (V) component."
+  slowed          debuff   acDelta:-2 + flatSaveDelta(dex,-2) + speedMultiplier:0.5 + flag
+                                                "Half speed; -2 AC & DEX saves; no reactions; max one attack/turn."
+  fly             buff     flag                 "Gain a flying speed (e.g. 60 ft)."
+  haste           buff     acDelta:+2 + flag    "Speed doubled; +2 AC; ADV on DEX saves; one extra limited action."
+
+Back-compat (preserve): each Condition.id MUST equal name.toLowerCase() (old panel stored
+conditionId = name.toLowerCase()). The 5 new ids (difficult-terrain, silence, slowed, fly, haste)
+are terrain/spell states the old panel never wrote, so any id is fine for them.
+
+`Character` shape UNCHANGED for status conditions (stored in conditionIds as {conditionId}). Buffs
+stay in activeBuffSpells (AC setsBaseAC + attack riders) — NOT migrated. No CSV/JSON columns touched.
+
+## Architecture & Placement
+- Pure data: shared/data/conditionsData.ts (no logic) — EXTEND.
+- Pure type: entities/condition/types.ts — add optional `mechanic`.
+- Pure aggregation helper (NEW) in shared/data/charCalculations.ts (alongside computeACFull/
+  computeSpeedFull which consume it; pure layer, no React/store/IO):
+      computeConditionModifiers(char: Pick<Character,'conditionIds'>): {
+        acDelta: number
+        speedMultiplier: number                       // product of multipliers, clamp ≥0
+        saveDeltas: Partial<Record<AbilityScore, number>>
+        flags: { conditionId: string; note: string }[]
+      }
+  Iterates char.conditionIds → CONDITION_BY_ID → folds each effect.mechanic.
+  CIRCULAR-IMPORT CHECK: charCalculations.ts does not currently import conditionsData.ts. Adding
+  that import is safe (conditionsData imports only the type, never charCalculations). Verify no cycle
+  after wiring.
+- AC: fold acDelta inside computeACFull (charCalculations.ts:309) — add
+  computeConditionModifiers(char).acDelta to the returned value. Keeps all AC math in one place (it
+  already consumes activeBuffSpells for setsBaseAC via computeAC).
+- Speed: WIDEN computeSpeedFull's param to include conditionIds, then return
+  Math.floor((base + bonuses + bladesong) * computeConditionModifiers(char).speedMultiplier) AFTER
+  existing bonuses. Call sites pass full char objects (conditionIds present at runtime); the Pick
+  widening is type-level only.
+- Saves: in AbilitiesPanel.tsx compute `const condMods = computeConditionModifiers(char)` once near
+  equipStats (~line 74), then at line 145 add `+ (condMods.saveDeltas[ab] ?? 0)` to bonus, render a
+  small badge (e.g. "−2") beside the equip/aura badges (162-163) when nonzero, and append to the
+  saveFormula string (167) like `{d ? `${d>0?'+':''}${d}c` : ''}`. Do NOT fold dice riders (Bless
+  +1d4) — not conditions; stay on the spell path as notes.
+- UI: features/conditions/ConditionsPanel.tsx already drives chips/tags from CONDITIONS and
+  recomputes armorClass on toggle (18-24). After the registry gains 5 entries + categories, the
+  existing category-class logic (condOpt${Category}) renders them. The active-tag block (120-146)
+  already prints effect.description per effect — flag notes appear automatically. No new store
+  action; update({ conditionIds, armorClass }).
+- Persistence: conditionIds + armorClass already round-trip via storageAdapter on both platforms. No
+  new persisted field.
+
+## Solution Logic (data flow)
+1. Toggle chip → ConditionsPanel.toggle(id) → update({ conditionIds, armorClass:
+   computeACFull({ ...char, conditionIds }) }) (ALREADY implemented). Because computeACFull now adds
+   acDelta, an acDelta condition (slowed/haste) immediately moves the persisted AC snapshot.
+2. computeSpeedFull(char) now multiplies by speedMultiplier; VitalsPanel/anywhere displaying speed
+   reflects it live (speed is derived, not a separate snapshot — verify VitalsPanel reads
+   computeSpeedFull(char)).
+3. AbilitiesPanel reads computeConditionModifiers(char).saveDeltas → adds delta + badge per save row.
+4. Flags render as the existing per-effect effectNote spans in the active-condition tag.
+
+## Pseudocode
+  function computeConditionModifiers(char):
+    acc = { acDelta:0, speedMultiplier:1, saveDeltas:{}, flags:[] }
+    for entry in char.conditionIds:
+      cond = CONDITION_BY_ID[entry.conditionId]; if not cond: continue
+      for eff in cond.effects:
+        m = eff.mechanic
+        if not m or m.kind=='flag':      acc.flags.push({ conditionId:cond.id, note:eff.description })
+        elif m.kind=='acDelta':          acc.acDelta += m.value
+        elif m.kind=='speedMultiplier':  acc.speedMultiplier *= m.value
+        elif m.kind=='flatSaveDelta':    acc.saveDeltas[m.ability] = (acc.saveDeltas[m.ability] ?? 0) + m.value
+    acc.speedMultiplier = max(0, acc.speedMultiplier)
+    return acc
+
+  // computeACFull(char): return computeAC(char, equip.abilityBonus) + equip.acBonus + computeConditionModifiers(char).acDelta
+  // computeSpeedFull(char): return floor((char.speed + computeEquipmentStats(char).speedBonus + bladesong) * computeConditionModifiers(char).speedMultiplier)
+  // AbilitiesPanel save row: bonus = abilMod + (isProficient?prof:0) + equipBonus + auraMod + (condMods.saveDeltas[ab] ?? 0)
+
+## Edge Cases
+- Legacy/unknown conditionId not in CONDITION_BY_ID → skipped in modifiers; ConditionsPanel renders
+  it as a plain "× legacy" tag (122-128). No crash.
+- Multiple speed multipliers multiply: slowed (0.5) + difficult-terrain (0.5) = 0.25; speed-0
+  conditions force 0 via multiplier 0 and dominate. Clamp ≥0, floor the result.
+- acDelta vs persisted armorClass: every path that persists armorClass must call computeACFull so the
+  snapshot stays correct. Confirmed paths: AbilitiesPanel.commitEdit (34), ConditionsPanel.toggle/
+  toggleBuff (23/31), equip changes, level-up. Removing an acDelta condition recomputes/restores AC.
+- Haste's extra action and fly's flying-speed VALUE are not auto-computed — flag-only. Don't fake
+  action economy or set a numeric fly speed.
+- concentration is neutral/no-op; do not double-count with concentrationSpellId.
+- Speed must be read via computeSpeedFull(char) (derived), not a stale snapshot — verify VitalsPanel.
+  If speed is ALSO persisted as a snapshot anywhere, add the same recompute-on-toggle as AC (it is
+  almost certainly purely derived — confirm).
+- Cross-platform: pure functions only; identical on Electron/Capacitor.
+
+## Assumptions
+- "Wire" = compute the subset a static sheet CAN (flat AC delta, speed multiplier, flat save delta)
+  and FLAG the rest with a RAW note.
+- Storage split kept: status conditions in conditionIds, spell buffs in activeBuffSpells. Unifying is
+  out of scope (would force migrating live buff state, risking AC/attack riders).
+- Bless/Guidance dice riders shown as notes, never folded into a flat number.
+- Slowed's "-2 AC and DEX saves" modeled as acDelta -2 + flatSaveDelta(dex,-2); "no reactions / one
+  attack" parts are flag-only.
+
+## State, Persistence & Migration
+- No NEW persisted Character field. conditionIds shape unchanged. armorClass snapshot semantics
+  unchanged; gains a condition term computed inside computeACFull.
+- NO CURRENT_SCHEMA_VERSION bump for Deliverable A.
+- Round-trips through storageAdapter unchanged on both platforms.
+
+## Validation
+- NEW src/renderer/src/__tests__/conditions.test.ts:
+  * computeConditionModifiers: slowed → acDelta -2, saveDeltas.dex -2, speedMultiplier 0.5;
+    slowed + difficult-terrain → speedMultiplier 0.25; restrained → speedMultiplier 0; haste → acDelta +2.
+  * computeACFull drops by 2 with slowed active and restores when removed.
+  * computeSpeedFull: base 30 + slowed → 15; + difficult-terrain → 7 (floor of 7.5); restrained → 0.
+  * Unknown/legacy conditionId (e.g. {conditionId:'old-freetext'}) ignored, no throw.
+- `npm run typecheck` passes.
+- Manual: toggle Slowed → AC -2 (Vitals/Abilities), speed halved, DEX save shows "−2"; toggle off →
+  restores. Toggle Restrained → speed 0.
+
+================================================================================
+DELIVERABLE B — "Add Feat" button linked to the FEATS registry
+================================================================================
+(RESOLVES the removeFeat inconsistency from codex_to_claude.md via a persisted featChoices map.)
+
+## Problem Definition
+- WHAT (user-facing): features/features-panel/FeaturesPanel.tsx today has only "+ Add Feature"
+  (free-text → customFeatures). Add a second button "+ Add Feat" that lets the player pick a real
+  feat from FEATS (shared/data/featsData.ts), push its id into char.feats[], show it in the Features
+  list with a FEAT badge + remove control, and wire each feat's mechanical consequence (or a flag for
+  the manual part). Independent of the ASI/level-up path (LevelUpModal already grants feats).
+- INPUTS: FEATS/FEAT_BY_ID, char.feats, char.featChoices (NEW), char.abilityScores, char.spellIds,
+  char.armorClass, per-feat ability choice (abilityChoice), per-feat granted spells.
+- OUTPUTS: char.feats gains an id; ability-bonus feats raise scores and recompute AC/initiative/maxHP;
+  flag feats set NEW boolean flags; spell-granting feats add ids to char.spellIds; the chosen ability
+  (if any) is recorded in char.featChoices. UI shows the feat in the Features list (FEAT badge, ×).
+- CONSTRAINTS: offline-first; Electron+iOS; don't corrupt saves; don't duplicate an owned feat;
+  combat/economy rules are flags only (no engine).
+
+## Data Model
+- READ existing FeatDef { id, name, description, abilityBonus?, abilityChoice? } (featsData.ts:3).
+  abilityBonus is a fixed Partial<AbilityScores>; abilityChoice is a list of allowed abilities and a
+  chosen one grants +1 (mirror LevelUpModal).
+- WRITE existing: char.feats: string[] (push id, dedupe); char.spellIds: string[] (spell-granting
+  feats); ability scores via the SAME recompute block as AbilitiesPanel.commitEdit (AC + initiative +
+  maxHP, tough via bonusHpPerLevel).
+- NEW persisted Character fields (entities/character/types.ts) — mark **NEW**:
+    piercerCritExtraDie?: boolean        // Piercer: +1 die on a piercing crit
+    crusherCritAdvantage?: boolean       // Crusher: crit bludgeon → attacks vs target ADV
+    spellSniperDoubleRange?: boolean     // Spell Sniper: double attack-spell range; ignore ½/¾ cover
+    mountedCombatantFlags?: boolean      // Mounted Combatant: the three mounted riders
+    featChoices?: Record<string, AbilityScore>   // **NEW** featId → chosen ability (for abilityChoice feats)
+  (Booleans surface as player-facing flags/badges; featChoices makes removeFeat exactly reversible
+  across reload — see "removeFeat inconsistency" below.)
+- Real feat IDs to wire flags for (verified): 'piercer', 'crusher', 'spell-sniper', 'mountedCombatant'.
+- Feats that GRANT spells (real ids): 'shadow-touched' (Invisibility + one 1st-level illusion/
+  necromancy), 'fey-touched' (Misty Step + one 1st-level enchantment/divination), 'spell-sniper' (one
+  attack cantrip), plus magicInitiate/artificer-initiate/telepathic/telekinetic/fey/shadow variants.
+  v1: push the FIXED granted spell id directly where the feat names a specific spell; reuse
+  features/level-up/SpellSelectionStep.tsx in a constrained mode where a CHOICE is required. Chosen
+  ids go into char.spellIds (dedup).
+- NO new CSV/JSON columns.
+
+## removeFeat inconsistency — RESOLUTION (was flagged in codex_to_claude.md)
+The prior agent correctly observed: removeFeat(id, featId) must reverse an abilityChoice feat's chosen
+ability (test: addFeat('piercer',{abilityChoice:'dex'}) then removeFeat('piercer') reverses DEX), but
+nothing persisted WHICH ability was chosen, so after reload removeFeat couldn't know STR vs DEX.
+FIX (chosen): persist `featChoices?: Record<string, AbilityScore>`. addFeat writes
+featChoices[featId] = opts.abilityChoice; removeFeat reads it to subtract the exact ability, then
+deletes the key. This is fully correct across save/reload and removes all ambiguity.
+
+## Architecture & Placement
+- UI: FeaturesPanel.tsx gets a second button "+ Add Feat" beside "+ Add Feature" (header 140-145). It
+  opens a searchable picker over FEATS filtered to exclude ids already in char.feats. Selecting a feat
+  (and resolving any abilityChoice / spell choice) calls the new store action. Render added feats in
+  the existing features list: extend SourcedFeature['source'] (line 12) to include 'feat', push
+  feat-sourced entries (after customSourced, ~129), add a "FEAT" badge in the badge block (187-189),
+  and a remove "×" (like custom, 193-199) calling removeFeat. Feat description = FEAT_BY_ID[id].description.
+- State change: NEW store actions in app/store/characterSlice.ts (next to updateCharacter; also add to
+  the slice TS interface near line 38):
+      addFeat(id: string, featId: string, opts?: { abilityChoice?: AbilityScore; spellIds?: string[] }): void
+      removeFeat(id: string, featId: string): void
+  addFeat is the SINGLE place that: dedupes into char.feats; applies abilityBonus and/or the chosen
+  abilityChoice (+1) to abilityScores; records featChoices[featId] when a choice was made; recomputes
+  armorClass (computeACFull), initiative (computeInitiativeFull), hitPoints.max (computeMaxHP with
+  raceBonusHp + toughBonusHp, clamping current ≥0 — EXACT block from AbilitiesPanel.commitEdit); sets
+  the NEW flag for piercer/crusher/spell-sniper/mountedCombatant; merges granted spellIds (dedup). It
+  calls updateCharacter(id, patch) — it does NOT re-implement rules; it calls the pure helpers.
+  removeFeat reverses each of those: drops the id; subtracts def.abilityBonus and (via featChoices) the
+  chosen +1, then deletes the featChoices key; recomputes the same derived stats; clears the matching
+  NEW flag; LEAVES granted spells (see Edge Cases).
+- Rules wiring (DISPLAY/FLAG ONLY — none change a flat AC/save/attack TOTAL, so no change to
+  computeAttackBonus/computeACFull numbers). Surface alongside existing feat checks in
+  domain/rules/index.ts (getWeaponSpecialAttacks/getSpecialAttacks already branch on
+  greatWeaponMaster/sharpshooter; getAvailableActions on sentinel/warCaster):
+    * Piercer/Crusher: add a crit-time note row in getWeaponSpecialAttacks guarded by the NEW flags
+      (or feats.includes(...)), shown in ActionDetailPanel's crit section, NOT folded into numbers.
+    * Spell Sniper: when spellSniperDoubleRange, show doubled range + "ignores ½/¾ cover" note wherever
+      an attack-roll spell's range renders (SpellsPanel/ActionDetailPanel); flag-only for cover.
+    * Mounted Combatant: flag-only — three riders shown as a note on the feat card.
+- Persistence/migration: NEW fields require v10_to_v11 (below).
+
+## Solution Logic (data flow)
+1. "+ Add Feat" → picker lists FEATS minus owned (char.feats).
+2. If the feat has abilityChoice or grants a CHOSEN spell, prompt (reuse existing choice UI /
+   constrained SpellSelectionStep); disable confirm until resolved (mirror LevelUpModal). Else proceed.
+3. → addFeat(char.id, featId, opts): push featId (dedupe); apply abilityBonus/abilityChoice (+1) and
+   record featChoices; recompute AC/initiative/maxHP; set NEW flag; append granted spell ids (dedup).
+4. FeaturesPanel re-renders the feat (FEAT badge). Existing consumers (AbilitiesPanel ability badges
+   via FEAT_BY_ID[...].abilityBonus, domain/rules feat branches, ActionDetailPanel crit notes) pick up
+   the change because they already read char.feats / the flags.
+5. Remove "×" → removeFeat unwinds (including the recorded featChoices ability).
+
+## Pseudocode
+  addFeat(charId, featId, opts):
+    char = get().characters[charId]; if char.feats.includes(featId): return
+    def = FEAT_BY_ID[featId]; if not def: return
+    feats = [...char.feats, featId]
+    scores = { ...char.abilityScores }
+    if def.abilityBonus: for [ab,v] in def.abilityBonus: scores[ab] += v
+    featChoices = { ...(char.featChoices ?? {}) }
+    if def.abilityChoice and opts.abilityChoice:
+      scores[opts.abilityChoice] += 1
+      featChoices[featId] = opts.abilityChoice
+    patch = { feats, abilityScores: scores, featChoices }
+    patch.armorClass = computeACFull({ ...char, ...patch })
+    patch.initiative = computeInitiativeFull({ ...char, ...patch })
+    raceHp = RACE_BY_ID[char.race]?.bonusHpPerLevel ?? 0
+    toughHp = feats.includes('tough') ? 2 : 0                      // include the just-added feat
+    newMax = computeMaxHP(char.classId, char.level, scores.con, raceHp + toughHp)
+    patch.hitPoints = { ...char.hitPoints, max:newMax, current: max(0, char.hitPoints.current + (newMax - char.hitPoints.max)) }
+    if featId == 'piercer':           patch.piercerCritExtraDie = true
+    if featId == 'crusher':           patch.crusherCritAdvantage = true
+    if featId == 'spell-sniper':      patch.spellSniperDoubleRange = true
+    if featId == 'mountedCombatant':  patch.mountedCombatantFlags = true
+    if opts.spellIds:                 patch.spellIds = unique([...char.spellIds, ...opts.spellIds])
+    updateCharacter(charId, patch)
+
+  removeFeat(charId, featId):
+    char = ...; if not char.feats.includes(featId): return
+    def = FEAT_BY_ID[featId]
+    feats = char.feats.filter(f => f != featId)
+    scores = { ...char.abilityScores }
+    if def?.abilityBonus: for [ab,v] in def.abilityBonus: scores[ab] -= v
+    featChoices = { ...(char.featChoices ?? {}) }
+    chosen = featChoices[featId]
+    if chosen: scores[chosen] -= 1; delete featChoices[featId]
+    patch = { feats, abilityScores: scores, featChoices }
+    recompute AC/initiative/maxHP exactly as in addFeat (toughHp from the NEW feats array)
+    set matching NEW flag false for piercer/crusher/spell-sniper/mountedCombatant
+    // granted spells: LEAVE on removal (see Edge Cases)
+    updateCharacter(charId, patch)
+
+## Edge Cases
+- Feat already owned (ASI or race freeFeat) → picker hides it; addFeat no-ops on dedupe.
+- abilityChoice feat with no choice provided → require a choice before commit (disable confirm),
+  mirroring LevelUpModal. removeFeat now reverses the chosen +1 via featChoices (no ambiguity).
+- Spell-granting feat: if the chosen 1st-level spell is already in spellIds, don't duplicate. On
+  removeFeat, DON'T strip granted spells (they could also be class-known → risk removing a legit
+  spell). v1: LEAVE granted spells on removal and document. (Assumption.)
+- maxHP recompute must not push current below 0 — reuse the Math.max(0, …) clamp from commitEdit.
+- tough handled via bonusHpPerLevel inside computeMaxHP — adding it through this button must route HP
+  through the SAME single computeMaxHP path (no separate +2 elsewhere).
+- Legacy saves lacking the NEW fields read undefined → falsy / featChoices defaults to {} → safe.
+- Cross-platform: pure data + store; identical on both adapters.
+
+## Assumptions
+- A choice feat grants exactly +1 to the chosen ability (PHB half-feat convention), matching
+  LevelUpModal. featChoices records that single ability per featId.
+- Granted spells are LEFT in place on removeFeat (v1), to avoid stripping a spell the character also
+  knows from its class.
+
+## State, Persistence & Migration
+- NEW persisted fields: piercerCritExtraDie, crusherCritAdvantage, spellSniperDoubleRange,
+  mountedCombatantFlags (optional booleans), featChoices (optional Record<string,AbilityScore>).
+- Bump CURRENT_SCHEMA_VERSION 10 → 11 in domain/migrations/index.ts and add v10_to_v11(char) that
+  returns char unchanged EXCEPT backfilling from existing feats so old saves that already own these
+  feats light up, and defaulting featChoices (use the EXACT ids):
+      piercerCritExtraDie    = char.feats?.includes('piercer') ?? false
+      crusherCritAdvantage   = char.feats?.includes('crusher') ?? false
+      spellSniperDoubleRange = char.feats?.includes('spell-sniper') ?? false
+      mountedCombatantFlags  = char.feats?.includes('mountedCombatant') ?? false
+      featChoices            = char.featChoices ?? {}     // unknown for legacy choice feats — left empty
+      schemaVersion          = 11
+  Wire into the chain after the v9_to_v10 line: `if (version < 11) data = v10_to_v11(data)`.
+  NOTE: legacy saves that gained a choice feat via the OLD ASI path won't have featChoices populated;
+  that's acceptable — removeFeat for those simply won't auto-reverse a choice it never recorded (and
+  such feats were added via LevelUpModal, not this button). Document this.
+- Confirm round-trip through storageAdapter (Electron {id}.json + Capacitor filesystem) — booleans +
+  a flat string map serialize cleanly.
+
+## Validation
+- Extend src/renderer/src/__tests__/characterSlice.test.ts:
+  * addFeat('<charId>','actor') → feats contains 'actor', CHA +1 (abilityScores.cha), AC/initiative
+    recomputed; a second addFeat('actor') no-ops.
+  * addFeat('<charId>','piercer', { abilityChoice:'dex' }) → DEX +1, featChoices.piercer === 'dex',
+    piercerCritExtraDie === true; removeFeat('<charId>','piercer') → DEX restored, featChoices.piercer
+    cleared, piercerCritExtraDie false.
+  * Spell-granting feat (e.g. 'shadow-touched', opts.spellIds:['invisibility']) merges into spellIds
+    without duplication.
+- Extend src/renderer/src/__tests__/migrations.test.ts:
+  * v10 fixture with feats:['crusher'] and no flags → after migrate, schemaVersion === 11,
+    crusherCritAdvantage === true, featChoices === {}; fixture without the feat → flag false/undefined.
+- `npm run typecheck` passes.
+- Manual: Features panel → "+ Add Feat" → pick "Great Weapon Master" (already wired) → confirm the
+  −5/+10 line still appears; pick "Piercer" (choose DEX) → DEX +1 in Abilities and the crit note in the
+  weapon's Action detail; remove it → DEX restored.
+
+================================================================================
+SHARED NOTES FOR THE IMPLEMENTER
+================================================================================
+- Layer boundaries: all numeric folding stays in the pure calc layer
+  (shared/data/charCalculations.ts) and domain/rules/index.ts; panels read selectors and dispatch
+  update/the new store actions; store actions call pure helpers, never re-implement rules. Reference
+  spells/feats/conditions by ID only.
+- File encoding: write every touched file as UTF-8 (no BOM). After any edit to CharacterHeader.tsx,
+  re-verify no â˜°/â”€ mojibake is introduced.
+- Deliverable order: C is done (optional guard test only) → A (no schema bump) → B (schema 10→11). A
+  and B are independent; A is partially built, so finish A's missing pieces (mechanic field, 5
+  conditions, computeConditionModifiers, AC/speed/save wiring, tests) before starting B.
+- Gates before done: `npm test` and `npm run typecheck` both green.

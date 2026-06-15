@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Character, AbilityScore, AbilityScores } from '@/entities/character/types'
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
-import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats } from '@/shared/data/charCalculations'
+import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats, computeConditionModifiers } from '@/shared/data/charCalculations'
 import { RACE_BY_ID, RACE_SAVE_ADVANTAGES } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
@@ -72,6 +72,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
   const joatBonus = hasJoAT ? Math.floor(prof / 2) : 0
 
   const equipStats = computeEquipmentStats(char)
+  const condMods = computeConditionModifiers(char)
 
   const passivePerception = 10 + mod(char.abilityScores.wis + (equipStats.abilityBonus.wis ?? 0)) +
     (char.skillProficiencies['perception'] === 'expert' ? prof * 2 :
@@ -136,13 +137,14 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
           const hasEquipAdv = equipStats.advantage.savingThrows.includes(ab)
           const racialAdv = (RACE_SAVE_ADVANTAGES[char.race] ?? []).filter(adv => adv.saves.includes(ab))
           const hasAdv = hasEquipAdv || racialAdv.length > 0
+          const condDelta = condMods.saveDeltas[ab] ?? 0
           const advTooltip = [
             ...(hasEquipAdv ? ['Equipment'] : []),
             ...racialAdv.map(a => `${a.source} (${a.vs})`),
           ].join(' · ')
           const abilMod = mod(char.abilityScores[ab] + abilBonus)
           const auraMod = char.classId === 'Paladin' && char.level >= 6 ? Math.max(1, mod(char.abilityScores.cha)) : 0
-          const bonus = abilMod + (isProficient ? prof : 0) + equipBonus + auraMod
+          const bonus = abilMod + (isProficient ? prof : 0) + equipBonus + auraMod + condDelta
           const isSel = selectedDetail?.type === 'save' && selectedDetail.key === ab
           return (
             <div
@@ -161,10 +163,11 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
               <span className={styles.saveBonus}>{fmtMod(bonus)}</span>
               {equipBonus !== 0 && <span className={styles.equipBadge}>★</span>}
               {auraMod > 0 && <span className={styles.equipBadge} title="Aura of Protection">✦</span>}
+              {condDelta !== 0 && <span className={styles.conditionBadge}>{fmtMod(condDelta)}</span>}
               {hasAdv && <span className={styles.advBadge} title={advTooltip}>ADV</span>}
               <span className={styles.saveAb}>{ab.toUpperCase()}</span>
               <span className={styles.saveFormula}>
-                d20{fmtMod(abilMod)}{isProficient ? `+${prof}p` : ''}{equipBonus !== 0 ? `+${equipBonus}eq` : ''}{auraMod > 0 ? `+${auraMod}aura` : ''}
+                d20{fmtMod(abilMod)}{isProficient ? `+${prof}p` : ''}{equipBonus !== 0 ? `+${equipBonus}eq` : ''}{auraMod > 0 ? `+${auraMod}aura` : ''}{condDelta !== 0 ? `${fmtMod(condDelta)}c` : ''}
               </span>
             </div>
           )

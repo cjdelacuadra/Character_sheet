@@ -2,13 +2,8 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, BUFF_CONDITION_SPELLS } from '@/shared/data/spellData'
 import { computeACFull } from '@/shared/data/charCalculations'
+import { CONDITIONS, CONDITION_BY_ID } from '@/shared/data/conditionsData'
 import styles from './ConditionsPanel.module.css'
-
-const CONDITIONS = [
-  'Blinded', 'Charmed', 'Concentration', 'Deafened', 'Exhaustion', 'Frightened',
-  'Grappled', 'Incapacitated', 'Invisible', 'Paralyzed', 'Petrified',
-  'Poisoned', 'Prone', 'Restrained', 'Stunned', 'Unconscious',
-]
 
 interface Props {
   character: Character
@@ -20,14 +15,12 @@ export function ConditionsPanel({ character: char, update }: Props) {
   const [buffOpen, setBuffOpen] = useState(false)
   const [buffSearch, setBuffSearch] = useState('')
 
-  function toggle(name: string) {
-    const id = name.toLowerCase()
+  function toggle(id: string) {
     const has = char.conditionIds.some(c => c.conditionId === id)
-    update({
-      conditionIds: has
+    const conditionIds = has
         ? char.conditionIds.filter(c => c.conditionId !== id)
-        : [...char.conditionIds, { conditionId: id }],
-    })
+        : [...char.conditionIds, { conditionId: id }]
+    update({ conditionIds, armorClass: computeACFull({ ...char, conditionIds }) })
   }
 
   // Spell-buff "conditions" are stored in activeBuffSpells so existing mechanics (Mage Armor AC,
@@ -59,14 +52,19 @@ export function ConditionsPanel({ character: char, update }: Props) {
       {open && (
         <div className={styles.conditionPicker}>
           {CONDITIONS.map(name => {
-            const active = char.conditionIds.some(c => c.conditionId === name.toLowerCase())
+            const active = char.conditionIds.some(c => c.conditionId === name.id)
             return (
               <button
-                key={name}
-                className={`${styles.condOpt} ${active ? styles.condOptActive : ''}`}
-                onClick={() => toggle(name)}
+                key={name.id}
+                className={[
+                  styles.condOpt,
+                  styles[`condOpt${name.category[0].toUpperCase()}${name.category.slice(1)}`],
+                  active ? styles.condOptActive : '',
+                ].join(' ')}
+                onClick={() => toggle(name.id)}
+                title={name.description}
               >
-                {name}
+                {name.name}
               </button>
             )
           })}
@@ -119,11 +117,33 @@ export function ConditionsPanel({ character: char, update }: Props) {
         {char.conditionIds.length === 0 && activeBuffs.length === 0 && !open && !buffOpen && !char.isRaging && (
           <span className={styles.emptyNote}>None</span>
         )}
-        {char.conditionIds.map(c => (
-          <button key={c.conditionId} className={styles.condTag} onClick={() => toggle(c.conditionId)} title="Click to remove">
-            {c.conditionId} ×
-          </button>
-        ))}
+        {char.conditionIds.map(c => {
+          const condition = CONDITION_BY_ID[c.conditionId]
+          if (!condition) {
+            return (
+              <button key={c.conditionId} className={styles.condTag} onClick={() => toggle(c.conditionId)} title="Legacy condition — click to remove">
+                {c.conditionId} ×
+              </button>
+            )
+          }
+          return (
+            <div
+              key={c.conditionId}
+              className={[
+                styles.condTag,
+                styles[`condTag${condition.category[0].toUpperCase()}${condition.category.slice(1)}`],
+              ].join(' ')}
+              title={condition.description}
+            >
+              <button className={styles.condTagRemove} onClick={() => toggle(c.conditionId)} title="Click to remove">
+                {condition.name} ×
+              </button>
+              {condition.effects.map((effect, i) => (
+                <span key={i} className={styles.effectNote}>{effect.description}</span>
+              ))}
+            </div>
+          )
+        })}
       </div>
     </section>
   )

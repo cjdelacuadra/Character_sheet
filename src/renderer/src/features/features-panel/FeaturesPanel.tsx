@@ -1,15 +1,23 @@
 import { useState } from 'react'
-import type { Character } from '@/entities/character/types'
+import type { AbilityScore, Character } from '@/entities/character/types'
 import { getClassFeatures, type FeatureEntry } from '@/shared/data/classFeaturesData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
-import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
 import styles from './FeaturesPanel.module.css'
 
-type SourcedFeature = FeatureEntry & { source: 'class' | 'race' | 'custom'; customIndex?: number }
+type SourcedFeature = FeatureEntry & { source: 'class' | 'race' | 'custom' | 'feat'; customIndex?: number; featId?: string }
+
+const ABILITY_LABELS: Record<AbilityScore, string> = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' }
+const FIXED_FEAT_SPELLS: Record<string, string[]> = {
+  'fey-touched': ['misty-step'],
+  'shadow-touched': ['invisibility'],
+  telekinetic: ['mage-hand'],
+  telepathic: ['detect-thoughts'],
+}
 
 const FIGHTING_STYLE_DATA: Record<string, { label: string; desc: string }> = {
   archery:             { label: 'Archery',             desc: 'You gain a +2 bonus to attack rolls you make with ranged weapons.' },
@@ -30,16 +38,28 @@ const SUBCLASS_FEATURE_NAMES = new Set([
 interface Props {
   character: Character
   update: (patch: Partial<Character>) => void
+  addFeat: (featId: string, opts?: { abilityChoice?: AbilityScore; spellIds?: string[] }) => void
+  removeFeat: (featId: string) => void
   selectedFeature: FeatureEntry | null
   onSelectFeature: (f: FeatureEntry | null) => void
 }
 
-export function FeaturesPanel({ character: char, update, selectedFeature, onSelectFeature }: Props) {
+export function FeaturesPanel({ character: char, update, addFeat, removeFeat, selectedFeature, onSelectFeature }: Props) {
   const [addOpen, setAddOpen] = useState(false)
+  const [featOpen, setFeatOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [featSearch, setFeatSearch] = useState('')
+  const [selectedFeatId, setSelectedFeatId] = useState('')
+  const [featAbilityChoice, setFeatAbilityChoice] = useState<AbilityScore | ''>('')
+  const [featSpellIdsText, setFeatSpellIdsText] = useState('')
 
   const customFeatures = char.customFeatures ?? []
+  const selectedFeat = selectedFeatId ? FEAT_BY_ID[selectedFeatId] : undefined
+  const fixedFeatSpellIds = selectedFeatId ? (FIXED_FEAT_SPELLS[selectedFeatId] ?? []) : []
+  const chosenSpellIds = featSpellIdsText.split(',').map(s => s.trim()).filter(Boolean)
+  const featCanSave = !!selectedFeat && (!selectedFeat.abilityChoice || !!featAbilityChoice)
+
   function addFeature() {
     const name = newName.trim()
     if (!name) return
@@ -48,6 +68,18 @@ export function FeaturesPanel({ character: char, update, selectedFeature, onSele
   }
   function removeFeature(index: number) {
     update({ customFeatures: customFeatures.filter((_, i) => i !== index) })
+  }
+  function commitFeat() {
+    if (!selectedFeat || !featCanSave) return
+    addFeat(selectedFeat.id, {
+      abilityChoice: featAbilityChoice || undefined,
+      spellIds: [...new Set([...fixedFeatSpellIds, ...chosenSpellIds])],
+    })
+    setSelectedFeatId('')
+    setFeatAbilityChoice('')
+    setFeatSpellIdsText('')
+    setFeatSearch('')
+    setFeatOpen(false)
   }
 
   // ── Class features ──────────────────────────────────────────────────────
@@ -127,22 +159,88 @@ export function FeaturesPanel({ character: char, update, selectedFeature, onSele
   const customSourced: SourcedFeature[] = customFeatures.map((f, i) => ({
     level: 0, source: 'custom' as const, name: f.name, desc: f.desc, customIndex: i,
   }))
+  const featSourced: SourcedFeature[] = char.feats
+    .map(featId => {
+      const feat = FEAT_BY_ID[featId]
+      if (!feat) return null
+      const mountedNote = featId === 'mountedCombatant' && char.mountedCombatantFlags
+        ? ' Mounted Combatant flags: advantage vs smaller unmounted creatures, redirect attacks from your mount to you, and mount damage protection on DEX saves.'
+        : ''
+      return { level: 0, source: 'feat' as const, name: feat.name, desc: `${feat.description}${mountedNote}`, featId }
+    })
+    .filter(Boolean) as SourcedFeature[]
 
   // ── Merge: race traits first (level 0), then class by level, then custom ──
   const features: SourcedFeature[] = [
     ...raceFeatures,
     ...classFeatures.sort((a, b) => a.level - b.level),
     ...customSourced,
+    ...featSourced,
   ]
+  const featMatches = FEATS
+    .filter(f => !char.feats.includes(f.id))
+    .filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase()))
 
   return (
     <section className={styles.section}>
       <div className={styles.sectionHead}>
         <span className={styles.sectionLabel}>Features</span>
-        <button className={styles.addBtn} onClick={() => setAddOpen(v => !v)}>
-          {addOpen ? 'Cancel' : '+ Add Feature'}
-        </button>
+        <span className={styles.addActions}>
+          <button className={styles.addBtn} onClick={() => { setFeatOpen(v => !v); setAddOpen(false) }}>
+            {featOpen ? 'Cancel' : '+ Add Feat'}
+          </button>
+          <button className={styles.addBtn} onClick={() => { setAddOpen(v => !v); setFeatOpen(false) }}>
+            {addOpen ? 'Cancel' : '+ Add Feature'}
+          </button>
+        </span>
       </div>
+      {featOpen && (
+        <div className={styles.addForm}>
+          <input
+            className={styles.addInput}
+            type="search"
+            placeholder="Search feats"
+            value={featSearch}
+            autoFocus
+            onChange={e => setFeatSearch(e.target.value)}
+          />
+          <select
+            className={styles.addInput}
+            value={selectedFeatId}
+            onChange={e => { setSelectedFeatId(e.target.value); setFeatAbilityChoice(''); setFeatSpellIdsText('') }}
+          >
+            <option value="">Choose feat</option>
+            {featMatches.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          {selectedFeat && (
+            <span className={styles.featPickerDesc}>{selectedFeat.description}</span>
+          )}
+          {selectedFeat?.abilityChoice && (
+            <select
+              className={styles.addInput}
+              value={featAbilityChoice}
+              onChange={e => setFeatAbilityChoice(e.target.value as AbilityScore)}
+            >
+              <option value="">Choose ability</option>
+              {selectedFeat.abilityChoice.map(ab => (
+                <option key={ab} value={ab}>{ABILITY_LABELS[ab]}</option>
+              ))}
+            </select>
+          )}
+          {fixedFeatSpellIds.length > 0 && (
+            <span className={styles.featPickerDesc}>Granted spell IDs: {fixedFeatSpellIds.join(', ')}</span>
+          )}
+          {selectedFeat && ['fey-touched', 'shadow-touched', 'spellSniper', 'magicInitiate', 'artificer-initiate'].includes(selectedFeat.id) && (
+            <input
+              className={styles.addInput}
+              placeholder="Additional granted spell IDs (comma-separated)"
+              value={featSpellIdsText}
+              onChange={e => setFeatSpellIdsText(e.target.value)}
+            />
+          )}
+          <button className={styles.addSave} onClick={commitFeat} disabled={!featCanSave}>Save Feat</button>
+        </div>
+      )}
       {addOpen && (
         <div className={styles.addForm}>
           <input
@@ -184,8 +282,8 @@ export function FeaturesPanel({ character: char, update, selectedFeature, onSele
                     )}
                   </span>
                   <span className={styles.featureLevel}>
-                    <span className={f.source === 'race' ? styles.badgeRace : f.source === 'custom' ? styles.badgeCustom : styles.badgeClass}>
-                      {f.source === 'race' ? 'RACE' : f.source === 'custom' ? 'CUSTOM' : 'CLASS'}
+                    <span className={f.source === 'race' ? styles.badgeRace : f.source === 'custom' ? styles.badgeCustom : f.source === 'feat' ? styles.badgeFeat : styles.badgeClass}>
+                      {f.source === 'race' ? 'RACE' : f.source === 'custom' ? 'CUSTOM' : f.source === 'feat' ? 'FEAT' : 'CLASS'}
                     </span>
                     {f.level > 0 && <span>Lvl {f.level}</span>}
                   </span>
@@ -195,6 +293,13 @@ export function FeaturesPanel({ character: char, update, selectedFeature, onSele
                     className={styles.featureRemove}
                     title="Remove feature"
                     onClick={() => removeFeature(f.customIndex!)}
+                  >×</button>
+                )}
+                {f.source === 'feat' && f.featId && (
+                  <button
+                    className={styles.featureRemove}
+                    title="Remove feat"
+                    onClick={() => removeFeat(f.featId!)}
                   >×</button>
                 )}
               </div>

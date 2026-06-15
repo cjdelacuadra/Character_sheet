@@ -6,6 +6,7 @@ import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'
 import { SPELL_BY_ID } from './spellData'
+import { CONDITION_BY_ID } from './conditionsData'
 
 export function mod(score: number): number {
   // Guard against undefined/NaN scores (e.g. a partial AbilityScores object) so a missing
@@ -133,11 +134,48 @@ export function computeDarkvision(char: Pick<Character, 'race' | 'subclass'>): n
   return Math.max(raceDv, subclassDv)
 }
 
+export interface ConditionModifiers {
+  acDelta: number
+  speedMultiplier: number
+  saveDeltas: Partial<Record<AbilityScore, number>>
+  flags: { conditionId: string; note: string }[]
+}
+
+export function computeConditionModifiers(char: Pick<Character, 'conditionIds'>): ConditionModifiers {
+  const acc: ConditionModifiers = {
+    acDelta: 0,
+    speedMultiplier: 1,
+    saveDeltas: {},
+    flags: [],
+  }
+
+  for (const entry of char.conditionIds ?? []) {
+    const condition = CONDITION_BY_ID[entry.conditionId]
+    if (!condition) continue
+
+    for (const effect of condition.effects) {
+      const mechanic = effect.mechanic
+      if (!mechanic || mechanic.kind === 'flag') {
+        acc.flags.push({ conditionId: condition.id, note: effect.description })
+      } else if (mechanic.kind === 'acDelta') {
+        acc.acDelta += mechanic.value
+      } else if (mechanic.kind === 'speedMultiplier') {
+        acc.speedMultiplier *= mechanic.value
+      } else if (mechanic.kind === 'flatSaveDelta') {
+        acc.saveDeltas[mechanic.ability] = (acc.saveDeltas[mechanic.ability] ?? 0) + mechanic.value
+      }
+    }
+  }
+
+  acc.speedMultiplier = Math.max(0, acc.speedMultiplier)
+  return acc
+}
+
 /** Base speed + equipment speed bonuses + active subclass buffs (Bladesong). */
-export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass'>): number {
+export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass' | 'conditionIds'>): number {
   const base = char.speed + computeEquipmentStats(char).speedBonus
   const bladesongBonus = char.isBladesinging && char.subclass === 'Bladesinging' ? 10 : 0
-  return base + bladesongBonus
+  return Math.floor((base + bladesongBonus) * computeConditionModifiers(char).speedMultiplier)
 }
 
 /** Computes skill check bonus. */
@@ -308,7 +346,7 @@ export function effectiveAbilityScore(
 /** computeAC + accessory acBonus + ability score bonuses from equipment. */
 export function computeACFull(char: Character): number {
   const equip = computeEquipmentStats(char)
-  return computeAC(char, equip.abilityBonus) + equip.acBonus
+  return computeAC(char, equip.abilityBonus) + equip.acBonus + computeConditionModifiers(char).acDelta
 }
 
 /** computeInitiative including DEX bonuses from equipped accessories. */

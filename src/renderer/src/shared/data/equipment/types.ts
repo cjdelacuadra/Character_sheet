@@ -12,7 +12,7 @@ export type WeaponRangeType = 'Melee' | 'Ranged' | 'Melee or Ranged'
 
 export type AccessorySlot =
   | 'helmet' | 'necklace' | 'cape' | 'legs' | 'boots'
-  | 'gloves' | 'ring' | 'amulet' | 'armor'
+  | 'gloves' | 'quiver' | 'ring' | 'amulet' | 'armor'
   | 'shield' | 'weapon'
 
 export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot

@@ -9,9 +9,19 @@
 .condOpt { padding: 3px 8px; font-size: 11px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
 .condOpt:hover { border-color: var(--accent); }
 .condOptActive { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
+.condOptBuff.condOptActive { background: rgba(76,175,125,0.15); border-color: var(--success); color: var(--success); }
+.condOptNeutral.condOptActive { background: var(--surface-3); border-color: var(--text-muted); color: var(--text-muted); }
 .condTags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
 .condTag { padding: 2px 8px; font-size: 10px; border-radius: 12px; border: 1px solid var(--danger); background: var(--danger-dim); color: var(--danger); cursor: pointer; }
 .condTag:hover { background: var(--danger); color: #fff; }
+.condTagBuff { border-color: var(--success); background: rgba(76,175,125,0.15); color: var(--success); cursor: default; }
+.condTagBuff:hover { background: rgba(76,175,125,0.15); color: var(--success); }
+.condTagDebuff { border-color: var(--danger); background: var(--danger-dim); color: var(--danger); cursor: default; }
+.condTagDebuff:hover { background: var(--danger-dim); color: var(--danger); }
+.condTagNeutral { border-color: var(--text-muted); background: var(--surface-2); color: var(--text-muted); cursor: default; }
+.condTagNeutral:hover { background: var(--surface-2); color: var(--text-muted); }
+.condTagRemove { border: none; background: transparent; padding: 0; color: inherit; cursor: pointer; font: inherit; }
+.effectNote { display: block; margin-top: 2px; color: inherit; opacity: .85; line-height: 1.25; }
 .condTagRage { border-color: var(--accent); background: var(--accent-dim, rgba(99,102,241,0.15)); color: var(--accent); cursor: default; }
 .condTagRage:hover { background: var(--accent-dim, rgba(99,102,241,0.15)); color: var(--accent); }
 .emptyNote { font-size: 11px; color: var(--text-muted); font-style: italic; }

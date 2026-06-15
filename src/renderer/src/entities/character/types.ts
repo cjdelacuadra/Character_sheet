@@ -115,6 +115,16 @@ export interface Character {
   gold: number
   ownedItemIds: string[]
   feats: string[]
+  /** NEW: Piercer feat flag — +1 die on a piercing critical hit. */
+  piercerCritExtraDie?: boolean
+  /** NEW: Crusher feat flag — bludgeoning critical hit grants advantage vs target. */
+  crusherCritAdvantage?: boolean
+  /** NEW: Spell Sniper feat flag — doubles attack-spell range and ignores half/three-quarters cover. */
+  spellSniperDoubleRange?: boolean
+  /** NEW: Mounted Combatant feat flag — mounted combat riders. */
+  mountedCombatantFlags?: boolean
+  /** NEW: chosen ability for ability-choice feats added through the Features panel. */
+  featChoices?: Record<string, AbilityScore>
   attunedItemIds?: string[]
   warlockInvocations?: string[]
   pactBoon?: string

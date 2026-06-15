@@ -24,7 +24,7 @@ describe('migrateCharacter', () => {
   describe('v1 → current', () => {
     it('assigns the current schemaVersion', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(10)
+      expect(result.schemaVersion).toBe(11)
     })
     it('fills missing activeSummons with empty array', () => {
       const result = migrateCharacter(BASE_V1)
@@ -95,12 +95,12 @@ describe('migrateCharacter', () => {
     it('v3 character migrates to the current schemaVersion', () => {
       const raw = { ...BASE_V1, schemaVersion: 3, completedAsiLevels: [4] }
       const result = migrateCharacter(raw)
-      expect(result.schemaVersion).toBe(10)
+      expect(result.schemaVersion).toBe(11)
     })
 
     it('v1 character also ends up at the current schemaVersion', () => {
       const result = migrateCharacter(BASE_V1)
-      expect(result.schemaVersion).toBe(10)
+      expect(result.schemaVersion).toBe(11)
     })
 
     it('existing character without fightingStyle gets fightingStyle: undefined', () => {
@@ -138,6 +138,25 @@ describe('migrateCharacter', () => {
       }
       const result = migrateCharacter(raw as Parameters<typeof migrateCharacter>[0])
       expect(result.equipment.helmetId).toBe('leather-helm')
+    })
+  })
+
+  describe('v10 → v11 (feat flags)', () => {
+    it('backfills feat flags from existing feats', () => {
+      const raw = { ...BASE_V1, schemaVersion: 10, feats: ['crusher'] }
+      const result = migrateCharacter(raw)
+
+      expect(result.schemaVersion).toBe(11)
+      expect(result.crusherCritAdvantage).toBe(true)
+      expect(result.featChoices).toEqual({})
+    })
+
+    it('defaults feat flags false when feat is absent', () => {
+      const raw = { ...BASE_V1, schemaVersion: 10, feats: [] }
+      const result = migrateCharacter(raw)
+
+      expect(result.crusherCritAdvantage).toBe(false)
+      expect(result.featChoices).toEqual({})
     })
   })
 })

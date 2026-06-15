@@ -10,13 +10,14 @@ vi.mock('@/services/ipc', () => ({
 }))
 
 import { createStore } from 'zustand/vanilla'
+import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from '@/app/store/characterSlice'
 import { createCharacterSlice } from '@/app/store/characterSlice'
 import { getWeaponAttackActions } from '@/domain/rules'
 import { makeChar } from './helpers'
 
 function makeStore() {
-  return createStore<CharacterSlice>(createCharacterSlice)
+  return createStore<CharacterSlice>(createCharacterSlice as unknown as StateCreator<CharacterSlice, [], [], CharacterSlice>)
 }
 
 // ── SC1: Item Persistence on Unequip ────────────────────────────────────────
