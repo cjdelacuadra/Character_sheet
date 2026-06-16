@@ -28,12 +28,19 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
+  const wildShapeHpPct = char.wildShapeForm && char.wildShapeForm.hp.max > 0
+    ? Math.max(0, Math.min(100, (char.wildShapeForm.hp.current / char.wildShapeForm.hp.max) * 100))
+    : 0
   const eq = char.equipment
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const prof = char.proficiencyBonus
   const spellSaveDC = classDef?.spellcastingAbility ? computeSpellSaveDC(char) : null
   const spellAtkBonus = classDef?.spellcastingAbility ? computeSpellAttackBonus(char) : null
+  const initiativeNotes = [
+    ...(char.feats.includes('alert') ? ['+5 initiative'] : []),
+    ...(char.subclass === 'GloomStalker' && char.level >= 3 ? ['+WIS to initiative'] : []),
+  ]
 
   const equippedArmor = eq.armorId ? GEAR_BY_ID[eq.armorId] : null
   const armorStrRequired = equippedArmor?.strRequirement ?? 0
@@ -69,6 +76,22 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   }
 
   function applyHp(delta: number) {
+    if (delta < 0 && char.wildShapeForm) {
+      const damage = Math.abs(delta)
+      const form = char.wildShapeForm
+      const remainingFormHp = form.hp.current - damage
+      if (remainingFormHp > 0) {
+        update({ wildShapeForm: { ...form, hp: { ...form.hp, current: remainingFormHp } } })
+        return
+      }
+      const overflow = Math.abs(Math.min(0, remainingFormHp))
+      const next = applyHpDelta(hp, -overflow)
+      update({
+        wildShapeForm: undefined,
+        hitPoints: { ...hp, current: next.current, temp: next.temp },
+      })
+      return
+    }
     // Compute temp + current together and write them in ONE update, so the temp-HP depletion
     // isn't clobbered by a second write that spreads a stale `hp` (the original double-write bug).
     const next = applyHpDelta(hp, delta)
@@ -120,6 +143,9 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         <div className={styles.topStatBox} title="Derived from DEX + feats/class">
           <span className={styles.topStatVal}>{fmtMod(computeInitiativeFull(char))}</span>
           <span className={styles.topStatLabel}>Initiative</span>
+          {initiativeNotes.map(note => (
+            <span key={note} style={{ color: 'var(--text-muted)', fontSize: 9 }}>{note}</span>
+          ))}
         </div>
         <div
           className={`${styles.topStatBox} ${styles.topStatEditable}`}
@@ -168,6 +194,45 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         {spellAtkBonus !== null && <span className={styles.secondaryStat}><strong>{fmtMod(spellAtkBonus)}</strong> Spell Atk</span>}
         {computeDarkvision(char) > 0 && <span className={styles.secondaryStat}><strong>{computeDarkvision(char)}</strong> Darkvision ft</span>}
       </div>
+
+      {char.wildShapeForm && (
+        <>
+          <div className={styles.hpRow} style={{ gridTemplateColumns: '1fr auto' }}>
+            <div className={styles.hpCurrentSection}>
+              <span className={styles.hpMaxLabel}>
+                Wild Shape: {char.wildShapeForm.name} · AC {char.wildShapeForm.ac} · CR {char.wildShapeForm.cr} · {char.wildShapeForm.speed}
+              </span>
+              <span className={styles.hpCurrent}>
+                {char.wildShapeForm.hp.current}
+              </span>
+            </div>
+            <div className={styles.hpTempSection}>
+              <span className={styles.hpSectionLabel}>Beast HP</span>
+              <button
+                className={`${styles.tempHpChip} ${styles.tempHpActive}`}
+                onClick={() => update({ wildShapeForm: undefined })}
+                title="Leave Wild Shape"
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+          <div className={styles.hpBar}>
+            <div
+              className={styles.hpFill}
+              style={{
+                width: `${wildShapeHpPct}%`,
+                background: wildShapeHpPct > 50 ? 'var(--success)' : wildShapeHpPct > 25 ? 'var(--warning)' : 'var(--danger)',
+              }}
+            />
+          </div>
+          {char.concentrationSpellId && (
+            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+              Concentration persists on the druid while shaped.
+            </span>
+          )}
+        </>
+      )}
 
       {/* HP section */}
       <div className={styles.hpRow} style={hp.current <= 0 ? undefined : { gridTemplateColumns: '1fr auto' }}>

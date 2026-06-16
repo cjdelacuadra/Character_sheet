@@ -21,7 +21,7 @@ const SAVE_DESCS: Record<AbilityScore, string> = {
 const GEAR_SLOTS: (keyof Equipment)[] = [
   'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
-  'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
+  'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
 interface Source { name: string; value: number; tag?: string }

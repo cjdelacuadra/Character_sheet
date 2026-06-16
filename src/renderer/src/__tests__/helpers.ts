@@ -22,7 +22,7 @@ export function makeChar(overrides: Partial<Character> = {}): Character {
     equipment: {
       armorId: null, hasShield: false, shieldId: null,
       helmetId: null, necklaceId: null, capeId: null, legsId: null,
-      bootsId: null, glovesId: null, quiverId: null,
+      bootsId: null, glovesId: null,
       ring1Id: null, ring2Id: null, amuletId: null,
     },
     savingThrowProficiencies: [],

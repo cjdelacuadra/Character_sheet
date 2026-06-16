@@ -5,6 +5,8 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { mod } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import type { EconomyType } from '@/app/store/turnSlice'
+import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
+import { RESOURCE_EFFECTS } from '@/shared/data/resourceEffects'
 import styles from './ActionListPanel.module.css'
 
 function actionTypeToEconomy(type: ActionDef['type']): EconomyType | null {
@@ -102,10 +104,21 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   function useResource(key: string, total: number, actionType?: ActionDef['type']) {
     const res = char.resources[key] ?? { used: 0, total }
     if (res.used >= res.total) return
-    update({ resources: { ...char.resources, [key]: { used: res.used + 1, total: res.total } } })
+    const effect = RESOURCE_EFFECTS.find(entry => entry.resourceKey === key)
+    const patch: Partial<Character> = {
+      resources: { ...char.resources, [key]: { used: res.used + 1, total: res.total } },
+    }
+    if (effect?.setsFlag) {
+      patch[effect.setsFlag] = true
+    }
+    update(patch)
     // Action Surge grants +1 action this turn rather than consuming one
     if (key === 'Action Surge') {
       grantEconomy(char.id, 'action', 1)
+      return
+    }
+    if (effect?.economy) {
+      useEconomy(char.id, effect.economy)
       return
     }
     if (actionType) {
@@ -122,6 +135,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
 
   return (
     <>
+      <ResourcesPanel character={char} update={update} />
       {actionGroups.map(({ type, label, items }) => {
         const chips = getGroupChips(items)
         return (

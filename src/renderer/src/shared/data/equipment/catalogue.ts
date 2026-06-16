@@ -31,7 +31,6 @@ export const SLOT_PLACEHOLDER_URLS: Record<string, string> = {
   legs:     '/assets/equipment/placeholders/Empty_legs_slot.svg',
   gloves:   '/assets/equipment/placeholders/Empty_gloves_slot.svg',
   boots:    '/assets/equipment/placeholders/Empty_boots_slot.svg',
-  quiver:   '/assets/equipment/placeholders/Empty_ammo_slot.svg',
   ring:     '/assets/equipment/placeholders/Empty_ring_slot.svg',
   amulet:   '/assets/equipment/placeholders/Empty_amulet_slot.svg',
 }

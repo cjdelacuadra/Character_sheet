@@ -5,7 +5,7 @@ import styles from './DetailPanel.module.css'
 const GEAR_SLOTS: (keyof Equipment)[] = [
   'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
-  'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
+  'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
 interface Props {

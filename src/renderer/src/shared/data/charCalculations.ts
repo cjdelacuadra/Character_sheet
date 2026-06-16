@@ -267,7 +267,7 @@ export const ZERO_EQUIP_STATS: EquipmentStats = {
 const GEAR_SLOTS: Array<keyof Equipment> = [
   'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
-  'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
+  'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
 /** Aggregates D&D 5e equipment bonus stats across all equipped gear (armor + accessories). */

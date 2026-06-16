@@ -23,7 +23,7 @@ function v1_to_v2(raw: Partial<Character>): Partial<Character> {
       : {
           armorId: null, hasShield: false, shieldId: null,
           helmetId: null, necklaceId: null, capeId: null, legsId: null,
-          bootsId: null, glovesId: null, quiverId: null,
+          bootsId: null, glovesId: null,
           ring1Id: null, ring2Id: null, amuletId: null,
         },
     preparedSpellIds: (raw as Record<string, unknown>).preparedSpellIds as string[] ?? [],
@@ -132,7 +132,6 @@ function v6_to_v7(char: Partial<Character>): Partial<Character> {
       legsId: (eq as Record<string, unknown>).legsId as string | null ?? null,
       bootsId: (eq as Record<string, unknown>).bootsId as string | null ?? null,
       glovesId: (eq as Record<string, unknown>).glovesId as string | null ?? null,
-      quiverId: (eq as Record<string, unknown>).quiverId as string | null ?? null,
       ring1Id: (eq as Record<string, unknown>).ring1Id as string | null ?? null,
       ring2Id: (eq as Record<string, unknown>).ring2Id as string | null ?? null,
       amuletId: (eq as Record<string, unknown>).amuletId as string | null ?? null,

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   computeSpellSaveDC,
   computeSpellAttackBonus,
+  computeSpellDamage,
+  computeAttackAdvantage,
   computeAttackBonus,
   isProficientWithWeapon,
   xpForNextLevel,
@@ -9,6 +11,7 @@ import {
   getAvailableActions,
   computePreparedSpellCount,
 } from '@/domain/rules'
+import { critDiceExpr } from '@/shared/lib/diceExpr'
 import { endsAtStartOfNextTurn, isBuffConditionSpell, SPELL_BY_ID } from '@/shared/data/spellData'
 import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
 import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
@@ -135,6 +138,51 @@ describe('computeSpellAttackBonus', () => {
 })
 
 // ── Attack bonus ─────────────────────────────────────────────────────────────
+
+describe('critDiceExpr', () => {
+  it('doubles dice and keeps flat modifiers unchanged', () => {
+    expect(critDiceExpr('2d6 + 14')).toBe('4d6 + 14')
+    expect(critDiceExpr('1d8')).toBe('2d8')
+  })
+})
+
+describe('computeAttackAdvantage', () => {
+  it('poisoned gives disadvantage on martial and spell attacks', () => {
+    const adv = computeAttackAdvantage(makeChar({ conditionIds: [{ conditionId: 'poisoned' }] }))
+    expect(adv.martial).toBe('dis')
+    expect(adv.spell).toBe('dis')
+  })
+
+  it('invisible gives advantage on martial and spell attacks', () => {
+    const adv = computeAttackAdvantage(makeChar({ conditionIds: [{ conditionId: 'invisible' }] }))
+    expect(adv.martial).toBe('adv')
+    expect(adv.spell).toBe('adv')
+  })
+
+  it('advantage and disadvantage cancel', () => {
+    const adv = computeAttackAdvantage(makeChar({ conditionIds: [{ conditionId: 'invisible' }, { conditionId: 'poisoned' }] }))
+    expect(adv.martial).toBe('none')
+    expect(adv.spell).toBe('none')
+  })
+
+  it('raging gives martial advantage only', () => {
+    const adv = computeAttackAdvantage(makeChar({ isRaging: true }))
+    expect(adv.martial).toBe('adv')
+    expect(adv.spell).toBe('none')
+  })
+})
+
+describe('computeSpellDamage critical formula', () => {
+  it('attack-roll spells have a crit formula', () => {
+    const dmg = computeSpellDamage(SPELL_BY_ID['fire-bolt'], 0, makeChar())
+    expect(dmg.critFormula).not.toBe('')
+  })
+
+  it('save spells do not have a crit formula', () => {
+    const dmg = computeSpellDamage(SPELL_BY_ID['fireball'], 3, makeChar())
+    expect(dmg.critFormula).toBe('')
+  })
+})
 
 function makeWeapon(overrides: Partial<Weapon> = {}): Weapon {
   return { id: 'test', name: 'Dagger', atkBonus: 0, damage: '1d4', ...overrides }

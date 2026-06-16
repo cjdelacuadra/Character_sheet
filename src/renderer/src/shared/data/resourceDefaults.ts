@@ -1,6 +1,6 @@
 import type { AbilityScores } from '@/entities/character/types'
 import { CLASS_BY_ID } from './classData'
-import { mod } from './charCalculations'
+import { mod, profBonus } from './charCalculations'
 
 function resolveTotal(
   scalingPer: string | undefined,
@@ -29,12 +29,12 @@ function resolveTotal(
 export function getResourceDefaults(
   classId: string,
   level: number,
-  abilityScores: AbilityScores
+  abilityScores: AbilityScores,
+  subclassId?: string
 ): Record<string, { used: number; total: number }> {
   const cls = CLASS_BY_ID[classId]
-  if (!cls?.resources) return {}
   const result: Record<string, { used: number; total: number }> = {}
-  for (const res of cls.resources) {
+  for (const res of cls?.resources ?? []) {
     if (res.minLevel && level < res.minLevel) continue
     const total = resolveTotal(
       res.scalingPer,
@@ -44,6 +44,13 @@ export function getResourceDefaults(
       abilityScores
     )
     if (total > 0) result[res.name] = { used: 0, total }
+  }
+  // Subclass-gated resource seeded here because ResourceDef has no subclass gate.
+  if (classId === 'Fighter' && subclassId === 'PsiWarrior' && level >= 3) {
+    result['Psionic Energy'] = { used: 0, total: 2 * profBonus(level) }
+  }
+  if (classId === 'Sorcerer' && subclassId === 'WildMagicSorcerer' && level >= 1) {
+    result['Tides of Chaos'] = { used: 0, total: 1 }
   }
   return result
 }

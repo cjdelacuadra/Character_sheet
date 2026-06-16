@@ -39,7 +39,6 @@ export interface Equipment {
   legsId: string | null
   bootsId: string | null
   glovesId: string | null
-  quiverId: string | null
   ring1Id: string | null
   ring2Id: string | null
   amuletId: string | null
@@ -154,6 +153,8 @@ export interface Character {
   artificerInfusions?: string[]
   /** Artificer infusions currently active on items */
   activeArtificerInfusions?: string[]
+  knownRunes?: string[]
+  activeRunes?: string[]
   /** Live summoned creatures/structures owned by this character */
   activeSummons: ActiveSummon[]
   /** User-authored custom features shown in the Features panel (homebrew, DM grants, notes). */
@@ -162,5 +163,6 @@ export interface Character {
   racialActionUses?: Record<string, number>
   /** Circle of the Land Druid's chosen terrain at level 3 (Circle Spells). */
   circleOfLandTerrain?: 'arctic' | 'coast' | 'desert' | 'forest' | 'grassland' | 'mountain' | 'swamp' | 'underdark'
+  wildShapeForm?: { name: string; hp: { current: number; max: number }; ac: number; cr: number; speed: string }
   notes: string
 }

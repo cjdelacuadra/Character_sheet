@@ -137,7 +137,23 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     if (featId === 'crusher') patch.crusherCritAdvantage = true
     if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = true
     if (featId === 'mountedCombatant') patch.mountedCombatantFlags = true
-    if (opts?.spellIds?.length) patch.spellIds = [...new Set([...char.spellIds, ...opts.spellIds])]
+    const grantedSpellIds = [...new Set([...(def.grantedSpells ?? []), ...(def.freeCastSpells ?? []), ...(opts?.spellIds ?? [])])]
+    if (grantedSpellIds.length) patch.spellIds = [...new Set([...char.spellIds, ...grantedSpellIds])]
+
+    const freeCastSpellIds = [...new Set([...(def.freeCastSpells ?? [])])]
+    const chosenFreeCastIds = (opts?.spellIds ?? [])
+      .filter(spellId => {
+        const spell = SPELL_BY_ID[spellId]
+        return !!spell && spell.level === 1 && ['fey-touched', 'shadow-touched', 'magicInitiate', 'artificer-initiate'].includes(featId)
+      })
+    const featFreeCastIds = [...new Set([...freeCastSpellIds, ...chosenFreeCastIds])]
+    if (featFreeCastIds.length) {
+      const resources = { ...char.resources }
+      for (const spellId of featFreeCastIds) {
+        resources[`Feat:${spellId}`] = resources[`Feat:${spellId}`] ?? { used: 0, total: 1 }
+      }
+      patch.resources = resources
+    }
 
     get().updateCharacter(id, patch)
   },
@@ -246,6 +262,13 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
           newResources[resDef.name] = { ...newResources[resDef.name], used: 0 }
         }
       }
+      if (char.subclass === 'PsiWarrior' && newResources['Psionic Energy']) {
+        const res = newResources['Psionic Energy']
+        newResources['Psionic Energy'] = { ...res, used: Math.max(0, res.used - 1) }
+      }
+      for (const key of Object.keys(newResources)) {
+        if (key.startsWith('Rune:')) newResources[key] = { ...newResources[key], used: 0 }
+      }
 
       // Recharge short-rest racial actions (e.g. Breath Weapon, Shift, Fey Step, Hidden Step).
       const newRacialUses = { ...(char.racialActionUses ?? {}) }
@@ -285,7 +308,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       const newSlots = Object.fromEntries(
         Object.entries(char.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
       )
-      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores)
+      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
       const newResources: Record<string, { used: number; total: number }> = {}
       for (const key of Object.keys(char.resources)) {
         newResources[key] = { ...char.resources[key], used: 0 }
@@ -359,7 +382,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         }
       }
 
-      const newDefaults = getResourceDefaults(char.classId, newLevel, newScores)
+      const newDefaults = getResourceDefaults(char.classId, newLevel, newScores, char.subclass)
       const newResources: Record<string, { used: number; total: number }> = {}
       for (const [key, def] of Object.entries(newDefaults)) {
         const existing = char.resources[key]
@@ -633,14 +656,16 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         name: tpl.name,
         type: tpl.type,
         maxHp: tpl.maxHp,
-        ac: tpl.ac,
+        ac: templateId === 'echo' ? 11 + char.proficiencyBonus : tpl.ac,
         speed: tpl.speed,
         initiativeMod: tpl.initiativeMod,
         attacks: tpl.attacks.map(a => ({ ...a })),
         actionEconomy: { ...tpl.actionEconomy },
         spells: tpl.spells ? [...tpl.spells] : undefined,
         resources: tpl.resources ? tpl.resources.map(r => ({ ...r })) : undefined,
-        abilityScores: tpl.abilityScores ? { ...tpl.abilityScores } : undefined,
+        abilityScores: templateId === 'echo'
+          ? { ...char.abilityScores }
+          : tpl.abilityScores ? { ...tpl.abilityScores } : undefined,
         savingThrowProficiencies: tpl.savingThrowProficiencies ? [...tpl.savingThrowProficiencies] : undefined,
         proficiencyBonus: tpl.proficiencyBonus,
         usesCasterPB: tpl.usesCasterPB,

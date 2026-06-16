@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { RESOURCE_EFFECTS } from '@/shared/data/resourceEffects'
+import { useAppStore } from '@/app/store'
 import styles from './ResourcesPanel.module.css'
 
 interface Props {
@@ -16,6 +18,8 @@ export function ResourcesPanel({ character: char, update }: Props) {
   const classDef = CLASS_BY_ID[char.classId]
   const entries = Object.entries(char.resources)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  const useEconomy = useAppStore(s => s.useEconomy)
+  const grantEconomy = useAppStore(s => s.grantEconomy)
   if (entries.length === 0) return null
 
   function setUsed(name: string, used: number) {
@@ -28,7 +32,19 @@ export function ResourcesPanel({ character: char, update }: Props) {
   function useResource(name: string) {
     const res = char.resources[name]
     if (!res || res.used >= res.total) return
-    setUsed(name, res.used + 1)
+    const effect = RESOURCE_EFFECTS.find(entry => entry.resourceKey === name)
+    const patch: Partial<Character> = {
+      resources: { ...char.resources, [name]: { ...res, used: Math.min(res.total, res.used + 1) } },
+    }
+    if (effect?.setsFlag) {
+      patch[effect.setsFlag] = true
+    }
+    update(patch)
+    if (name === 'Action Surge') {
+      grantEconomy(char.id, 'action', 1)
+      return
+    }
+    if (effect?.economy) useEconomy(char.id, effect.economy)
   }
 
   function recoverResource(name: string) {

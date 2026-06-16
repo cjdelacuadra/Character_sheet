@@ -3,10 +3,10 @@ import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import type { Equipment } from '@/entities/character/types'
-import { combineDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
+import { combineDiceExpr, critDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
 import { FEATS } from '@/shared/data/featsData'
@@ -16,6 +16,11 @@ import { INVOCATIONS, maxInvocations } from '@/shared/data/invocationsData'
 import { INFUSIONS, maxInfusionsKnown, maxInfusionsActive } from '@/shared/data/infusionsData'
 import { MANEUVERS, MANEUVER_BY_ID, MANEUVER_PROGRESSION, maneuversKnown } from '@/shared/data/maneuversData'
 import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION, arcaneShotsKnown } from '@/shared/data/arcaneShotsData'
+import { psiWarriorAbilities } from '@/shared/data/psiWarriorData'
+import { runes } from '@/shared/data/runeData'
+import { wildSurgeTable } from '@/shared/data/wildSurgeTable'
+import { WILD_MAGIC_SURGE_TABLE } from '@/shared/data/wildMagicSurgeTable'
+import { WILD_SHAPE_BEASTS } from '@/shared/data/wildShapeBeasts'
 import { SKILLS } from '@/shared/data/skills'
 import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
 import { useAppStore } from '@/app/store'
@@ -70,10 +75,27 @@ function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { e
   }))
 }
 
+function criticalSubtotals(
+  subtotals: { expr: string; type: string }[],
+  extras: { expr: string; type: string }[],
+): { expr: string; type: string }[] {
+  const byType = new Map<string, string[]>()
+  for (const subtotal of subtotals) {
+    byType.set(subtotal.type, [...(byType.get(subtotal.type) ?? []), critDiceExpr(subtotal.expr)])
+  }
+  for (const extra of extras) {
+    byType.set(extra.type, [...(byType.get(extra.type) ?? []), extra.expr])
+  }
+  return Array.from(byType.entries()).map(([type, parts]) => ({
+    type,
+    expr: combineDiceExpr(parts.join('+')),
+  }))
+}
+
 const GEAR_SLOTS: (keyof Equipment)[] = [
   'armorId', 'shieldId',
   'helmetId', 'necklaceId', 'capeId', 'legsId',
-  'bootsId', 'glovesId', 'quiverId', 'ring1Id', 'ring2Id', 'amuletId',
+  'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
 function buildAttackRows(
@@ -394,6 +416,22 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const [arcanePickerOpen, setArcanePickerOpen] = useState(false)
   const [activeRows, setActiveRows] = useState<Record<string, Record<string, boolean>>>({})
   const [rollMap, setRollMap] = useState<Record<string, { d1: number; d2: number; adv: 'n' | 'a' | 'd' }>>({})
+  const [wildMagicRoll, setWildMagicRoll] = useState<number | null>(null)
+  const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
+  const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
+  const attackAdvantage = computeAttackAdvantage(char)
+
+  function renderMartialAdvLabel() {
+    if (attackAdvantage.martial === 'none') return null
+    return (
+      <span
+        className={`${styles.advDerivedLabel} ${attackAdvantage.martial === 'adv' ? styles.advDerivedAdv : styles.advDerivedDis}`}
+        title={attackAdvantage.sources.join('; ')}
+      >
+        {attackAdvantage.martial === 'adv' ? 'Adv' : 'Disadv'}
+      </span>
+    )
+  }
 
   function rollWeapon(wid: string) {
     const adv = rollMap[wid]?.adv ?? 'n'
@@ -934,6 +972,95 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
 
     // ── Pact Boon ─────────────────────────────────────────────────────
+    const isRuneCarver = selectedFeature.name === 'Rune Carver' && char.subclass === 'RuneKnight'
+    if (isRuneCarver) {
+      const known = char.knownRunes ?? []
+      const active = char.activeRunes ?? []
+      const maxKnown = char.level >= 15 ? 5 : char.level >= 10 ? 4 : char.level >= 7 ? 3 : 2
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Rune Carver</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            </div>
+            <div className={styles.detailResource}>
+              {known.length} / {maxKnown} runes known · {active.length} active
+            </div>
+            <p className={styles.detailFull}>{selectedFeature.desc}</p>
+            <div className={styles.fightingStyleList}>
+              {runes.map(rune => {
+                const isKnown = known.includes(rune.id)
+                const isActive = active.includes(rune.id)
+                const resourceKey = `Rune:${rune.id}`
+                const resource = char.resources[resourceKey] ?? { used: 0, total: 1 }
+                const canLearn = !isKnown && known.length < maxKnown
+                const canActivate = isKnown && resource.used < resource.total
+                return (
+                  <div
+                    key={rune.id}
+                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
+                  >
+                    <span className={styles.fightingStyleName}>
+                      {rune.name}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {rune.activationType}</span>
+                    </span>
+                    <span className={styles.fightingStyleDesc}>Passive: {rune.passiveBonus}</span>
+                    <span className={styles.fightingStyleDesc}>Activate: {rune.activatedEffect}</span>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      <button
+                        className={styles.detailChipBtn}
+                        disabled={!isKnown && !canLearn}
+                        onClick={() => {
+                          const resources = { ...char.resources }
+                          if (isKnown) {
+                            delete resources[resourceKey]
+                            update({
+                              knownRunes: known.filter(id => id !== rune.id),
+                              activeRunes: active.filter(id => id !== rune.id),
+                              resources,
+                            })
+                          } else if (canLearn) {
+                            resources[resourceKey] = resources[resourceKey] ?? { used: 0, total: 1 }
+                            update({ knownRunes: [...known, rune.id], resources })
+                          }
+                        }}
+                      >
+                        {isKnown ? '− Forget' : '+ Learn'}
+                      </button>
+                      {isKnown && (
+                        <button
+                          className={styles.detailChipBtn}
+                          disabled={!isActive && !canActivate}
+                          onClick={() => {
+                            if (isActive) {
+                              update({ activeRunes: active.filter(id => id !== rune.id) })
+                              return
+                            }
+                            if (!canActivate) return
+                            update({
+                              activeRunes: [...active, rune.id],
+                              resources: {
+                                ...char.resources,
+                                [resourceKey]: { total: resource.total, used: Math.min(resource.total, resource.used + 1) },
+                              },
+                            })
+                          }}
+                        >
+                          {isActive ? '◉ Active' : resource.used >= resource.total ? 'Used' : '○ Activate'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )
+    }
+
     const isPactBoon = selectedFeature.name === 'Pact Boon'
     if (isPactBoon) {
       const PACT_OPTIONS = [
@@ -1081,10 +1208,134 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
 
     // ── Rage ──────────────────────────────────────────────────────────
+    const isWildMagicSurge = selectedFeature.name === 'Wild Magic Surge' && char.subclass === 'WildMagicSorcerer'
+    if (isWildMagicSurge) {
+      const result = wildMagicRoll
+        ? WILD_MAGIC_SURGE_TABLE.find(row => row.min <= wildMagicRoll && wildMagicRoll <= row.max)
+        : null
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Wild Magic Surge</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>d100</span>
+            </div>
+            <p className={styles.detailFull}>{selectedFeature.desc}</p>
+            <button
+              className={styles.armoryAddBtn}
+              style={{ marginTop: 8 }}
+              onClick={() => setWildMagicRoll(Math.floor(Math.random() * 100) + 1)}
+            >
+              Roll d100
+            </button>
+            {result && (
+              <div className={styles.detailResource} style={{ marginTop: 10 }}>
+                Roll {wildMagicRoll}: {result.effect}
+              </div>
+            )}
+          </div>
+        </>
+      )
+    }
+
+    const isTidesOfChaos = selectedFeature.name === 'Tides of Chaos' && char.subclass === 'WildMagicSorcerer'
+    if (isTidesOfChaos) {
+      const res = char.resources['Tides of Chaos'] ?? { used: 0, total: 1 }
+      const remaining = Math.max(0, res.total - res.used)
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Tides of Chaos</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Long Rest</span>
+            </div>
+            <div className={styles.detailResource}>{remaining} / {res.total} uses remaining</div>
+            <p className={styles.detailFull}>{selectedFeature.desc}</p>
+            <button
+              className={styles.armoryAddBtn}
+              style={{ marginTop: 8 }}
+              disabled={remaining <= 0}
+              onClick={() => update({
+                resources: {
+                  ...char.resources,
+                  'Tides of Chaos': { total: res.total, used: Math.min(res.total, res.used + 1) },
+                },
+              })}
+            >
+              Use Tides of Chaos
+            </button>
+          </div>
+        </>
+      )
+    }
+
+    const isPsionicPower = selectedFeature.name === 'Psionic Power' && char.subclass === 'PsiWarrior'
+    if (isPsionicPower) {
+      const res = char.resources['Psionic Energy']
+      const total = res?.total ?? char.proficiencyBonus * 2
+      const used = res?.used ?? 0
+      const remaining = Math.max(0, total - used)
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Psionic Power</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Subclass</span>
+            </div>
+            <div className={styles.detailResource}>{remaining} / {total} Psionic Energy dice remaining</div>
+            <p className={styles.detailFull} style={{ marginTop: 6 }}>{selectedFeature.desc}</p>
+            <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+              {psiWarriorAbilities.map(ability => {
+                const locked = char.level < ability.unlockLevel
+                const canSpend = ability.diceCost > 0 && !locked && remaining >= ability.diceCost
+                return (
+                  <div key={ability.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                      <strong style={{ fontSize: 12 }}>{ability.name}</strong>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                        L{ability.unlockLevel} · {ability.diceCost === 0 ? 'No cost' : `${ability.diceCost} die`}
+                      </span>
+                    </div>
+                    <p className={styles.detailFull} style={{ marginTop: 4, color: locked ? 'var(--text-muted)' : undefined }}>
+                      {ability.description}
+                    </p>
+                    {ability.diceCost > 0 && (
+                      <button
+                        className={styles.armoryAddBtn}
+                        style={{ marginTop: 6 }}
+                        disabled={!canSpend}
+                        onClick={() => {
+                          if (!canSpend) return
+                          update({
+                            resources: {
+                              ...char.resources,
+                              'Psionic Energy': { total, used: Math.min(total, used + ability.diceCost) },
+                            },
+                          })
+                        }}
+                      >
+                        Spend Psionic Energy
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )
+    }
+
     const isRage = selectedFeature.name === 'Rage'
     if (isRage) {
       const rageRes = char.resources['Rage']
       const canRage = rageRes ? rageRes.used < rageRes.total : false
+      const wildSurgeResult = barbarianWildSurgeRoll
+        ? wildSurgeTable.find(row => row.roll === barbarianWildSurgeRoll)
+        : null
       return (
         <>
           <ResourcesPanel character={char} update={update} />
@@ -1093,6 +1344,21 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               <span className={styles.detailName}>Rage</span>
               <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
             </div>
+            {char.subclass === 'WildMagicBarbarian' && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  className={styles.detailChipBtn}
+                  onClick={() => setBarbarianWildSurgeRoll(Math.floor(Math.random() * 8) + 1)}
+                >
+                  Wild Surge (roll d8)
+                </button>
+                {wildSurgeResult && (
+                  <div className={styles.detailResource} style={{ marginTop: 8 }}>
+                    Roll {wildSurgeResult.roll}: {wildSurgeResult.name} - {wildSurgeResult.description}
+                  </div>
+                )}
+              </div>
+            )}
             {char.isRaging ? (
               <div className={styles.detailResource} style={{ color: 'var(--danger, #ef4444)' }}>Currently Raging</div>
             ) : (
@@ -1120,6 +1386,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   if (!canRage) return
                   const newResources = { ...char.resources }
                   if (newResources['Rage']) newResources['Rage'] = { ...newResources['Rage'], used: newResources['Rage'].used + 1 }
+                  if (char.subclass === 'WildMagicBarbarian') setBarbarianWildSurgeRoll(Math.floor(Math.random() * 8) + 1)
                   update({ isRaging: true, resources: newResources })
                 }}
               >
@@ -1229,8 +1496,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     if (isWildShape) {
       const wsRes = char.resources['Wild Shape']
       const isMoon = char.subclass === 'CircleOfTheMoon'
-      const crLimit = char.level >= 8 ? 'CR 1' : char.level >= 4 ? 'CR ½' : 'CR ¼'
+      const crCap = char.level >= 8 ? 1 : char.level >= 4 ? 0.5 : 0.25
+      const crLimit = char.level >= 8 ? 'CR 1' : char.level >= 4 ? 'CR 1/2' : 'CR 1/4'
       const moonCr = char.level >= 9 ? 'CR ' + Math.floor(char.level / 3) : char.level >= 6 ? 'CR 2' : 'CR 1'
+      const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= crCap)
+      const selectedBeast = eligibleBeasts.find(beast => beast.id === selectedWildShapeBeastId) ?? eligibleBeasts[0]
+      const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !char.wildShapeForm
       return (
         <>
           <ResourcesPanel character={char} update={update} />
@@ -1242,6 +1513,11 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             {wsRes && (
               <div className={styles.detailResource}>{wsRes.total - wsRes.used} / {wsRes.total} uses remaining</div>
             )}
+            {char.wildShapeForm && (
+              <div className={styles.detailResource}>
+                Current form: {char.wildShapeForm.name} · {char.wildShapeForm.hp.current}/{char.wildShapeForm.hp.max} HP
+              </div>
+            )}
             <p className={styles.detailFull} style={{ marginTop: 6 }}>
               CR limit: <strong>{isMoon ? moonCr : crLimit}</strong>
               {isMoon && <span style={{ color: 'var(--accent)', marginLeft: 6, fontSize: 11 }}>Circle of the Moon</span>}
@@ -1252,6 +1528,65 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
               You retain your personality, memories, and mental ability scores. You revert when reduced to 0 HP, you choose to, or the duration ends (hours = ½ druid level).
             </p>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+              Modeling: Wild Shape uses an inline form object on the character, so beast HP can absorb damage before overflow reaches druid HP.
+            </p>
+            {char.concentrationSpellId && (
+              <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
+                Concentration persists on the druid while shaped.
+              </p>
+            )}
+            <select
+              className={styles.armoryInput}
+              style={{ marginTop: 10 }}
+              value={selectedBeast?.id ?? ''}
+              onChange={e => setSelectedWildShapeBeastId(e.target.value)}
+            >
+              {eligibleBeasts.map(beast => (
+                <option key={beast.id} value={beast.id}>
+                  {beast.name} · CR {beast.cr} · HP {beast.hp} · AC {beast.ac}
+                </option>
+              ))}
+            </select>
+            {selectedBeast && (
+              <div className={styles.detailResource} style={{ marginTop: 8 }}>
+                {selectedBeast.speed} · {selectedBeast.attack}
+                {selectedBeast.speed.includes('fly') && char.level < 8 ? ' · flying speed restricted before L8' : ''}
+                {selectedBeast.speed.includes('swim') && char.level < 4 ? ' · swimming speed restricted before L4' : ''}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              <button
+                className={styles.armoryAddBtn}
+                disabled={!canShape}
+                onClick={() => {
+                  if (!canShape || !selectedBeast || !wsRes) return
+                  update({
+                    resources: {
+                      ...char.resources,
+                      'Wild Shape': { total: wsRes.total, used: Math.min(wsRes.total, wsRes.used + 1) },
+                    },
+                    wildShapeForm: {
+                      name: selectedBeast.name,
+                      hp: { current: selectedBeast.hp, max: selectedBeast.hp },
+                      ac: selectedBeast.ac,
+                      cr: selectedBeast.cr,
+                      speed: selectedBeast.speed,
+                    },
+                  })
+                }}
+              >
+                Enter Wild Shape
+              </button>
+              {char.wildShapeForm && (
+                <button
+                  className={styles.detailChipBtn}
+                  onClick={() => update({ wildShapeForm: undefined })}
+                >
+                  Leave Form
+                </button>
+              )}
+            </div>
           </div>
         </>
       )
@@ -1567,6 +1902,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 const tRoll = overrideRoll !== undefined ? overrideRoll : rollState
                 const tAdv  = tRoll?.adv ?? 'n'
                 const tD20  = tRoll ? tAdv === 'a' ? Math.max(tRoll.d1, tRoll.d2) : tAdv === 'd' ? Math.min(tRoll.d1, tRoll.d2) : tRoll.d1 : null
+                const displayRows = tableRows.filter(row => row.name !== 'Piercer Critical' && row.name !== 'Crusher Critical')
+                const extraCritDice = critExtraDice(char, w, w.damageType ?? '')
+                const critTotals = criticalSubtotals(subtotals, extraCritDice)
                 return (
                 <table className={styles.attackBreakdownTable}>
                   <thead>
@@ -1576,7 +1914,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     </tr>
                   </thead>
                   <tbody>
-                    {tableRows.map(row => (
+                    {displayRows.map(row => (
                       <tr
                         key={row.id}
                         className={[
@@ -1648,6 +1986,24 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                       </td>
                       <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
+                    {extraCritDice.map((extra, index) => (
+                      <tr key={`crit-extra-${index}`} className={styles.attackBreakdownCritExtraRow}>
+                        <td>{extra.type === 'piercing' ? 'Piercer Critical' : 'Critical Extra'}</td>
+                        <td>{'\u2014'}</td>
+                        <td>{'\u2014'}</td>
+                        <td>{extra.expr}</td>
+                        <td>{extra.type}</td>
+                        <td>{'\u2014'}</td>
+                        <td>{'\u2014'}</td>
+                        <td>{'\u2014'}</td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownCriticalRow}>
+                      <td>critical</td>
+                      <td>{'\u2014'}</td>
+                      <td>{'\u2014'}</td>
+                      <td colSpan={5}>{critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '\u2014'}</td>
+                    </tr>
                   </tbody>
                 </table>
                 )
@@ -1706,7 +2062,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   <div key={w.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
-                        <span>{w.name} melee</span>
+                        <span>{w.name} melee {renderMartialAdvLabel()}</span>
                         <div className={styles.attackHeadActions}>
                           <button className={`${styles.advBtn} ${meleeAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'n')}>Norm</button>
                           <button className={`${styles.advBtn} ${meleeAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'a')}>Adv</button>
@@ -1718,7 +2074,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     </div>
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
-                        <span>{w.name} ranged ({throwRange})</span>
+                        <span>{w.name} ranged ({throwRange}) {renderMartialAdvLabel()}</span>
                         <div className={styles.attackHeadActions}>
                           <button className={`${styles.advBtn} ${rangedAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'n')}>Norm</button>
                           <button className={`${styles.advBtn} ${rangedAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'a')}>Adv</button>
@@ -1763,7 +2119,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               return (
                 <div key={w.id} className={styles.attackBreakdownSection}>
                   <div className={styles.attackBreakdownHead}>
-                    <span>{w.name}</span>
+                    <span>{w.name} {renderMartialAdvLabel()}</span>
                     <div className={styles.attackHeadActions}>
                       <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
                       <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
@@ -2212,7 +2568,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             return (
               <div key={w.id} className={styles.attackBreakdownSection}>
                 <div className={styles.attackBreakdownHead}>
-                  <span>{w.name}</span>
+                  <span>{w.name} {renderMartialAdvLabel()}</span>
                   <div className={styles.attackHeadActions}>
                     <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
                     <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
@@ -2310,7 +2666,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             return (
               <div key={w.id} className={styles.attackBreakdownSection}>
                 <div className={styles.attackBreakdownHead}>
-                  <span>{w.name}</span>
+                  <span>{w.name} {renderMartialAdvLabel()}</span>
                   <div className={styles.attackHeadActions}>
                     <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
                     <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
@@ -2397,6 +2753,25 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             </button>
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (selectedAction === 'Manifest Echo') {
+    return (
+      <div className={styles.detailPane}>
+        <div className={styles.detailHeader}>
+          <span className={styles.detailName}>{selectedActionDef.name}</span>
+          <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>Bonus</span>
+        </div>
+        <p className={styles.detailFull}>{selectedActionDef.full}</p>
+        <button
+          className={styles.armoryAddBtn}
+          style={{ marginTop: 8 }}
+          onClick={() => onSummon?.('echo')}
+        >
+          Manifest Echo
+        </button>
       </div>
     )
   }

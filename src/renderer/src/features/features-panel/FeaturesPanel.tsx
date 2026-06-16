@@ -5,6 +5,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
+import { SPELLS } from '@/shared/data/spellData'
 import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
 import styles from './FeaturesPanel.module.css'
@@ -35,6 +36,16 @@ const SUBCLASS_FEATURE_NAMES = new Set([
   'Roguish Archetype', 'Sorcerous Origin',
 ])
 
+const SORCERER_ORIGIN_NOTES: Record<string, string> = {
+  DraconicBloodline: 'Unarmored AC 13 + DEX; +1 HP per sorcerer level. (wired)',
+  WildMagicSorcerer: 'Tides of Chaos (1/LR); roll on the Wild Magic Surge table (see 2D).',
+  DivineSoul: 'Access the cleric spell list; Favored by the Gods reroll.',
+  ShadowMagic: '120 ft darkvision; Hound of Ill Omen; Strength of the Grave.',
+  StormSorcery: 'Tempestuous Magic: fly 10 ft (no OA) after casting a L1+ spell.',
+  AberrantMind: 'Expanded spell list + telepathy/order notes.',
+  ClockworkSoul: 'Expanded spell list + telepathy/order notes.',
+}
+
 interface Props {
   character: Character
   update: (patch: Partial<Character>) => void
@@ -53,11 +64,24 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
   const [selectedFeatId, setSelectedFeatId] = useState('')
   const [featAbilityChoice, setFeatAbilityChoice] = useState<AbilityScore | ''>('')
   const [featSpellIdsText, setFeatSpellIdsText] = useState('')
+  const [featSpellClass, setFeatSpellClass] = useState('')
 
   const customFeatures = char.customFeatures ?? []
   const selectedFeat = selectedFeatId ? FEAT_BY_ID[selectedFeatId] : undefined
-  const fixedFeatSpellIds = selectedFeatId ? (FIXED_FEAT_SPELLS[selectedFeatId] ?? []) : []
+  const fixedFeatSpellIds = selectedFeat
+    ? [...new Set([...(selectedFeat.grantedSpells ?? []), ...(FIXED_FEAT_SPELLS[selectedFeatId] ?? [])])]
+    : []
   const chosenSpellIds = featSpellIdsText.split(',').map(s => s.trim()).filter(Boolean)
+  const featSpellPicks = chosenSpellIds
+  const magicInitiateClasses = ['Bard', 'Cleric', 'Druid', 'Sorcerer', 'Warlock', 'Wizard']
+  const spellOptions = {
+    fey: SPELLS.filter(s => s.level === 1 && ['Enchantment', 'Divination'].includes(s.school)),
+    shadow: SPELLS.filter(s => s.level === 1 && ['Illusion', 'Necromancy'].includes(s.school)),
+    artificerCantrips: SPELLS.filter(s => s.level === 0 && s.classes.includes('Artificer')),
+    artificerFirst: SPELLS.filter(s => s.level === 1 && s.classes.includes('Artificer')),
+    magicCantrips: featSpellClass ? SPELLS.filter(s => s.level === 0 && s.classes.includes(featSpellClass)) : [],
+    magicFirst: featSpellClass ? SPELLS.filter(s => s.level === 1 && s.classes.includes(featSpellClass)) : [],
+  }
   const featCanSave = !!selectedFeat && (!selectedFeat.abilityChoice || !!featAbilityChoice)
 
   function addFeature() {
@@ -78,6 +102,7 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
     setSelectedFeatId('')
     setFeatAbilityChoice('')
     setFeatSpellIdsText('')
+    setFeatSpellClass('')
     setFeatSearch('')
     setFeatOpen(false)
   }
@@ -120,6 +145,20 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
         classFeatures.push({ ...f, source: 'class' })
       }
     }
+    if (char.classId === 'Sorcerer' && SORCERER_ORIGIN_NOTES[char.subclass]) {
+      classFeatures.push({
+        level: 1,
+        source: 'class',
+        name: 'Sorcerous Origin Note',
+        desc: SORCERER_ORIGIN_NOTES[char.subclass],
+      })
+    }
+  }
+
+  function setFeatSpellPick(index: number, spellId: string) {
+    const next = [...featSpellPicks]
+    next[index] = spellId
+    setFeatSpellIdsText(next.filter(Boolean).join(','))
   }
 
   const classDef = CLASS_BY_ID[char.classId]
@@ -131,6 +170,15 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
       level: 1, source: 'class',
       name: `Prepared Spells (${char.preparedSpellIds.length}/${prepCap})`,
       desc: `You can prepare up to ${prepCap} spells from your class list after a long rest. Currently ${char.preparedSpellIds.length} prepared.`,
+    })
+  }
+
+  if (char.classId === 'Wizard') {
+    classFeatures.push({
+      level: 1,
+      source: 'class',
+      name: 'Reaction Options',
+      desc: 'Shield / Counterspell reaction options.',
     })
   }
 
@@ -207,7 +255,7 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
           <select
             className={styles.addInput}
             value={selectedFeatId}
-            onChange={e => { setSelectedFeatId(e.target.value); setFeatAbilityChoice(''); setFeatSpellIdsText('') }}
+            onChange={e => { setSelectedFeatId(e.target.value); setFeatAbilityChoice(''); setFeatSpellIdsText(''); setFeatSpellClass('') }}
           >
             <option value="">Choose feat</option>
             {featMatches.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -230,7 +278,92 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
           {fixedFeatSpellIds.length > 0 && (
             <span className={styles.featPickerDesc}>Granted spell IDs: {fixedFeatSpellIds.join(', ')}</span>
           )}
-          {selectedFeat && ['fey-touched', 'shadow-touched', 'spellSniper', 'magicInitiate', 'artificer-initiate'].includes(selectedFeat.id) && (
+          {selectedFeat?.id === 'fey-touched' && (
+            <select
+              className={styles.addInput}
+              value={featSpellPicks[0] ?? ''}
+              onChange={e => setFeatSpellPick(0, e.target.value)}
+            >
+              <option value="">Choose 1st-level enchantment/divination spell</option>
+              {spellOptions.fey.map(spell => (
+                <option key={spell.id} value={spell.id}>{spell.name}</option>
+              ))}
+            </select>
+          )}
+          {selectedFeat?.id === 'shadow-touched' && (
+            <select
+              className={styles.addInput}
+              value={featSpellPicks[0] ?? ''}
+              onChange={e => setFeatSpellPick(0, e.target.value)}
+            >
+              <option value="">Choose 1st-level illusion/necromancy spell</option>
+              {spellOptions.shadow.map(spell => (
+                <option key={spell.id} value={spell.id}>{spell.name}</option>
+              ))}
+            </select>
+          )}
+          {selectedFeat?.id === 'magicInitiate' && (
+            <>
+              <select
+                className={styles.addInput}
+                value={featSpellClass}
+                onChange={e => { setFeatSpellClass(e.target.value); setFeatSpellIdsText('') }}
+              >
+                <option value="">Choose class spell list</option>
+                {magicInitiateClasses.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+              </select>
+              {[0, 1].map(index => (
+                <select
+                  key={index}
+                  className={styles.addInput}
+                  value={featSpellPicks[index] ?? ''}
+                  onChange={e => setFeatSpellPick(index, e.target.value)}
+                  disabled={!featSpellClass}
+                >
+                  <option value="">Choose cantrip {index + 1}</option>
+                  {spellOptions.magicCantrips.map(spell => (
+                    <option key={spell.id} value={spell.id}>{spell.name}</option>
+                  ))}
+                </select>
+              ))}
+              <select
+                className={styles.addInput}
+                value={featSpellPicks[2] ?? ''}
+                onChange={e => setFeatSpellPick(2, e.target.value)}
+                disabled={!featSpellClass}
+              >
+                <option value="">Choose 1st-level spell</option>
+                {spellOptions.magicFirst.map(spell => (
+                  <option key={spell.id} value={spell.id}>{spell.name}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {selectedFeat?.id === 'artificer-initiate' && (
+            <>
+              <select
+                className={styles.addInput}
+                value={featSpellPicks[0] ?? ''}
+                onChange={e => setFeatSpellPick(0, e.target.value)}
+              >
+                <option value="">Choose Artificer cantrip</option>
+                {spellOptions.artificerCantrips.map(spell => (
+                  <option key={spell.id} value={spell.id}>{spell.name}</option>
+                ))}
+              </select>
+              <select
+                className={styles.addInput}
+                value={featSpellPicks[1] ?? ''}
+                onChange={e => setFeatSpellPick(1, e.target.value)}
+              >
+                <option value="">Choose Artificer 1st-level spell</option>
+                {spellOptions.artificerFirst.map(spell => (
+                  <option key={spell.id} value={spell.id}>{spell.name}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {selectedFeat?.id === 'spellSniper' && (
             <input
               className={styles.addInput}
               placeholder="Additional granted spell IDs (comma-separated)"

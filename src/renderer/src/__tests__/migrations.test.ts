@@ -126,7 +126,6 @@ describe('migrateCharacter', () => {
       expect(result.equipment.legsId).toBeNull()
       expect(result.equipment.bootsId).toBeNull()
       expect(result.equipment.glovesId).toBeNull()
-      expect(result.equipment.quiverId).toBeNull()
       expect(result.equipment.ring1Id).toBeNull()
       expect(result.equipment.ring2Id).toBeNull()
       expect(result.equipment.amuletId).toBeNull()

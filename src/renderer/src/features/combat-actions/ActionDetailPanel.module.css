@@ -115,6 +115,21 @@
 .attackBreakdownRowDisabled td { opacity: 0.25; cursor: not-allowed; font-style: italic; }
 .attackBreakdownTotalRow { border-top: 1px solid var(--border); }
 .attackBreakdownTotalRow td { font-weight: 700; color: var(--accent); padding-top: 5px; padding-bottom: 5px; }
+.attackBreakdownCritExtraRow td { color: var(--text-secondary); font-weight: 600; }
+.attackBreakdownCriticalRow { border-top: 1px solid var(--border); }
+.attackBreakdownCriticalRow td { font-weight: 700; color: var(--warning); padding-top: 5px; padding-bottom: 5px; }
+.advDerivedLabel {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.advDerivedAdv { background: rgba(76,175,125,0.16); color: var(--success); }
+.advDerivedDis { background: rgba(200,100,100,0.16); color: var(--danger); }
 .resourceChip {
   display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.04em; padding: 1px 5px; border-radius: 3px;

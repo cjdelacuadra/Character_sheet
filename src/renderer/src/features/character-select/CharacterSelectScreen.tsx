@@ -187,7 +187,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
       hasShield: !!shieldId,
       shieldId,
       helmetId: null, necklaceId: null, capeId: null,
-      legsId: null, bootsId: null, glovesId: null, quiverId: null,
+      legsId: null, bootsId: null, glovesId: null,
       ring1Id: null, ring2Id: null, amuletId: null,
     }
     const charBase = { abilityScores: scores, equipment, classId: basics.classId, race: basics.race, subclass: basics.subclass }
@@ -212,7 +212,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     // Only promote expertise for skills the character is actually proficient in
     chosenExpertise.forEach(s => { if (skillProf[s]) skillProf[s] = 'expert' })
 
-    const resources = getResourceDefaults(basics.classId, basics.level, scores)
+    const resources = getResourceDefaults(basics.classId, basics.level, scores, basics.subclass)
 
     // Sort chosen weapons by average damage so the highest-damage weapon
     // lands at slot 0 (main hand). Parse "NdM" then NdM-style damage dice;
@@ -322,7 +322,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
         level,
         proficiencyBonus: prof,
         hitPoints: { current: maxHp, max: maxHp, temp: 0 },
-        resources: getResourceDefaults(base.classId, level, base.abilityScores),
+        resources: getResourceDefaults(base.classId, level, base.abilityScores, sc.id),
         spellSlots: defaultSpellSlots(base.classId, level, sc.id),
       }
     })

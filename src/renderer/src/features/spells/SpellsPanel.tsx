@@ -4,7 +4,7 @@ import { SPELL_BY_ID, SPELLS, computeUpcastDice, endsAtStartOfNextTurn, isBuffCo
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID, LAND_CIRCLE_SPELLS } from '@/shared/data/subclassData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
-import { computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import type { EconomyType } from '@/app/store/turnSlice'
@@ -65,13 +65,20 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     }
   }
   const hasRacialSpells = racialSpellIds.length > 0
+  const featSpellIds = Object.keys(char.resources)
+    .filter(key => key.startsWith('Feat:'))
+    .map(key => key.slice('Feat:'.length))
+    .filter(id => !!SPELL_BY_ID[id])
+  const hasFeatSpells = featSpellIds.length > 0
 
-  if (!isSpellcaster && !hasRacialSpells && !hasSpellSlots) return null
+  if (!isSpellcaster && !hasRacialSpells && !hasFeatSpells && !hasSpellSlots) return null
 
   const spellSaveDC = computeSpellSaveDC(char)
   const spellAtkBonus = computeSpellAttackBonus(char)
+  const attackAdvantage = computeAttackAdvantage(char)
   const isPreparedCaster = !!classDef?.prepareSpells
   const isWizard = char.classId === 'Wizard'
+  const knownCasterSwapNote = !isPreparedCaster && !!classDef?.spellsKnownTable
   const spellcastingAbility = subclassDef?.spellcastingAbility ?? classDef?.spellcastingAbility
   const prepareLimit = isPreparedCaster && spellcastingAbility
     ? computePreparedSpellCount(char.classId, char.level, char.abilityScores[spellcastingAbility])
@@ -246,6 +253,14 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
           {spell.saveAbility && (<><dt>Save DC</dt><dd>{spellSaveDC} {spell.saveAbility.toUpperCase()}</dd></>)}
           {SPELL_ATTACK_IDS.has(spell.id) && (<><dt>To Hit</dt><dd>{fmtMod(spellAtkBonus)}</dd></>)}
+          {SPELL_ATTACK_IDS.has(spell.id) && attackAdvantage.spell !== 'none' && (
+            <>
+              <dt>Advantage</dt>
+              <dd title={attackAdvantage.sources.join('; ')}>
+                {attackAdvantage.spell === 'adv' ? 'Adv' : 'Disadv'}
+              </dd>
+            </>
+          )}
         </dl>
         <p className={styles.spellExpandDesc}>{spell.description}</p>
         {hasVisualization && scalingRows.length > 0 && (
@@ -274,6 +289,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                     )}
                     {dmg.missFormula === '—' && (
                       <span className={styles.spellScalingMiss}> · miss: —</span>
+                    )}
+                    {dmg.critFormula && (
+                      <span className={styles.spellScalingCrit}> {'\u00B7'} crit: {dmg.critFormula}</span>
                     )}
                   </span>
                   <span className={styles.spellScalingDc}>{dcOrToHit}</span>
@@ -593,6 +611,74 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
         </section>
       )}
 
+      {/* Feat Spells */}
+      {hasFeatSpells && (
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <span className={styles.sectionLabel}>Feat Spells</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>1/long rest each</span>
+          </div>
+          <div className={styles.spellList}>
+            {featSpellIds.map(id => {
+              const spell = SPELL_BY_ID[id]
+              if (!spell) return null
+              const resourceKey = `Feat:${spell.id}`
+              const used = char.resources[resourceKey]?.used ?? 0
+              const isExpanded = expandedSpell === id
+              return (
+                <div key={id}>
+                  <div className={styles.spellEntry} onClick={() => toggleExpand(id)}>
+                    <div className={styles.spellEntryLeft}>
+                      <span className={styles.spellLevelBadge}>{spell.level}</span>
+                      <span className={styles.spellName}>{spell.name}</span>
+                      <span className={styles.spellSchool}>{spell.school}</span>
+                    </div>
+                    <div className={styles.spellEntryRight}>
+                      <button
+                        className={`${styles.slotPip} ${used < 1 ? styles.pipFull : styles.pipEmpty}`}
+                        title={used < 1 ? 'Use (1/long rest)' : 'Recover on long rest'}
+                        onClick={e => {
+                          e.stopPropagation()
+                          update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className={styles.spellExpandArea}>
+                      <button className={styles.spellExpandClose} onClick={() => setExpandedSpell(null)}>Ã—</button>
+                      <dl className={styles.spellExpandMeta}>
+                        <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
+                        <dt>Range</dt><dd>{spell.range}</dd>
+                        <dt>Components</dt><dd>{spell.components}</dd>
+                        <dt>Duration</dt><dd>{spell.concentration ? 'âš¡ ' : ''}{spell.duration}</dd>
+                      </dl>
+                      <p className={styles.spellExpandDesc}>{spell.description}</p>
+                      <div className={styles.spellExpandActions}>
+                        <button
+                          className={styles.spellExpandCastBtn}
+                          style={{ borderColor: used < 1 ? undefined : 'var(--danger)', color: used < 1 ? undefined : 'var(--danger)' }}
+                          onClick={() => {
+                            if (used < 1) {
+                              const econ = castingTimeToEconomy(spell.castingTime)
+                              if (econ) useEconomy(char.id, econ)
+                            }
+                            update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
+                            setExpandedSpell(null)
+                          }}
+                        >
+                          {used < 1 ? 'Cast (1/long rest)' : 'Already used Â· click to recover'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Spells section */}
       {(char.spellIds.length > 0 || onLearnSpell) && (
         <section className={styles.section}>
@@ -641,6 +727,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             <>
               {/* Section 1: Prepared — drop target */}
               <span className={styles.spellSubLabel}>Prepared ({preparedIds.length}{prepareLimit !== null ? `/${prepareLimit}` : ''})</span>
+              <span className={styles.spellSubLabel} style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>
+                You may change your prepared list after a long rest.
+              </span>
               <div
                 className={`${styles.spellList} ${dragOver === 'prepared' ? styles.spellListDropActive : ''}`}
                 onDragOver={e => onSectionDragOver(e, 'prepared')}
@@ -669,6 +758,11 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               <span className={styles.spellSubLabel}>
                 {isWizard ? 'Spellbook' : 'Known'} ({cantripsAndKnown.length})
               </span>
+              {knownCasterSwapNote && (
+                <span className={styles.spellSubLabel} style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>
+                  You may replace one known spell when you gain a level.
+                </span>
+              )}
               <div
                 className={`${styles.spellList} ${dragOver === 'spellbook' || dragOver === 'known' ? styles.spellListDropActive : ''}`}
                 onDragOver={e => onSectionDragOver(e, isWizard ? 'spellbook' : 'known')}

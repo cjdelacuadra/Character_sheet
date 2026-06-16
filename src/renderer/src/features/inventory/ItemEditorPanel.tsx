@@ -140,6 +140,7 @@ function enchantToRarity(bonus: number): string {
 const SPRITE_PREFIX = '/assets/'
 const SPRITE_FOLDERS = [
   // Weapons (including subfolders)
+  // todo: update
   'weapons/', 'weapons/swords/', 'weapons/axes/', 'weapons/clubs/',
   'weapons/throwables/', 'weapons/wands and rods/',
   // Armor and accessories

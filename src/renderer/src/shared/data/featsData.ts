@@ -6,6 +6,8 @@ export interface FeatDef {
   description: string
   abilityBonus?: Partial<AbilityScores>
   abilityChoice?: (keyof AbilityScores)[]
+  grantedSpells?: string[]
+  freeCastSpells?: string[]
 }
 
 export const FEATS: FeatDef[] = [
@@ -147,6 +149,8 @@ export const FEATS: FeatDef[] = [
     id: 'magicInitiate',
     name: 'Magic Initiate',
     description: 'Choose a class. Learn 2 cantrips and one 1st-level spell from that class\'s list. Cast the 1st-level spell once per long rest at its lowest level (or normally if you have spell slots).',
+    grantedSpells: [],
+    freeCastSpells: [],
   },
   {
     id: 'martialAdept',
@@ -220,6 +224,8 @@ export const FEATS: FeatDef[] = [
     id: 'artificer-initiate',
     name: 'Artificer Initiate',
     description: 'Learn one cantrip and one 1st-level spell from the Artificer list (INT is your spellcasting ability). Cast the 1st-level spell once per long rest for free, or with a spell slot if you have one. Gain proficiency with one tool of your choice.',
+    grantedSpells: [],
+    freeCastSpells: [],
   },
   {
     id: 'chef',
@@ -237,12 +243,16 @@ export const FEATS: FeatDef[] = [
     id: 'eldritch-adept',
     name: 'Eldritch Adept',
     description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn one Eldritch Invocation option from the Warlock class. If the invocation has a prerequisite, you must meet it. You can replace this invocation with another when you gain a level.',
+    grantedSpells: [],
+    freeCastSpells: [],
   },
   {
     id: 'fey-touched',
     name: 'Fey Touched',
     description: '+1 INT, WIS, or CHA. Learn Misty Step and one 1st-level spell from the enchantment or divination school (using the chosen ability as your spellcasting ability). Cast each spell once per long rest for free, or with a spell slot if you have one.',
     abilityChoice: ['int', 'wis', 'cha'],
+    grantedSpells: ['misty-step'],
+    freeCastSpells: ['misty-step'],
   },
   {
     id: 'fighting-initiate',
@@ -276,6 +286,8 @@ export const FEATS: FeatDef[] = [
     name: 'Shadow Touched',
     description: '+1 INT, WIS, or CHA. Learn Invisibility and one 1st-level spell from the illusion or necromancy school (using the chosen ability). Cast each spell once per long rest for free, or with a spell slot if you have one.',
     abilityChoice: ['int', 'wis', 'cha'],
+    grantedSpells: ['invisibility'],
+    freeCastSpells: ['invisibility'],
   },
   {
     id: 'slasher',
@@ -294,6 +306,8 @@ export const FEATS: FeatDef[] = [
     name: 'Telepathic',
     description: '+1 INT, WIS, or CHA. Speak telepathically to any creature you can see within 60 ft (no common language required). Cast Detect Thoughts once per long rest without expending a spell slot (using the chosen ability as your spellcasting ability).',
     abilityChoice: ['int', 'wis', 'cha'],
+    grantedSpells: ['detect-thoughts'],
+    freeCastSpells: ['detect-thoughts'],
   },
 ]
 

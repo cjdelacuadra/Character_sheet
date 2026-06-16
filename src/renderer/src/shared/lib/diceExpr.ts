@@ -64,3 +64,15 @@ export function combineDiceExpr(expr: string): string {
 
   return parts.join(' + ').replace(/\+ -/g, '- ')  || '0'
 }
+
+/** Doubles every die COUNT (crit), leaving flat modifiers unchanged.
+ *  "2d6 + 14" -> "4d6 + 14"; "1d8" -> "2d8". */
+export function critDiceExpr(expr: string): string {
+  if (!expr || expr === 'â€”') return expr
+  const { dice, flat } = parseDiceExpr(expr)
+  const doubled = combineDiceTerms(dice.map(term => ({ ...term, count: term.count * 2 })))
+  const diceExpr = doubled.map(({ count, face }) =>
+    count === 1 ? `1d${face}` : `${count}d${face}`,
+  ).join('+')
+  return combineDiceExpr([diceExpr, flat !== 0 ? String(flat) : null].filter(Boolean).join('+'))
+}

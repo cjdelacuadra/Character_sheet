@@ -532,7 +532,6 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
       helmet:   'helmetId',  necklace: 'necklaceId',
       cape:     'capeId',    legs:     'legsId',
       boots:    'bootsId',   gloves:   'glovesId',
-      quiver:   'quiverId',
       ring:     char.equipment.ring1Id ? 'ring2Id' : 'ring1Id',
       amulet:   'amuletId',
     }

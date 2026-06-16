@@ -107,6 +107,7 @@
 .spellScalingSlot { font-weight: 600; color: var(--text); }
 .spellScalingDmg { color: var(--accent); font-weight: 600; }
 .spellScalingMiss { color: var(--text-muted); font-weight: 400; font-size: 10px; }
+.spellScalingCrit { color: var(--accent); font-weight: 600; font-size: 10px; }
 .spellScalingDc { color: var(--text-muted); font-size: 10px; }
 .spellScalingLeft { color: var(--text-muted); font-size: 10px; min-width: 40px; text-align: right; }
 

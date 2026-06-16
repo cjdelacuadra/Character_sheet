@@ -1,6 +1,6 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { mod, effectiveAbilityScore, computeEquipmentStats } from '@/shared/data/charCalculations'
-import { combineDiceExpr } from '@/shared/lib/diceExpr'
+import { combineDiceExpr, critDiceExpr } from '@/shared/lib/diceExpr'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
@@ -24,6 +24,43 @@ export function computeSpellAttackBonus(character: Character): number {
   return character.proficiencyBonus + spellcastingAbilityMod(character)
 }
 
+export type AdvState = 'adv' | 'dis' | 'none'
+
+export interface AttackAdvantage {
+  martial: AdvState
+  spell: AdvState
+  sources: string[]
+}
+
+export function computeAttackAdvantage(character: Character): AttackAdvantage {
+  const advSources: string[] = []
+  const disSources: string[] = []
+
+  for (const condition of character.conditionIds) {
+    const id = condition.conditionId.toLowerCase()
+    if (id === 'invisible') advSources.push('Advantage: invisible')
+    if (['poisoned', 'blinded', 'frightened', 'prone', 'restrained', 'exhaustion'].includes(id)) {
+      disSources.push(`Disadvantage: ${id}`)
+    }
+  }
+
+  const martialAdvSources = [...advSources]
+  if (character.isRaging === true) martialAdvSources.push('Advantage: Reckless/Rage')
+
+  function resolve(categoryAdvSources: string[]): AdvState {
+    if (categoryAdvSources.length > 0 && disSources.length > 0) return 'none'
+    if (categoryAdvSources.length > 0) return 'adv'
+    if (disSources.length > 0) return 'dis'
+    return 'none'
+  }
+
+  return {
+    martial: resolve(martialAdvSources),
+    spell: resolve(advSources),
+    sources: [...martialAdvSources, ...disSources],
+  }
+}
+
 /**
  * DC for the Arcane Archer's Arcane Shot effects (XGtE).
  * Returns null if the character isn't an Arcane Archer (or the subclass field is absent),
@@ -43,6 +80,7 @@ export interface SpellDamageResult {
   hitFormula: string
   missFormula: string
   dmgType: string
+  critFormula: string
 }
 
 /**
@@ -86,11 +124,15 @@ export function computeSpellDamage(
     ? combineDiceExpr([baseDice, ...sameTypeParts].join('+'))
     : baseDice
 
+  const hitParts: { expr: string; type: string }[] = []
   let hitFormula = dmgType ? `${combined} ${dmgType}` : combined
+  if (dmgType && combined !== 'â€”') hitParts.push({ expr: combined, type: dmgType })
   for (const rider of otherType) {
     const parts = [...rider.dice, rider.flat ? String(rider.flat) : null].filter(Boolean) as string[]
     if (!parts.length) continue
-    hitFormula += ` + ${combineDiceExpr(parts.join('+'))} ${rider.dmgType}`
+    const expr = combineDiceExpr(parts.join('+'))
+    hitParts.push({ expr, type: rider.dmgType })
+    hitFormula += ` + ${expr} ${rider.dmgType}`
   }
 
   let missFormula = ''
@@ -98,7 +140,11 @@ export function computeSpellDamage(
   else if (spell.attackType === 'save')   missFormula = 'half'
   else if (spell.attackType === 'auto-hit') missFormula = ''
 
-  return { hitFormula, missFormula, dmgType }
+  const critFormula = spell.attackType === 'attack-roll'
+    ? hitParts.map(part => `${critDiceExpr(part.expr)} ${part.type}`).join(' + ')
+    : ''
+
+  return { hitFormula, missFormula, dmgType, critFormula }
 }
 
 // ── Attack bonus ────────────────────────────────────────────────────────────
@@ -204,6 +250,7 @@ export interface ActionDef {
   type: 'Action' | 'Bonus Action' | 'Reaction' | 'Free'
   short: string
   full: string
+  description?: string
   resourceKey?: string
   resourceCost?: number
   requiresLevel?: number
@@ -300,6 +347,10 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Cunning Action',   type: 'Bonus Action', classOnly: 'Rogue', requiresLevel: 2,
     short: 'Dash, Disengage, or Hide as a bonus action.',
     full: 'Your quick thinking allows you to take the Dash, Disengage, or Hide action as a bonus action on each of your turns.' },
+  { name: 'Steady Aim',       type: 'Bonus Action', classOnly: 'Rogue', requiresLevel: 3,
+    short: 'Advantage on your next attack this turn; speed becomes 0.',
+    description: 'You give yourself advantage on your next attack roll on this turn. Usable only if you have not moved this turn; afterward your speed is 0 until the end of the turn.',
+    full: 'You give yourself advantage on your next attack roll on this turn. Usable only if you have not moved this turn; afterward your speed is 0 until the end of the turn.' },
   { name: 'Uncanny Dodge',    type: 'Reaction', classOnly: 'Rogue', requiresLevel: 5,
     short: 'Halve damage from one attack you can see.',
     full: "When an attacker you can see hits you with an attack, use your reaction to halve the attack's damage against you." },
@@ -365,6 +416,35 @@ export function computeCritThreshold(character: Character, opts?: { weaponCritMo
   return threshold
 }
 
+export function critExtraDice(
+  character: Character,
+  weapon: Weapon,
+  weaponDamageType: string,
+): { expr: string; type: string }[] {
+  const extras: { expr: string; type: string }[] = []
+  const weaponDie = weapon.damage
+  const normalizedType = weaponDamageType.toLowerCase()
+
+  if (character.piercerCritExtraDie === true && normalizedType === 'piercing') {
+    extras.push({ expr: weaponDie, type: 'piercing' })
+  }
+
+  if (character.classId === 'Barbarian') {
+    const extraDice = character.level >= 17 ? 3 : character.level >= 13 ? 2 : character.level >= 9 ? 1 : 0
+    if (extraDice > 0) {
+      const match = weaponDie.match(/^(\d+)d(\d+)$/)
+      const expr = match ? `${Number(match[1]) * extraDice}d${match[2]}` : weaponDie
+      extras.push({ expr, type: weaponDamageType })
+    }
+  }
+
+  if (character.race === 'HalfOrc' && weapon.rangeType !== 'Ranged') {
+    extras.push({ expr: weaponDie, type: weaponDamageType })
+  }
+
+  return extras
+}
+
 function destroyUndeadCRThreshold(level: number): string | null {
   if (level >= 17) return '4'
   if (level >= 14) return '3'
@@ -424,6 +504,15 @@ export function getAvailableActions(character: Character): ActionDef[] {
   }
 
   // Fighter: Samurai Fighting Spirit
+  if (character.subclass === 'EchoKnight' && character.level >= 3) {
+    subclassActions.push({
+      name: 'Manifest Echo',
+      type: 'Bonus Action',
+      short: 'Manifest a spectral echo in an unoccupied space within 15 ft.',
+      full: "As a bonus action, magically manifest an echo of yourself in an unoccupied space you can see within 15 ft. The echo has AC 11 + your proficiency bonus, 1 HP, and uses the summon tracker.",
+    })
+  }
+
   if (character.subclass === 'Samurai' && character.level >= 3) {
     const fightingSpiritRes = character.resources?.['Fighting Spirit']
     const used = fightingSpiritRes?.used ?? 0

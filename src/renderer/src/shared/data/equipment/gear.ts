@@ -160,13 +160,6 @@ export let GEAR: GearEquipmentItem[] = [
     requiresAttunement: true, stats: { critModifier: { all: 1 } } },
   { id: 'ring-of-precision', name: 'Ring of Precision', kind: 'ring', cost: 5000, rarity: 'very rare', sprite: `${S}Ring_of_life.png`,
     requiresAttunement: true, stats: { critModifier: { melee: 1, ranged: 1 } } },
-
-  // ── Quiver ──────────────────────────────────────────────────────────────────
-  { id: 'arrow-quiver',     name: 'Arrow Quiver',      kind: 'quiver', cost: 5, rarity: 'common' },
-  { id: 'avas-accumulator', name: "Ava's Accumulator", kind: 'quiver', cost: 0, rarity: 'uncommon',   sprite: `${S}Ava%27s_accumulator.png`,
-    stats: { advantage: { skills: ['perception'] } } },
-  { id: 'avas-assembler',   name: "Ava's Assembler",   kind: 'quiver', cost: 0, rarity: 'rare',       sprite: `${S}Ava%27s_assembler.png`,
-    stats: { acBonus: 1, advantage: { skills: ['perception'] } } },
 ]
 
 export let GEAR_BY_ID: Record<string, GearEquipmentItem> =
