@@ -92,3 +92,22 @@
   background: var(--surface-3);
   color: var(--accent);
 }
+
+.movedBtn {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.movedBtnActive {
+  border-color: var(--warning);
+  background: rgba(224,168,76,0.14);
+  color: var(--warning);
+}

@@ -50,6 +50,7 @@ export function CharacterView() {
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
   const [spellValidationDeficit, setSpellValidationDeficit] = useState<{ spells: number; cantrips: number } | null>(null)
+  const [newSpellTierNotice, setNewSpellTierNotice] = useState<string | null>(null)
   const [nextTurnOpen, setNextTurnOpen] = useState(false)
   // ASI levels the character passed (e.g. created at level 7) but never got to choose. Drives a catch-up prompt.
   const [asiCatchUpQueue, setAsiCatchUpQueue] = useState<number[]>([])
@@ -64,11 +65,11 @@ export function CharacterView() {
     const cls = CLASS_BY_ID[c.classId]
     const sub = c.subclass ? SUBCLASS_BY_ID[c.subclass] : undefined
 
-    // Prepared casters: prompt to prepare leveled spells up to the current limit if under-prepared
-    // (e.g. after a level-up raised the limit). Known casters fall through to the deficit check below.
+    // Prepared casters without a known-spells table prepare from the full class list in SpellsPanel.
+    // They are not forced through a leveled-spell picker.
     const castAbility = sub?.spellcastingAbility ?? cls?.spellcastingAbility
     const hasSlots = Object.values(c.spellSlots).some(s => (s as { total: number }).total > 0)
-    if (cls?.prepareSpells && castAbility && hasSlots) {
+    if (cls?.prepareSpells && cls.spellsKnownTable && castAbility && hasSlots) {
       const limit = computePreparedSpellCount(c.classId, c.level, c.abilityScores[castAbility])
       const preparedLeveled = c.preparedSpellIds.filter(id => (SPELL_BY_ID[id]?.level ?? 0) > 0).length
       if (preparedLeveled < limit) { setPrepareStepOpen(true); return }
@@ -139,6 +140,15 @@ export function CharacterView() {
   const xpNext = xpForNextLevel(char.level)
   const canLevelUp = xpNext !== null && char.experiencePoints >= xpNext
 
+  function queuePreparedTierNotice(currentChar: NonNullable<typeof char>, newLevel: number) {
+    if (!classDef?.prepareSpells || classDef.spellsKnownTable) return
+    const oldMax = computeSpellLevelUpConfig(classDef, Math.max(1, currentChar.level - 1), currentChar.level, currentChar.subclass ?? undefined).maxSlotLevel
+    const newMax = computeSpellLevelUpConfig(classDef, currentChar.level, newLevel, currentChar.subclass ?? undefined).maxSlotLevel
+    if (newMax > oldMax) {
+      setNewSpellTierNotice(`New spells available - you can now prepare level-${newMax} spells.`)
+    }
+  }
+
   void canLevelUp
 
   return (
@@ -150,6 +160,7 @@ export function CharacterView() {
         onDrawerToggle={() => setDrawerOpen(v => !v)}
         onLevelUp={() => {
           const newLevel = char.level + 1
+          queuePreparedTierNotice(char, newLevel)
           const subclassUnlockLevel = SUBCLASSES_BY_CLASS[char.classId]?.[0]?.unlocksAtLevel
           const needsSubclass = newLevel === subclassUnlockLevel && !char.subclass
           const completed = char.completedAsiLevels ?? []
@@ -178,6 +189,12 @@ export function CharacterView() {
       {outstandingAsi.length > 0 && asiCatchUpQueue.length === 0 && (
         <button className={styles.asiBanner} onClick={() => setAsiCatchUpQueue(outstandingAsi)}>
           ⚑ {outstandingAsi.length} unspent Ability Score Improvement{outstandingAsi.length > 1 ? 's' : ''} (level{outstandingAsi.length > 1 ? 's' : ''} {outstandingAsi.join(', ')}) — click to resolve
+        </button>
+      )}
+
+      {newSpellTierNotice && (
+        <button className={styles.asiBanner} onClick={() => setNewSpellTierNotice(null)}>
+          {newSpellTierNotice}
         </button>
       )}
 

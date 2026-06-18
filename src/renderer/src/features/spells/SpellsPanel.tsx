@@ -499,8 +499,20 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     .filter(id => matchesFilters(SPELL_BY_ID[id]!))
     .sort(spellSort)
 
-  const preparedIds = allKnownIds.filter(id => preparedSet.has(id))
+  const spellListClassId = subclassDef?.spellListClassId ?? char.classId
+  const preparedIds = isPreparedCaster && !isWizard
+    ? char.preparedSpellIds
+        .filter(id => {
+          const spell = SPELL_BY_ID[id]
+          return !!spell && spell.classes.includes(spellListClassId) && matchesFilters(spell)
+        })
+        .sort(spellSort)
+    : allKnownIds.filter(id => preparedSet.has(id))
   const cantripsAndKnown = allKnownIds.filter(id => !preparedSet.has(id) && !subclassGrantedSet.has(id))
+  const preparedClassSpellIds = SPELLS
+    .filter(s => s.classes.includes(spellListClassId) && s.level >= 1 && s.level <= maxCastableLevel)
+    .filter(s => matchesFilters(s))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 
   return (
     <>
@@ -680,7 +692,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       )}
 
       {/* Spells section */}
-      {(char.spellIds.length > 0 || onLearnSpell) && (
+      {(char.spellIds.length > 0 || preparedClassSpellIds.length > 0 || onLearnSpell) && (
         <section className={styles.section}>
           <div className={styles.sectionHead}>
             <span className={styles.sectionLabel}>
@@ -772,6 +784,42 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                 {cantripsAndKnown.map(id => <SpellRow key={id} id={id} fromSection="known" />)}
                 {cantripsAndKnown.length === 0 && <div className={styles.emptyNote}>No other spells known.</div>}
               </div>
+
+              {!isWizard && (
+                <>
+                  <div className={styles.spellSubDivider} />
+                  <span className={styles.spellSubLabel}>Class Spells ({preparedClassSpellIds.length})</span>
+                  <div className={styles.spellList}>
+                    {preparedClassSpellIds.map(spell => {
+                      const prepared = preparedSet.has(spell.id)
+                      const blocked = !prepared && prepareLimit !== null && char.preparedSpellIds.length >= prepareLimit
+                      return (
+                        <button
+                          key={spell.id}
+                          className={styles.spellEntry}
+                          disabled={blocked}
+                          title={blocked ? 'Prepared spell limit reached' : prepared ? 'Unprepare spell' : 'Prepare spell'}
+                          onClick={() => {
+                            update({
+                              preparedSpellIds: prepared
+                                ? char.preparedSpellIds.filter(id => id !== spell.id)
+                                : [...char.preparedSpellIds, spell.id],
+                            })
+                          }}
+                        >
+                          <div className={styles.spellEntryLeft}>
+                            <span className={styles.spellLevelBadge}>{spell.level}</span>
+                            <span className={styles.spellName}>{spell.name}</span>
+                            <span className={styles.spellSchool}>{spell.school}</span>
+                          </div>
+                          <span className={styles.prepareBtnActive}>{prepared ? 'Prepared' : 'Prepare'}</span>
+                        </button>
+                      )
+                    })}
+                    {preparedClassSpellIds.length === 0 && <div className={styles.emptyNote}>No class spells available.</div>}
+                  </div>
+                </>
+              )}
 
               {/* Section 3: Learnable (Wizard + onLearnSpell) */}
               {isWizard && onLearnSpell && (() => {

@@ -1,6 +1,12 @@
 import type { AbilityScores } from '@/entities/character/types'
-import { CLASS_BY_ID } from './classData'
+import { CLASS_BY_ID, type ResourceDef } from './classData'
 import { mod, profBonus } from './charCalculations'
+
+const SUBCLASS_RESOURCES: Record<string, ResourceDef[]> = {
+  BattleMaster: [
+    { name: 'Superiority Dice', recoverOn: 'short', scalingTable: { 3: 4, 7: 5, 15: 6 }, minLevel: 3 },
+  ],
+}
 
 function resolveTotal(
   scalingPer: string | undefined,
@@ -45,6 +51,17 @@ export function getResourceDefaults(
     )
     if (total > 0) result[res.name] = { used: 0, total }
   }
+  for (const res of SUBCLASS_RESOURCES[subclassId ?? ''] ?? []) {
+    if (res.minLevel && level < res.minLevel) continue
+    const total = resolveTotal(
+      res.scalingPer,
+      res.scalingTable as Record<number, number> | undefined,
+      res.fixedTotal,
+      level,
+      abilityScores
+    )
+    if (total > 0) result[res.name] = { used: 0, total }
+  }
   // Subclass-gated resource seeded here because ResourceDef has no subclass gate.
   if (classId === 'Fighter' && subclassId === 'PsiWarrior' && level >= 3) {
     result['Psionic Energy'] = { used: 0, total: 2 * profBonus(level) }
@@ -53,4 +70,9 @@ export function getResourceDefaults(
     result['Tides of Chaos'] = { used: 0, total: 1 }
   }
   return result
+}
+
+export function getResourceDefaultDefinition(classId: string, subclassId: string | undefined, name: string): ResourceDef | undefined {
+  return CLASS_BY_ID[classId]?.resources?.find(r => r.name === name)
+    ?? (SUBCLASS_RESOURCES[subclassId ?? ''] ?? []).find(r => r.name === name)
 }

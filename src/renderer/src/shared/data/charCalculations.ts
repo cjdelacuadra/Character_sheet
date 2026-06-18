@@ -346,7 +346,8 @@ export function effectiveAbilityScore(
 /** computeAC + accessory acBonus + ability score bonuses from equipment. */
 export function computeACFull(char: Character): number {
   const equip = computeEquipmentStats(char)
-  return computeAC(char, equip.abilityBonus) + equip.acBonus + computeConditionModifiers(char).acDelta
+  const spellAcBonus = (char.activeBuffSpells ?? []).reduce((sum, id) => sum + (SPELL_BY_ID[id]?.acBonus ?? 0), 0)
+  return computeAC(char, equip.abilityBonus) + equip.acBonus + spellAcBonus + computeConditionModifiers(char).acDelta
 }
 
 /** computeInitiative including DEX bonuses from equipped accessories. */

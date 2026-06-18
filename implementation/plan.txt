@@ -1,130 +1,220 @@
 ========================================================================
-CODEX BUILD PLAN — FIX CRIT DISPLAY (spell styling + attack-table mojibake)
+CODEX BUILD PLAN — ATTACK-TABLE ORDER/CRIT + ATTACKS-PER-ACTION + MULTI-ACTION
 Project : DnD Character Companion
-Date    : 2026-06-16
+Date    : 2026-06-18
 ========================================================================
 
 WHY THIS PLAN EXISTS
 --------------------
-The crit-summary feature is implemented but has two display defects:
-  1. SPELL crit text renders in the muted "miss" style (light grey, thin),
-     so it looks far fainter than the damage. It should match the damage.
-  2. The ATTACK-TABLE "critical" rows show mojibake instead of an em-dash:
-     "critical  â€"  â€"  (4d6 + 4) slashing"
-     The bytes "â€"" are a UTF-8 em-dash (— / U+2014) that was saved through a
-     non-UTF-8 (Windows-1252) write. The SAME row also feeds a spell separator
-     mojibake "Â·" (a corrupted middle dot · / U+00B7).
-
-ROOT CAUSE: the new crit rows were written with raw multibyte characters in a
-non-UTF-8 encoding. The rest of each file uses correct characters (e.g.
-ActionDetailPanel.tsx:1987 uses a clean "—"), so the corruption is localized to
-the newly added crit code.
+GOAL 1 — The attack-table Total row is mis-ordered and hides the crit badge:
+  - To Hit prints the flat modifier before the dice riders ("1d20 + 9 +1d10")
+    instead of dice before flat ("1d20 + 1d10 + 9").
+  - The "Crit N+" badge is hidden for normal weapons (threshold 20); it should
+    ALWAYS show (e.g. "Crit 20+").
+GOAL 2 — Number of attacks ignores extra actions. With Action Surge (2+ actions)
+  the attack pips should be attacks-per-action x number-of-actions, and spending
+  attacks should consume actions in blocks (every attacks-per-action attacks = 1
+  action).
+GOAL 3 — With 2+ actions the player cannot select more than one action: using one
+  action (e.g. Dodge) flips EVERY action's "Use Action" button to "Undo" because
+  the used-state is read from the single global actionsUsed counter.
 
 STANDING RULES
 --------------
-  - Do NOT assume anything outside this document.
-  - Save every edited file as UTF-8 (NO BOM).
-  - To be recurrence-proof, prefer JSX unicode escapes for these glyphs instead
-    of raw characters: em-dash = {'—'}, middle dot = {'·'}. (Raw
-    "—"/"·" also work IF the file is genuinely saved UTF-8, but the escapes
-    cannot be corrupted by a bad-encoding write.)
-  - After editing, GREP each file for the byte sequences "â€" and "Â·"; if any
-    remain, the save used the wrong encoding — redo as UTF-8. STOP and report
-    if you cannot produce a clean UTF-8 file.
+  - Do NOT assume anything outside this document. Datasets/logic are supplied.
+  - Before each task RE-READ the named anchor; if already done, STOP and report.
+    If an anchor is missing, STOP and report.
+  - Reuse existing helpers (computeAttackCount, formatToHit, turnSlice setters,
+    useEconomy/recoverEconomy/grantEconomy, useAttack/recoverAttack). Save files
+    UTF-8 (no BOM); grep edited files for "â€"/"Â·" after editing.
 
 
 ========================================================================
 SECTION 0 — GLOBAL STOP CONDITIONS
 ========================================================================
-  1. "npm run typecheck" must pass. Acceptable pre-existing errors: anything in
-     src/renderer/src/__tests__/ only.
-  2. No behavioral/logic change — these are display-only fixes. If a change you
-     are about to make alters computed values, STOP.
+  1. "npm run build" passes; if it fails on a file you did not touch, STOP.
+  2. "npm run typecheck" passes. Acceptable pre-existing errors: src/renderer/
+     src/__tests__/ only. Any new error in a file you touched: STOP.
 
 
 ========================================================================
-TASK 1 — SPELL: make crit text match the damage (not the muted "miss" style)
+SECTION 1 — CURRENT STATE (read first; echo back before editing)
 ========================================================================
-
-File: src/renderer/src/features/spells/SpellsPanel.tsx
-Anchor (lines 293-295), inside the scaling-row <span className={spellScalingDmg}>:
-
-  CURRENT:
-    {dmg.critFormula && (
-      <span className={styles.spellScalingMiss}> Â· crit: {dmg.critFormula}</span>
-    )}
-
-  Two defects here:
-    (a) it uses styles.spellScalingMiss (muted grey, weight 400, 10px) — too light.
-    (b) " Â· " is a corrupted middle dot; it must be " · " (· U+00B7), the
-        same clean separator the miss segments use on lines 288 and 291.
-
-  CHANGE TO (use a dedicated crit class + clean separator):
-    {dmg.critFormula && (
-      <span className={styles.spellScalingCrit}> {'·'} crit: {dmg.critFormula}</span>
-    )}
-
-CSS file: src/renderer/src/features/spells/SpellsPanel.module.css
-  Current (line 108-109):
-    .spellScalingDmg { color: var(--accent); font-weight: 600; }
-    .spellScalingMiss { color: var(--text-muted); font-weight: 400; font-size: 10px; }
-  ADD a new rule that matches the damage color/weight (this is "the same as the
-  dmg" the request asks for), keeping the compact secondary size:
-    .spellScalingCrit { color: var(--accent); font-weight: 600; font-size: 10px; }
-  (If you prefer not to add a class, reuse styles.spellScalingDmg on the crit
-  span instead — the requirement is only that crit color/weight equal the
-  damage's. Document whichever you choose.)
-
-VERIFY/STOP: if a .spellScalingCrit class already exists, reuse it (do not
-  duplicate). Confirm lines 288/291 keep their muted .spellScalingMiss styling
-  (only the CRIT segment changes).
-Acceptance: in a spell's scaling rows, "· crit: 4d6 fire" renders in the same
-  accent color/weight as the hit damage; "miss:" stays muted.
-
-
-========================================================================
-TASK 2 — ATTACK TABLE: replace em-dash mojibake in the critical rows
-========================================================================
-
 File: src/renderer/src/features/combat-actions/ActionDetailPanel.tsx
-The feat-crit rows and the "critical" summary row (lines 1989-2006) contain the
-mojibake "â€"" where an em-dash "—" (U+2014) belongs. Affected occurrences:
-  line 1992: <td>â€”</td>
-  line 1993: <td>â€”</td>
-  line 1996: <td>â€”</td>
-  line 1997: <td>â€”</td>
-  line 1998: <td>â€”</td>
-  line 2003: <td>â€”</td>
-  line 2004: <td>â€”</td>
-  line 2005: ... || 'â€”'   (the critTotals fallback string)
-
-FIX: replace every "â€"" in this region with a proper em-dash. Recurrence-proof
-form (recommended):
-  - each cell:        <td>{'—'}</td>
-  - the fallback:     {critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}
-(Equivalently a literal "—" IF saved UTF-8 — match the clean "—" already used at
-line 1987. Do NOT leave any "â€"" bytes.)
-
-Do NOT change the row structure, the labels ("Piercer Critical" / "Critical
-Extra" / "critical"), colSpans, or the damage expressions — characters only.
-
-VERIFY/STOP: after editing, grep ActionDetailPanel.tsx for "â€" — zero matches
-  required. Confirm the rest of the file's existing "—" characters are untouched.
-Acceptance: the critical row reads "critical  —  —  (4d6 + 4) slashing" with a
-  clean em-dash in the To Hit and Crit-mod cells (no "â€"").
+  - formatToHitParts (line 79): returns
+      [ toHit!==null ? formatToHit(toHit) : null, ...diceParts.map(d=>`+${d}`) ]
+    joined by ' '. formatToHit(n) (diceExpr.ts) returns "1d20 + n", so the flat
+    lands BEFORE the dice riders. Used by both per-row cells (line 2026, 2582,
+    2672) and Total-row cells (line 2071, 2595, 2685).
+  - Crit badge: rendered inside renderTable's Total row (line ~2074):
+      critThreshold !== undefined && (critThreshold < 20 || char.subclass==='Champion')
+      ... "Crit {critThreshold}+"
+    The inline ranged/thrown tables (near 2595, 2685) may render their own copy —
+    find every crit-badge gate.
+  - Attack pips / economy (lines 462-491):
+      attacksMax = computeAttackCount(char)           // attacks PER action
+      attacksUsed = turnState.attacksUsed
+      spendAttack(): if attacksUsed===0 -> useEconomy('action') + setAttacked(true);
+                     then useAttack(char.id)
+      recoverSpentAttack(): recoverAttack; if attacksUsed===1 -> recoverEconomy
+                     ('action') + setAttacked(false)
+      pips render `attacksMax` buttons (line 489).
+  - renderActionUseButton (line 536): skips Attack/Off-Hand/Cast a Spell*/
+    resourceKey/Steady Aim; else maps type->economy and sets
+      used = (that economy's *Used counter) > 0
+    label "Use Action|Bonus Action|Reaction"; click toggles useEconomy/
+    recoverEconomy; shows "Undo" when used. Rendered in every action detail.
+  - turnSlice.ts TurnState has actionsUsed/bonusActionsUsed/reactionsUsed,
+    attacksUsed, and grant fields bonusActions/bonusBonusActions/bonusReactions
+    (Action Surge does grantEconomy('action',1) -> bonusActions += 1). Setters:
+    useEconomy/recoverEconomy/grantEconomy/useAttack/recoverAttack; confirmNextTurn
+    + makeFreshTurnState reset the turn.
+  - domain/rules computeAttackCount(character) = attacks per action (Fighter L5->2,
+    L11->3, L20->4; Barb/Pal/Ranger/Monk L5->2; Bladesinger L6->2; else 1).
 
 
 ========================================================================
-SECTION 3 — VERIFICATION
+GOAL 1 — ORDER THE ATTACK TABLE + ALWAYS SHOW CRIT
 ========================================================================
-  - Grep both edited files for "â€" and "Â·": both must return ZERO matches.
+
+---- TASK 1A: To Hit shows dice before the flat modifier ----
+
+File: ActionDetailPanel.tsx formatToHitParts (line 79).
+Rebuild the output order as: 1d20 base, THEN each dice rider, THEN the flat
+modifier last. Do NOT use formatToHit for the bundled "1d20 + flat" (it forces
+flat-before-dice). Replace with logic equivalent to:
+
+  function formatToHitParts(toHit, diceParts):
+    if toHit === null && diceParts.length === 0: return '—'
+    flat = (toHit !== null && toHit !== 0)
+             ? (toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`)
+             : null
+    parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+    return parts.join(' ')
+
+So totalToHit=9 with diceParts=['1d10'] -> "1d20 + 1d10 + 9"; a plain row
+toHit=5 -> "1d20 + 5" (unchanged); none -> em dash.
+VERIFY/STOP: if formatToHitParts already orders dice before the flat, STOP.
+Acceptance: Total reads "1d20 + 1d10 + 9" (matches the target), not
+  "1d20 + 9 + 1d10".
+
+---- TASK 1B: Always show the crit badge ----
+
+File: ActionDetailPanel.tsx — every crit-badge gate (line ~2074 in renderTable;
+plus any copy in the inline ranged/thrown tables near 2595/2685).
+Change the condition from
+  critThreshold !== undefined && (critThreshold < 20 || char.subclass === 'Champion')
+to simply
+  critThreshold !== undefined
+so the badge renders for normal weapons too ("Crit 20+").
+VERIFY/STOP: if the badge already shows at threshold 20, STOP. Find and update
+  ALL occurrences (grep "Crit {critThreshold}").
+Acceptance: a plain longsword shows "Crit 20+"; a Champion still shows "Crit 19+/18+".
+
+
+========================================================================
+GOAL 2 — ATTACKS PER ACTION x NUMBER OF ACTIONS
+========================================================================
+
+Definitions: perAction = computeAttackCount(char); totalActions =
+  1 + (turnState?.bonusActions ?? 0)  (Action Surge / other action grants).
+
+---- TASK 2A: attacksMax counts every action ----
+
+File: ActionDetailPanel.tsx line 462.
+  attacksMax = computeAttackCount(char) * totalActions
+(pips at line 489 already render `attacksMax`, so the row auto-grows to
+ perAction x totalActions: 2 per action x 2 actions -> 4 pips ●●●●).
+VERIFY/STOP: if attacksMax already multiplies by actions, STOP.
+
+---- TASK 2B: spending attacks consumes actions in blocks ----
+
+File: ActionDetailPanel.tsx spendAttack / recoverSpentAttack (lines 466-482).
+Replace the "first attack only" action-spend with block logic keyed on perAction
+(every perAction-th attack starts a new action):
+
+  perAction = computeAttackCount(char)   // >= 1
+  spendAttack():
+    if attacksUsed >= attacksMax: return
+    const before = Math.ceil(attacksUsed / perAction)
+    const after  = Math.ceil((attacksUsed + 1) / perAction)
+    if (after > before) { useEconomy(char.id,'action'); setAttacked(char.id,true) }
+    useAttack(char.id)
+  recoverSpentAttack():
+    if attacksUsed <= 0: return
+    const before = Math.ceil(attacksUsed / perAction)
+    const after  = Math.ceil((attacksUsed - 1) / perAction)
+    if (after < before) {
+      recoverEconomy(char.id,'action')
+      if ((attacksUsed - 1) === 0) setAttacked(char.id,false)
+    }
+    recoverAttack(char.id)
+
+(perAction=2, 4 pips: 1st attack -> action 1 spent; 2nd -> none; 3rd -> action 2
+ spent; 4th -> none. Matches ex: attack ●●○○ -> A ●○ 1/2.)
+VERIFY/STOP: if spendAttack already syncs actions by block, STOP.
+Acceptance: Fighter L5 + Action Surge shows 4 attack pips; using 2 marks 1 action
+  used in TurnHeader (A 1/2); using all 4 marks 2/2; undoing mirrors it.
+
+
+========================================================================
+GOAL 3 — ALLOW SELECTING MORE THAN ONE ACTION WHEN ACTIONS REMAIN
+========================================================================
+
+---- TASK 3A: Per-action used-tracking for the Use/Undo button ----
+
+Problem: renderActionUseButton (line 544) reads `used` from the global
+*Used counter, so any one used action flips ALL action buttons to "Undo".
+
+(1) turnSlice.ts: add `usedActionNames: string[]` to TurnState (init [] in
+    makeFreshTurnState AND reset in confirmNextTurn). Add setters:
+      markActionUsed(charId, name)   -> add name (dedupe)
+      unmarkActionUsed(charId, name) -> remove name
+    (Follow the existing setter pattern.)
+
+(2) ActionDetailPanel.tsx renderActionUseButton (line 536):
+    - used = turnState?.usedActionNames?.includes(action.name) ?? false
+    - capacity for this economy:
+        total = economy==='action'   ? 1 + (turnState?.bonusActions ?? 0)
+              : economy==='bonus'     ? 1 + (turnState?.bonusBonusActions ?? 0)
+              : 1 + (turnState?.bonusReactions ?? 0)
+        usedCount = economy==='action' ? turnState?.actionsUsed ?? 0
+                  : economy==='bonus'  ? turnState?.bonusActionsUsed ?? 0
+                  : turnState?.reactionsUsed ?? 0
+      atCapacity = usedCount >= total
+    - Render:
+        if used  -> "Undo": onClick = recoverEconomy(economy) + unmarkActionUsed(name)
+        else     -> "Use ...": disabled when atCapacity;
+                     onClick = useEconomy(economy) + markActionUsed(name)
+    So with 2 actions, using Dodge (action 1) leaves other action buttons enabled
+    ("Use Action") until actionsUsed reaches total; each action toggles its own
+    Undo independently.
+
+NOTE: attacks (Goal 2) still consume the action economy directly; they share the
+  same usedCount/total capacity, so attacking first correctly reduces remaining
+  action capacity for the Use-Action buttons (and vice-versa).
+VERIFY/STOP: if usedActionNames / per-action toggle already exists, STOP.
+Acceptance: with Action Surge active, selecting Dodge and using its action leaves
+  a second action (e.g. Dash) usable; each shows its own Undo; once both actions
+  are spent, remaining action buttons are disabled; Next Turn resets everything.
+
+
+========================================================================
+SECTION 4 — VERIFICATION
+========================================================================
   - npm run typecheck : passes (acceptable: __tests__/* only).
   - npm run dev (Electron), manual:
-      * Open an attack-roll spell (e.g. Scorching Ray / Fire Bolt): the
-        "· crit: <formula>" segment is the same accent color/weight as the
-        damage, with a clean middle dot; "miss:" stays muted.
-      * Open a weapon's attack detail: the "critical" and feat-crit rows show
-        clean em-dashes (—), no mojibake.
+      Goal 1: Total shows "1d20 + 1d10 + 9" ordering; every weapon shows a
+        "Crit N+" badge (20+ for normal).
+      Goal 2: Fighter L5 + Action Surge shows 4 attack pips; 2 attacks = 1 action,
+        4 attacks = 2 actions; undo mirrors.
+      Goal 3: with 2 actions, Dodge + a second action are both usable and
+        independently undoable; at capacity the rest disable.
+  - Unit tests (extend src/renderer/src/__tests__/):
+      formatToHitParts(9, ['1d10']) === '1d20 + 1d10 + 9'; (5, []) === '1d20 + 5';
+        (null, []) === em dash.
+      turnSlice: markActionUsed/unmarkActionUsed add/remove and reset on
+        confirmNextTurn; useAttack/recoverAttack adjust attacksUsed.
 
 
 ========================================================================

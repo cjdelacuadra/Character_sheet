@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
-import { CLASS_BY_ID } from '@/shared/data/classData'
+import { getResourceDefaultDefinition } from '@/shared/data/resourceDefaults'
 import { RESOURCE_EFFECTS } from '@/shared/data/resourceEffects'
 import { useAppStore } from '@/app/store'
 import styles from './ResourcesPanel.module.css'
@@ -15,7 +15,6 @@ interface Props {
 const POOL_THRESHOLD = 12
 
 export function ResourcesPanel({ character: char, update }: Props) {
-  const classDef = CLASS_BY_ID[char.classId]
   const entries = Object.entries(char.resources)
   const [edits, setEdits] = useState<Record<string, string>>({})
   const useEconomy = useAppStore(s => s.useEconomy)
@@ -71,7 +70,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
       <div className={styles.resourceList}>
         {entries.map(([name, res]) => {
           const remaining = res.total - res.used
-          const resDef = classDef?.resources?.find(r => r.name === name)
+          const resDef = getResourceDefaultDefinition(char.classId, char.subclass, name)
           const isPool = res.total > POOL_THRESHOLD
           return (
             <div key={name} className={styles.resourceRow}>

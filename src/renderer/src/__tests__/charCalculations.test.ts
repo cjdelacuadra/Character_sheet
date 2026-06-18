@@ -7,9 +7,11 @@ import {
   skillBonus,
   savingThrowBonus,
   computeAC,
+  computeACFull,
   applyHpDelta,
 } from '@/shared/data/charCalculations'
 import type { AbilityScores } from '@/entities/character/types'
+import { makeChar } from './helpers'
 
 function scores(partial: Partial<AbilityScores>): AbilityScores {
   return { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, ...partial }
@@ -151,6 +153,33 @@ describe('computeAC with Mage Armor', () => {
   })
   it('ignored when wearing body armor (plate 18 beats Mage Armor 15)', () => {
     expect(computeAC({ abilityScores: scores({ dex: 14 }), equipment: plate, classId: 'Wizard', race: 'Human', activeBuffSpells: ['mage-armor'] })).toBe(18)
+  })
+})
+
+describe('computeACFull with Shield', () => {
+  it('active Shield adds +5 AC and removing it restores AC', () => {
+    const char = makeChar({
+      abilityScores: scores({ dex: 14 }),
+      equipment: {
+        armorId: null,
+        hasShield: false,
+        shieldId: null,
+        helmetId: null,
+        necklaceId: null,
+        capeId: null,
+        legsId: null,
+        bootsId: null,
+        glovesId: null,
+        ring1Id: null,
+        ring2Id: null,
+        amuletId: null,
+      },
+      classId: 'Wizard',
+      race: 'Human',
+      activeBuffSpells: ['shield'],
+    })
+    expect(computeACFull(char)).toBe(17)
+    expect(computeACFull({ ...char, activeBuffSpells: [] })).toBe(12)
   })
 })
 

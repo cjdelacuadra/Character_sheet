@@ -10,8 +10,10 @@ import {
   xpForLevel,
   getAvailableActions,
   computePreparedSpellCount,
+  computeSpellLevelUpConfig,
 } from '@/domain/rules'
 import { critDiceExpr } from '@/shared/lib/diceExpr'
+import { CLASS_BY_ID } from '@/shared/data/classData'
 import { endsAtStartOfNextTurn, isBuffConditionSpell, SPELL_BY_ID } from '@/shared/data/spellData'
 import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
 import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
@@ -100,6 +102,20 @@ describe('computePreparedSpellCount', () => {
 })
 
 // ── Short-duration spell auto-dismiss detection ──────────────────────────────
+
+describe('computeSpellLevelUpConfig prepared casters', () => {
+  it('Cleric 4->5 unlocks 3rd-level slots without learned leveled spells', () => {
+    const cfg = computeSpellLevelUpConfig(CLASS_BY_ID.Cleric, 4, 5)
+    expect(cfg.maxSlotLevel).toBe(3)
+    expect(cfg.spellsDelta).toBe(0)
+  })
+
+  it('Cleric 5->6 does not unlock a new spell tier', () => {
+    const oldCfg = computeSpellLevelUpConfig(CLASS_BY_ID.Cleric, 4, 5)
+    const cfg = computeSpellLevelUpConfig(CLASS_BY_ID.Cleric, 5, 6)
+    expect(cfg.maxSlotLevel).toBe(oldCfg.maxSlotLevel)
+  })
+})
 
 describe('endsAtStartOfNextTurn', () => {
   it('Booming Blade (duration "1 round") returns true', () => expect(endsAtStartOfNextTurn(SPELL_BY_ID['booming-blade'])).toBe(true))

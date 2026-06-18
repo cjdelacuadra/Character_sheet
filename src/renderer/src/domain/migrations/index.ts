@@ -1,7 +1,8 @@
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
+import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 
-const CURRENT_SCHEMA_VERSION = 11
+const CURRENT_SCHEMA_VERSION = 12
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -75,7 +76,6 @@ function v5_to_v6(char: Partial<Character>): Partial<Character> {
     ...char,
     schemaVersion: 6,
     selectedManeuver: legacyManeuvers?.[0] ?? char.selectedManeuver ?? null,
-    superiorityDiceUsed: (char as Record<string, unknown>).superiorityDiceUsed as number ?? 0,
     arcaneShots: (char as Record<string, unknown>).arcaneShots as string[] ?? [],
   }
 }
@@ -119,6 +119,27 @@ function v10_to_v11(char: Partial<Character>): Partial<Character> {
   }
 }
 
+function v11_to_v12(char: Partial<Character>): Partial<Character> {
+  if (char.classId === 'Fighter' && char.subclass === 'BattleMaster') {
+    const defaults = char.level && char.abilityScores
+      ? getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
+      : {}
+    const def = defaults['Superiority Dice']
+    if (def) {
+      const previous = char.resources?.['Superiority Dice']
+      const legacyUsed = (char as Record<string, unknown>).superiorityDiceUsed as number | undefined
+      char.resources = {
+        ...(char.resources ?? {}),
+        'Superiority Dice': previous
+          ? { used: Math.min(previous.used, def.total), total: def.total }
+          : { used: Math.min(legacyUsed ?? 0, def.total), total: def.total },
+      }
+    }
+  }
+  delete (char as Record<string, unknown>).superiorityDiceUsed
+  return { ...char, schemaVersion: 12 }
+}
+
 function v6_to_v7(char: Partial<Character>): Partial<Character> {
   const eq = char.equipment ?? { armorId: null, hasShield: false, shieldId: null }
   return {
@@ -154,12 +175,22 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 9) data = v8_to_v9(data) as typeof data
   if (version < 10) data = v9_to_v10(data) as typeof data
   if (version < 11) data = v10_to_v11(data) as typeof data
+  if (version < 12) data = v11_to_v12(data) as typeof data
 
   // Safety net: the version-gated backfills above don't re-run for characters already at a
   // newer schema version, so one that somehow lacks ownedItemIds keeps it undefined and crashes
   // every unguarded reader (InventoryGrid/ShopPanel/store actions). Guarantee it's an array.
   data.ownedItemIds = data.ownedItemIds ?? []
   data.featChoices = data.featChoices ?? {}
+  if (data.classId === 'Fighter' && data.subclass === 'BattleMaster') {
+    const defaults = data.level && data.abilityScores
+      ? getResourceDefaults(data.classId, data.level, data.abilityScores, data.subclass)
+      : {}
+    const def = defaults['Superiority Dice']
+    if (def && !data.resources?.['Superiority Dice']) {
+      data.resources = { ...(data.resources ?? {}), 'Superiority Dice': def }
+    }
+  }
 
   return data as Character
 }

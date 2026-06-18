@@ -424,7 +424,7 @@ export const SUBCLASSES: SubclassDef[] = [
     ] },
   { id: 'BattleMaster',   label: 'Battle Master',  classId: 'Fighter', unlocksAtLevel: 3, description: 'Learn combat maneuvers that use Superiority Dice. Control the battlefield with trips, disarms, and feints.',
     subclassFeatures: [
-      // TODO: mechanical wiring — Maneuvers and Superiority Dice are already partially modeled via `superiorityDiceUsed` and chosenManeuvers.
+      // Maneuvers are selected here; Superiority Dice are tracked as a short-rest resource.
       { level: 3, name: 'Combat Superiority', desc: 'Gain 4 Superiority Dice (d8) and learn 3 maneuvers. Maneuver save DC = 8 + Prof + STR or DEX (your choice).' },
       { level: 3, name: 'Student of War', desc: "Gain proficiency with one type of artisan's tools of your choice." },
       { level: 7, name: 'Know Your Enemy', desc: 'Study a creature for 1 minute outside combat: learn how its STR, DEX, CON, AC, current HP, total class levels (if any), and fighter class levels compare to yours (2 of these).' },

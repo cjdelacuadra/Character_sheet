@@ -257,10 +257,18 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       const newHdUsed = Math.min(char.level, char.hitDiceUsed + 1)
 
       const newResources = { ...char.resources }
+      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
+      for (const [name, def] of Object.entries(defaults)) {
+        if (!newResources[name]) newResources[name] = def
+        else newResources[name] = { ...newResources[name], total: def.total }
+      }
       for (const resDef of cls?.resources ?? []) {
         if (resDef.recoverOn === 'short' && newResources[resDef.name]) {
           newResources[resDef.name] = { ...newResources[resDef.name], used: 0 }
         }
+      }
+      if (char.subclass === 'BattleMaster' && newResources['Superiority Dice']) {
+        newResources['Superiority Dice'] = { ...newResources['Superiority Dice'], used: 0 }
       }
       if (char.subclass === 'PsiWarrior' && newResources['Psionic Energy']) {
         const res = newResources['Psionic Energy']
@@ -290,7 +298,6 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         hitDiceUsed: newHdUsed,
         resources: newResources,
         spellSlots: newSlots,
-        superiorityDiceUsed: 0,
         racialActionUses: newRacialUses,
       }
       ipcService.save(id, updated)
@@ -327,7 +334,6 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         deathSaves: { successes: 0, failures: 0 },
         concentrationSpellId: null,
         conditionIds: char.conditionIds.filter(c => c.conditionId === 'exhaustion'),
-        superiorityDiceUsed: 0,
         activeSummons: [],
         isRaging: false,
         isBladesinging: false,

@@ -255,6 +255,7 @@ export interface ActionDef {
   resourceCost?: number
   requiresLevel?: number
   classOnly?: string
+  requiresAttackThisTurn?: boolean
 }
 
 const GENERIC_ACTIONS: ActionDef[] = [
@@ -390,6 +391,7 @@ function makeOffHandAction(character: Character): ActionDef {
     full: hasTWF
       ? "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. Thanks to your Two-Weapon Fighting style, you add your ability modifier to the off-hand damage roll."
       : "When you take the Attack action and attack with a light melee weapon you're holding in one hand, you can use a bonus action to attack with a different light melee weapon in your other hand. You don't add your ability modifier to the damage unless it's negative.",
+    requiresAttackThisTurn: true,
   }
 }
 
@@ -443,6 +445,20 @@ export function critExtraDice(
   }
 
   return extras
+}
+
+export function computeAttackCount(character: Character): number {
+  let attackCount = 1
+  if (character.classId === 'Fighter') {
+    if (character.level >= 20) attackCount = 4
+    else if (character.level >= 11) attackCount = 3
+    else if (character.level >= 5) attackCount = 2
+  } else if ((character.classId === 'Barbarian' || character.classId === 'Paladin' || character.classId === 'Ranger' || character.classId === 'Monk') && character.level >= 5) {
+    attackCount = 2
+  } else if (character.subclass === 'Bladesinger' && character.level >= 6) {
+    attackCount = 2
+  }
+  return attackCount
 }
 
 function destroyUndeadCRThreshold(level: number): string | null {
@@ -567,17 +583,7 @@ export function getAvailableActions(character: Character): ActionDef[] {
     })
   }
 
-  // Compute extra attack count
-  let attackCount = 1
-  if (character.classId === 'Fighter') {
-    if (character.level >= 20) attackCount = 4
-    else if (character.level >= 11) attackCount = 3
-    else if (character.level >= 5) attackCount = 2
-  } else if ((character.classId === 'Barbarian' || character.classId === 'Paladin' || character.classId === 'Ranger' || character.classId === 'Monk') && character.level >= 5) {
-    attackCount = 2
-  } else if (character.subclass === 'Bladesinger' && character.level >= 6) {
-    attackCount = 2
-  }
+  const attackCount = computeAttackCount(character)
 
   const allActions = [...GENERIC_ACTIONS, ...offHandActions, ...spellAction, ...classActions, ...subclassActions, ...featActions]
 

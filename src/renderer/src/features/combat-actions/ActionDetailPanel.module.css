@@ -40,6 +40,14 @@
 }
 .detailChipBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+.actionUseBtn {
+  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-primary); font-size: 11px;
+  font-weight: 700; cursor: pointer; transition: all 0.12s; white-space: nowrap;
+}
+.actionUseBtn:hover { border-color: var(--accent); color: var(--accent); }
+.actionUseBtnUsed { background: rgba(216,162,61,0.16); color: var(--warning); border-color: rgba(216,162,61,0.45); }
+
 /* ── Fighting style picker ── */
 .fightingStyleList { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
 .fightingStyleOption {
@@ -99,11 +107,12 @@
 .attackBreakdownSection { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .attackBreakdownHead { font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 6px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 .attackHeadActions { display: flex; align-items: center; gap: 3px; }
-.advBtn { font-size: 9px; font-weight: 600; padding: 1px 5px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.1s; }
-.advBtn:hover { border-color: var(--accent); color: var(--accent); }
-.advBtnActive { border-color: var(--accent); background: rgba(139,124,248,0.15); color: var(--accent); }
-.rollBtn { font-size: 13px; line-height: 1; padding: 1px 4px; border: 1px solid var(--border); border-radius: 3px; background: transparent; color: var(--text-muted); cursor: pointer; transition: border-color 0.1s; }
-.rollBtn:hover { border-color: var(--accent); }
+.attackUseBtn { font-size: 11px; font-weight: 700; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 4px; background: var(--accent); color: var(--accent-fg, #fff); cursor: pointer; transition: opacity 0.1s; }
+.attackUseBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.attackPips { display: flex; align-items: center; gap: 3px; padding: 0 4px; }
+.attackPip { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; padding: 0; }
+.attackPipFull { background: var(--success); border-color: var(--success); }
+.attackPipSpent { background: transparent; border-color: var(--text-muted); }
 .diceNote { font-size: 9px; color: var(--text-muted); font-weight: 400; }
 .attackBreakdownTable { width: 100%; border-collapse: collapse; font-size: 11px; }
 .attackBreakdownTable th { font-size: 9px; color: var(--text-muted); text-align: left; padding: 3px 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -118,18 +127,18 @@
 .attackBreakdownCritExtraRow td { color: var(--text-secondary); font-weight: 600; }
 .attackBreakdownCriticalRow { border-top: 1px solid var(--border); }
 .attackBreakdownCriticalRow td { font-weight: 700; color: var(--warning); padding-top: 5px; padding-bottom: 5px; }
-.advDerivedLabel {
+.advBadge {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 9px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
   vertical-align: middle;
 }
-.advDerivedAdv { background: rgba(76,175,125,0.16); color: var(--success); }
-.advDerivedDis { background: rgba(200,100,100,0.16); color: var(--danger); }
+.advBadgeAdv { background: var(--success, #2e7d32); color: #fff; }
+.advBadgeDis { background: var(--danger, #c0392b); color: #fff; }
 .resourceChip {
   display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.04em; padding: 1px 5px; border-radius: 3px;

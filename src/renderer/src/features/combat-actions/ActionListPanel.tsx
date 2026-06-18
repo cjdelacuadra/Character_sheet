@@ -30,6 +30,9 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
   const useEconomy = useAppStore(s => s.useEconomy)
   const grantEconomy = useAppStore(s => s.grantEconomy)
+  const setAttacked = useAppStore(s => s.setAttacked)
+  const setDisengaged = useAppStore(s => s.setDisengaged)
+  const turnState = useAppStore(s => s.turnStates[char.id])
 
   function actionPriority(a: ActionDef): number {
     if (a.name === 'Attack' || a.name === 'Off-Hand Attack' || a.name.startsWith('Opportunity Attack')) return 0
@@ -133,6 +136,30 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     update({ resources: { ...char.resources, [key]: { used: res.used - 1, total: res.total } } })
   }
 
+  function isActionPrereqBlocked(action: ActionDef): boolean {
+    if (action.name === 'Steady Aim' && turnState?.movedThisTurn) return true
+    return action.requiresAttackThisTurn === true && !turnState?.attackedThisTurn
+  }
+
+  function actionBlockedTitle(action: ActionDef): string | undefined {
+    if (action.name === 'Steady Aim' && turnState?.movedThisTurn) return 'Requires that you have not moved this turn'
+    if (action.requiresAttackThisTurn === true && !turnState?.attackedThisTurn) return 'Requires the Attack action this turn'
+    return undefined
+  }
+
+  function handleActionClick(action: ActionDef, isSelected: boolean) {
+    if (isSelected) {
+      onSelectAction(null)
+      return
+    }
+    if (isActionPrereqBlocked(action) || isActionDepleted(action)) return
+    if (action.name === 'Disengage') {
+      setDisengaged(char.id, true)
+      useEconomy(char.id, 'action')
+    }
+    onSelectAction(action.name)
+  }
+
   return (
     <>
       <ResourcesPanel character={char} update={update} />
@@ -174,16 +201,19 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
             <div className={styles.actionList}>
               {items.map(action => {
                 const depleted = isActionDepleted(action)
+                const prereqBlocked = isActionPrereqBlocked(action)
                 const isSelected = selectedAction === action.name
                 return (
                   <button
                     key={action.name}
                     className={[
                       styles.actionCompact,
-                      depleted ? styles.actionDepleted : '',
+                      depleted || prereqBlocked ? styles.actionDepleted : '',
                       isSelected ? `${styles.actionCompactSel} ${accentClass(type)}` : '',
                     ].join(' ')}
-                    onClick={() => onSelectAction(isSelected ? null : action.name)}
+                    disabled={depleted || prereqBlocked}
+                    title={actionBlockedTitle(action)}
+                    onClick={() => handleActionClick(action, isSelected)}
                   >
                     <span className={styles.actionName}>{action.name}</span>
                     {action.resourceKey && (

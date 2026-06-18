@@ -1,9 +1,9 @@
-import { useState } from 'react'
+﻿import React, { useState, type ReactNode } from 'react'
 import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, critDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
@@ -49,6 +49,7 @@ interface AttackRow {
   id: string
   name: string
   toHit: number | null
+  toHitDice?: string | null
   dmg: string | null
   dmgType: string | null
   bonusDmg: string | null
@@ -73,6 +74,15 @@ function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { e
     type,
     expr: combineDiceExpr(parts.join('+')),
   }))
+}
+
+function formatToHitParts(toHit: number | null, diceParts: string[]): string {
+  const flat =
+    toHit !== null && toHit !== 0
+      ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
+      : null
+  const parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+  return parts.join(' ') || '\u2014'
 }
 
 function criticalSubtotals(
@@ -197,16 +207,30 @@ function buildAttackRows(
     const mId = char.activeManeuver ?? null
     if (mId) {
       const m = MANEUVER_BY_ID[mId]
-      if (m) rows.push({
-        id: `maneuver-${mId}`,
-        name: m.name,
-        toHit: null,
-        dmg: null,
-        dmgType: null,
-        bonusDmg: dieSize,
-        bonusDmgType: m.dmgType === 'weapon' ? (w.damageType ?? null) : m.dmgType,
-        group: 'both',
-      })
+      if (m?.dmgType === 'weapon') {
+        rows.push({
+          id: `maneuver-${mId}`,
+          name: m.name,
+          toHit: null,
+          dmg: null,
+          dmgType: null,
+          bonusDmg: dieSize,
+          bonusDmgType: w.damageType ?? null,
+          group: 'both',
+        })
+      } else if (m?.dmgType === 'to hit') {
+        rows.push({
+          id: `maneuver-${mId}`,
+          name: m.name,
+          toHit: null,
+          toHitDice: dieSize,
+          dmg: null,
+          dmgType: null,
+          bonusDmg: null,
+          bonusDmgType: null,
+          group: 'both',
+        })
+      }
     }
   }
 
@@ -279,11 +303,12 @@ function buildAttackRows(
   // Concentration attack-buff spells (e.g. Hex, Hunter's Mark, Divine Favor)
   const concSpell = char.concentrationSpellId ? SPELL_BY_ID[char.concentrationSpellId] : null
   if (concSpell?.attackBuff) {
-    const { toHit, bonusDmg, bonusDmgType } = concSpell.attackBuff
+    const { toHit, toHitDice, bonusDmg, bonusDmgType } = concSpell.attackBuff
     rows.push({
       id: `spell-buff-${concSpell.id}`,
       name: concSpell.name,
       toHit: toHit ?? null,
+      toHitDice: toHitDice ?? null,
       dmg: null, dmgType: null,
       bonusDmg: bonusDmg ?? null,
       bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
@@ -291,15 +316,16 @@ function buildAttackRows(
     })
   }
 
-  // Non-concentration attack-buff spells (e.g. Magic Weapon)
+  // Active attack-buff spells toggled through + Buff.
   for (const spellId of char.activeBuffSpells ?? []) {
     const spell = SPELL_BY_ID[spellId]
-    if (!spell?.attackBuff || spell.concentration) continue
-    const { toHit, bonusDmg, bonusDmgType } = spell.attackBuff
+    if (!spell?.attackBuff || spellId === concSpell?.id) continue
+    const { toHit, toHitDice, bonusDmg, bonusDmgType } = spell.attackBuff
     rows.push({
       id: `spell-buff-${spellId}`,
       name: spell.name,
       toHit: toHit ?? null,
+      toHitDice: toHitDice ?? null,
       dmg: null, dmgType: null,
       bonusDmg: bonusDmg ?? null,
       bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
@@ -402,11 +428,7 @@ function DivineStrikeTurnToggle({ charId, subclass, level }: { charId: string; s
 }
 
 export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature, onSummon, onConcentrationBroken }: Props) {
-  const [armoryOpen, setArmoryOpen] = useState(false)
-  const [armoryTab, setArmoryTab] = useState<'browse' | 'custom'>('browse')
-  const [armorySearch, setArmorySearch] = useState('')
   const [customWeapon, setCustomWeapon] = useState({ name: '', atkBonus: '0', damage: '', damageType: '' })
-  const [customWeaponError, setCustomWeaponError] = useState<string | null>(null)
   const [arcanePickedLevels, setArcanePickedLevels] = useState<number[]>([])
   const [spellDetailId, setSpellDetailId] = useState<string | null>(null)
   const [pendingStyle, setPendingStyle] = useState<string | null>(null)
@@ -415,30 +437,105 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const [maneuverPickerOpen, setManeuverPickerOpen] = useState(false)
   const [arcanePickerOpen, setArcanePickerOpen] = useState(false)
   const [activeRows, setActiveRows] = useState<Record<string, Record<string, boolean>>>({})
-  const [rollMap, setRollMap] = useState<Record<string, { d1: number; d2: number; adv: 'n' | 'a' | 'd' }>>({})
   const [wildMagicRoll, setWildMagicRoll] = useState<number | null>(null)
   const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
   const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
-  const attackAdvantage = computeAttackAdvantage(char)
+  const turnState = useAppStore(s => s.turnStates[char.id])
+  const useEconomy = useAppStore(s => s.useEconomy)
+  const recoverEconomy = useAppStore(s => s.recoverEconomy)
+  const useAttack = useAppStore(s => s.useAttack)
+  const recoverAttack = useAppStore(s => s.recoverAttack)
+  const markActionUsed = useAppStore(s => s.markActionUsed)
+  const unmarkActionUsed = useAppStore(s => s.unmarkActionUsed)
+  const setAttacked = useAppStore(s => s.setAttacked)
+  const setAdvantageNextAttack = useAppStore(s => s.setAdvantageNextAttack)
+  const setSpeedZero = useAppStore(s => s.setSpeedZero)
+  const baseAttackAdvantage = computeAttackAdvantage(char)
+  const steadyAimSource = turnState?.advantageNextAttack === 'adv' ? 'Advantage: Steady Aim (next attack)' : null
+  const attackAdvantage = (() => {
+    if (!steadyAimSource) return baseAttackAdvantage
+    const hasDisadvantage = baseAttackAdvantage.sources.some(source => source.startsWith('Disadvantage:'))
+    return {
+      martial: hasDisadvantage ? 'none' as const : 'adv' as const,
+      spell: baseAttackAdvantage.spell,
+      sources: [...baseAttackAdvantage.sources, steadyAimSource],
+    }
+  })()
+
+  const perAction = computeAttackCount(char)
+  const totalActions = 1 + (turnState?.bonusActions ?? 0)
+  const attacksMax = perAction * totalActions
+  const attacksUsed = turnState?.attacksUsed ?? 0
+  const attacksRemaining = Math.max(0, attacksMax - attacksUsed)
+
+  function spendAttack() {
+    if (attacksUsed >= attacksMax) return
+    const before = Math.ceil(attacksUsed / perAction)
+    const after = Math.ceil((attacksUsed + 1) / perAction)
+    if (after > before) {
+      useEconomy(char.id, 'action')
+      setAttacked(char.id, true)
+    }
+    useAttack(char.id)
+  }
+
+  function recoverSpentAttack() {
+    if (attacksUsed <= 0) return
+    const before = Math.ceil(attacksUsed / perAction)
+    const after = Math.ceil((attacksUsed - 1) / perAction)
+    if (after < before) {
+      recoverEconomy(char.id, 'action')
+      if (attacksUsed - 1 === 0) setAttacked(char.id, false)
+    }
+    recoverAttack(char.id)
+  }
+
+  function renderAttackControls(extra?: ReactNode) {
+  return (
+    <div className={styles.attackHeadActions}>
+      <button 
+        className={styles.attackUseBtn} 
+        onClick={spendAttack} 
+        disabled={attacksUsed >= attacksMax}
+      >
+        Attack
+      </button>
+      
+      <div className={styles.attackPips} aria-label={`${attacksRemaining} of ${attacksMax} attacks remaining`}>
+        {Array.from({ length: attacksMax }).map((_, i) => {
+          const filled = i >= attacksUsed;
+          return (
+            <React.Fragment key={i}>
+              {i > 0 && i % perAction === 0 && (
+                <span className={styles.attackPipSeparator} aria-hidden="true">
+                  |
+                </span>
+              )}
+              <button
+                type="button"
+                className={`${styles.attackPip} ${filled ? styles.attackPipFull : styles.attackPipSpent}`}
+                onClick={filled ? spendAttack : recoverSpentAttack}
+                title={filled ? 'Use attack' : 'Recover attack'}
+              />
+            </React.Fragment>
+          );
+        })}
+      </div>
+      {extra}
+    </div>
+  );
+}
 
   function renderMartialAdvLabel() {
     if (attackAdvantage.martial === 'none') return null
     return (
       <span
-        className={`${styles.advDerivedLabel} ${attackAdvantage.martial === 'adv' ? styles.advDerivedAdv : styles.advDerivedDis}`}
+        className={`${styles.advBadge} ${attackAdvantage.martial === 'adv' ? styles.advBadgeAdv : styles.advBadgeDis}`}
         title={attackAdvantage.sources.join('; ')}
       >
         {attackAdvantage.martial === 'adv' ? 'Adv' : 'Disadv'}
       </span>
     )
-  }
-
-  function rollWeapon(wid: string) {
-    const adv = rollMap[wid]?.adv ?? 'n'
-    setRollMap(prev => ({ ...prev, [wid]: { d1: Math.ceil(Math.random() * 20), d2: Math.ceil(Math.random() * 20), adv } }))
-  }
-  function setWeaponAdv(wid: string, adv: 'n' | 'a' | 'd') {
-    setRollMap(prev => ({ ...prev, [wid]: { ...(prev[wid] ?? { d1: 0, d2: 0 }), adv } }))
   }
 
   const availableActions = getAvailableActions(char)
@@ -449,6 +546,55 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     if (type === 'Bonus Action') return styles.badgeBonusAction
     if (type === 'Reaction') return styles.badgeReaction
     return styles.badgeFree
+  }
+
+  function actionTypeToEconomy(type?: string): 'action' | 'bonus' | 'reaction' | null {
+    if (type === 'Action') return 'action'
+    if (type === 'Bonus Action') return 'bonus'
+    if (type === 'Reaction') return 'reaction'
+    return null
+  }
+
+  function renderActionUseButton(action = selectedActionDef) {
+    if (!action) return null
+    if (action.name === 'Attack' || action.name === 'Off-Hand Attack') return null
+    if (action.name.startsWith('Cast a Spell')) return null
+    if (action.resourceKey) return null
+    if (action.name === 'Steady Aim') return null
+    const economy = actionTypeToEconomy(action.type)
+    if (!economy) return null
+    const used = turnState?.usedActionNames?.includes(action.name) ?? false
+    const total =
+      economy === 'action' ? 1 + (turnState?.bonusActions ?? 0) :
+      economy === 'bonus' ? 1 + (turnState?.bonusBonusActions ?? 0) :
+      1 + (turnState?.bonusReactions ?? 0)
+    const usedCount =
+      economy === 'action' ? (turnState?.actionsUsed ?? 0) :
+      economy === 'bonus' ? (turnState?.bonusActionsUsed ?? 0) :
+      (turnState?.reactionsUsed ?? 0)
+    const atCapacity = usedCount >= total
+    const label =
+      economy === 'action' ? 'Use Action' :
+      economy === 'bonus' ? 'Use Bonus Action' :
+      'Use Reaction'
+    return (
+      <button
+        type="button"
+        className={`${styles.actionUseBtn} ${used ? styles.actionUseBtnUsed : ''}`}
+        disabled={!used && atCapacity}
+        onClick={() => {
+          if (used) {
+            recoverEconomy(char.id, economy)
+            unmarkActionUsed(char.id, action.name)
+          } else {
+            useEconomy(char.id, economy)
+            markActionUsed(char.id, action.name)
+          }
+        }}
+      >
+        {used ? 'Undo' : label}
+      </button>
+    )
   }
 
   function addWeaponFromCatalog(w: WeaponDef) {
@@ -466,37 +612,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       bonusDamageType: w.bonusDamageType ?? w.enchantment ?? undefined,
     }
     update({ weapons: [...char.weapons, weapon] })
-    setArmoryOpen(false)
   }
 
   const DAMAGE_PATTERN = /^\d+d\d+([+-]\d+)?$|^\d+$|^—$/
-
-  function saveCustomWeapon() {
-    const name = customWeapon.name.trim()
-    const damage = customWeapon.damage.trim() || '—'
-    if (!name) { setCustomWeaponError('Name is required.'); return }
-    if (damage !== '—' && !DAMAGE_PATTERN.test(damage)) {
-      setCustomWeaponError('Damage must be like 1d6, 2d6+3, or a plain number.')
-      return
-    }
-    const atkBonus = parseInt(customWeapon.atkBonus, 10)
-    if (isNaN(atkBonus)) { setCustomWeaponError('Attack bonus must be a number.'); return }
-    setCustomWeaponError(null)
-    const w: Weapon = {
-      id: crypto.randomUUID(),
-      name,
-      atkBonus,
-      damage,
-      damageType: customWeapon.damageType.trim() || undefined,
-    }
-    update({ weapons: [...char.weapons, w] })
-    setArmoryOpen(false)
-    setCustomWeapon({ name: '', atkBonus: '0', damage: '', damageType: '' })
-  }
-
-  function removeWeapon(id: string) {
-    update({ weapons: char.weapons.filter(w => w.id !== id) })
-  }
 
   // ── Arcane Recovery (shared between action + feature) ────────────────────
   const maxArcaneRecovery = Math.ceil(char.level / 2)
@@ -540,6 +658,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           <div className={styles.detailHeader}>
             <span className={styles.detailName}>Arcane Recovery</span>
             <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{desc}</p>
           {arcaneAlreadyUsed ? (
@@ -611,6 +730,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Fighting Style</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             {isLocked ? (
               <>
@@ -672,6 +792,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>{selectedFeature.name}</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}>{selectedFeature.desc}</p>
           </div>
@@ -702,6 +823,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               <div className={styles.detailHeader}>
                 <span className={styles.detailName}>{selectedFeature.name}</span>
                 <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+                {renderActionUseButton()}
               </div>
               <p className={styles.detailFull}>
                 <strong>Feat — {featName}</strong>{abilitySuffix ? ` · ${abilitySuffix}` : ''}
@@ -718,6 +840,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>{selectedFeature.name}</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}><strong>{asiChoiceLabel}</strong></p>
           </div>
@@ -736,6 +859,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Spell Mastery</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}>{selectedFeature.desc}</p>
             <div className={styles.masterySlotPicker}>
@@ -785,6 +909,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>{featureName}</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             {isLocked ? (
               <>
@@ -851,6 +976,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Eldritch Invocations</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>{known.length} / {maxKnown} invocations known</div>
             <div className={styles.fightingStyleList}>
@@ -905,6 +1031,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Infuse Item</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>
               {known.length} / {maxKnown} infusions known · {active.length} / {maxActive} active
@@ -984,6 +1111,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Rune Carver</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>
               {known.length} / {maxKnown} runes known · {active.length} active
@@ -1098,6 +1226,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Pact Boon</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             {isLocked ? (
               <>
@@ -1186,6 +1315,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Channel Divinity</span>
               <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
+              {renderActionUseButton()}
             </div>
             {cdRes && (
               <div className={styles.detailResource}>
@@ -1220,6 +1350,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Wild Magic Surge</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>d100</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}>{selectedFeature.desc}</p>
             <button
@@ -1250,6 +1381,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Tides of Chaos</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Long Rest</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>{remaining} / {res.total} uses remaining</div>
             <p className={styles.detailFull}>{selectedFeature.desc}</p>
@@ -1284,6 +1416,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Psionic Power</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Subclass</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>{remaining} / {total} Psionic Energy dice remaining</div>
             <p className={styles.detailFull} style={{ marginTop: 6 }}>{selectedFeature.desc}</p>
@@ -1343,6 +1476,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Rage</span>
               <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+              {renderActionUseButton()}
             </div>
             {char.subclass === 'WildMagicBarbarian' && (
               <div style={{ marginTop: 8 }}>
@@ -1419,6 +1553,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Bladesong</span>
               <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+              {renderActionUseButton()}
             </div>
             {char.isBladesinging ? (
               <div className={styles.detailResource} style={{ color: 'var(--accent)' }}>Bladesong Active</div>
@@ -1480,6 +1615,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Unarmored Defense</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>Current AC: {char.armorClass}</div>
             <p className={styles.detailFull}>Formula: {formula}</p>
@@ -1509,6 +1645,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Wild Shape</span>
               <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action · SR</span>
+              {renderActionUseButton()}
             </div>
             {wsRes && (
               <div className={styles.detailResource}>{wsRes.total - wsRes.used} / {wsRes.total} uses remaining</div>
@@ -1606,6 +1743,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Martial Arts</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>Unarmed die: <strong>{die}</strong> · Attack: {atkMod >= 0 ? '+' : ''}{atkMod}</div>
             <p className={styles.detailFull} style={{ marginTop: 6 }}>
@@ -1635,6 +1773,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>{selectedFeature.name}</span>
               <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus · 1 Ki</span>
+              {renderActionUseButton()}
             </div>
             {kiRes && (
               <div className={styles.detailResource}>{kiRes.total - kiRes.used} / {kiRes.total} Ki remaining</div>
@@ -1657,6 +1796,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Bardic Inspiration</span>
               <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>
               Inspiration die: <strong>{die}</strong>
@@ -1686,6 +1826,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Reckless Attack</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}>
               When you make your first attack on your turn, you can choose to attack recklessly. Doing so gives you advantage on melee weapon attack rolls using Strength this turn.
@@ -1708,6 +1849,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Danger Sense</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
+              {renderActionUseButton()}
             </div>
             <p className={styles.detailFull}>
               You have advantage on Dexterity saving throws against effects that you can see, such as traps and spells.
@@ -1737,6 +1879,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Expertise</span>
               <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+              {renderActionUseButton()}
             </div>
             <div className={styles.detailResource}>{currentExpertCount} / {maxExpertise} expertise slots used</div>
             <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
@@ -1782,6 +1925,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           <div className={styles.detailHeader}>
             <span className={styles.detailName}>{selectedFeature.name}</span>
             <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
+            {renderActionUseButton()}
           </div>
           {isAsi && asiDone ? (
             <p className={styles.detailFull}>✓ Completed</p>
@@ -1817,6 +1961,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>
               {selectedActionDef.type === 'Bonus Action' ? 'Bonus' : selectedActionDef.type}
             </span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
@@ -1844,27 +1989,18 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>
               {selectedActionDef.type}
             </span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
 
         <div className={styles.attackDetailWeapons}>
-          <div className={styles.attackDetailWeaponsHead}>
-            <button className={styles.addBtn} onClick={() => setArmoryOpen(true)}>+ Add weapon</button>
-          </div>
             {char.weapons.map(w => {
               const rows = buildAttackRows(char, w)
               const wActive = activeRows[w.id] ?? {}
               const hasVersatile   = rows.some(r => r.id === 'versatile')
               const hasThrown      = rows.some(r => r.id === 'thrown')
               const versatileActive = hasVersatile && (wActive['versatile'] ?? false)
-              const rollState = rollMap[w.id]
-              const adv = rollState?.adv ?? 'n'
-              const d20 = rollState
-                ? adv === 'a' ? Math.max(rollState.d1, rollState.d2)
-                : adv === 'd' ? Math.min(rollState.d1, rollState.d2)
-                : rollState.d1
-                : null
 
               // Calculate crit modifiers from weapon and equipped gear
               // Look up weapon in equipment database to get full definition (including critModifier)
@@ -1896,13 +2032,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 totalToHit: number | null,
                 subtotals: { expr: string; type: string }[],
                 hasVersatileInTable: boolean,
-                overrideRoll?: { d1: number; d2: number; adv: 'n' | 'a' | 'd' } | null,
                 critThreshold?: number,
               ) => {
-                const tRoll = overrideRoll !== undefined ? overrideRoll : rollState
-                const tAdv  = tRoll?.adv ?? 'n'
-                const tD20  = tRoll ? tAdv === 'a' ? Math.max(tRoll.d1, tRoll.d2) : tAdv === 'd' ? Math.min(tRoll.d1, tRoll.d2) : tRoll.d1 : null
                 const displayRows = tableRows.filter(row => row.name !== 'Piercer Critical' && row.name !== 'Crusher Critical')
+                const totalToHitDice = tableRows
+                  .filter(row => isRowActive(row.id) && row.toHitDice)
+                  .map(row => row.toHitDice!)
                 const extraCritDice = critExtraDice(char, w, w.damageType ?? '')
                 const critTotals = criticalSubtotals(subtotals, extraCritDice)
                 return (
@@ -1925,7 +2060,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         onClick={() => !row.disabled && onToggle(row.id)}
                       >
                         <td title={row.note}>{row.name}{row.disabled ? ' *' : ''}{row.note && <span className={styles.diceNote}> note</span>}</td>
-                        <td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td style={{ fontSize: '11px', color: (weaponCritMod !== 0 || Object.keys(gearModifierMap).length > 0) ? 'var(--accent)' : 'var(--text-muted)' }}>
                           {(() => {
                             if (row.id === 'normal' && weaponCritMod !== 0) {
@@ -1970,15 +2105,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        {tD20 !== null && totalToHit !== null
-                          ? `${tD20} ${fmtMod(totalToHit)} = ${tD20 + totalToHit}`
-                          : totalToHit !== null ? formatToHit(totalToHit, tAdv) : '—'}
-                        {tRoll && tAdv !== 'n' && (
-                          <span className={styles.diceNote}>{` (${tRoll.d1}, ${tRoll.d2})`}</span>
-                        )}
+                        {formatToHitParts(totalToHit, totalToHitDice)}
                       </td>
                       <td style={{ verticalAlign: 'middle' }}>
-                        {critThreshold !== undefined && (critThreshold < 20 || char.subclass === 'Champion') && (
+                        {critThreshold !== undefined && (
                           <span style={{ padding: '4px 10px', backgroundColor: '#d4af37', color: '#1a1a1a', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', border: '1px solid #8b7c3a', display: 'inline-block' }}>
                             Crit {critThreshold}+
                           </span>
@@ -2047,12 +2177,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
                 }
 
-                const meleeKey = `${w.id}_melee`
-                const rangedKey = `${w.id}_ranged`
-                const meleeRoll = rollMap[meleeKey]
-                const rangedRoll = rollMap[rangedKey]
-                const meleeAdv = meleeRoll?.adv ?? 'n'
-                const rangedAdv = rangedRoll?.adv ?? 'n'
                 const meleeTotalToHit = meleeRows.filter(r => isMeleeActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
                 const rangedTotalToHit = rangedRows.filter(r => isRangedActive(r.id) && r.toHit !== null).reduce((a, r) => a + r.toHit!, 0)
                 const meleeSubtotals  = dmgSubtotals(meleeRows,  isMeleeActive)
@@ -2063,26 +2187,16 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
                         <span>{w.name} melee {renderMartialAdvLabel()}</span>
-                        <div className={styles.attackHeadActions}>
-                          <button className={`${styles.advBtn} ${meleeAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'n')}>Norm</button>
-                          <button className={`${styles.advBtn} ${meleeAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'a')}>Adv</button>
-                          <button className={`${styles.advBtn} ${meleeAdv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(meleeKey, 'd')}>Dis</button>
-                          <button className={styles.rollBtn} onClick={() => rollWeapon(meleeKey)} title="Roll d20">🎲</button>
-                        </div>
+                        {renderAttackControls()}
                       </div>
-                      {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, meleeRoll ?? null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
+                      {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
                         <span>{w.name} ranged ({throwRange}) {renderMartialAdvLabel()}</span>
-                        <div className={styles.attackHeadActions}>
-                          <button className={`${styles.advBtn} ${rangedAdv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'n')}>Norm</button>
-                          <button className={`${styles.advBtn} ${rangedAdv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'a')}>Adv</button>
-                          <button className={`${styles.advBtn} ${rangedAdv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(rangedKey, 'd')}>Dis</button>
-                          <button className={styles.rollBtn} onClick={() => rollWeapon(rangedKey)} title="Roll d20">🎲</button>
-                        </div>
+                        {renderAttackControls()}
                       </div>
-                      {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, rangedRoll ?? null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
+                      {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
                   </div>
                 )
@@ -2120,15 +2234,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <div key={w.id} className={styles.attackBreakdownSection}>
                   <div className={styles.attackBreakdownHead}>
                     <span>{w.name} {renderMartialAdvLabel()}</span>
-                    <div className={styles.attackHeadActions}>
-                      <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
-                      <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
-                      <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
-                      <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
-                      <button className={styles.weaponDel} onClick={() => removeWeapon(w.id)} title="Remove weapon">×</button>
-                    </div>
+                    {renderAttackControls()}
                   </div>
-                  {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile, null, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
+                  {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                 </div>
               )
             })}
@@ -2159,7 +2267,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             {char.subclass === 'BattleMaster' && (() => {
               const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
               const dieSize = char.level >= 10 ? '1d10' : '1d8'
-              const usedDice = char.superiorityDiceUsed ?? 0
+              const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: totalDice }
+              const usedDice = superiorityDice.used
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + mod(char.abilityScores.str)
               const known = maneuversKnown(char.level)
@@ -2175,14 +2284,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                       {leftDice > 0 && (
                         <button
                           className={styles.addBtn}
-                          onClick={() => update({ superiorityDiceUsed: Math.min(totalDice, usedDice + 1) })}
+                          onClick={() => update({ resources: { ...char.resources, 'Superiority Dice': { total: totalDice, used: Math.min(totalDice, usedDice + 1) } } })}
                           title="Use a Superiority Die"
                         >Use Die</button>
                       )}
                       {usedDice > 0 && (
                         <button
                           className={styles.addBtn}
-                          onClick={() => update({ superiorityDiceUsed: Math.max(0, usedDice - 1) })}
+                          onClick={() => update({ resources: { ...char.resources, 'Superiority Dice': { total: totalDice, used: Math.max(0, usedDice - 1) } } })}
                           title="Recover a Superiority Die"
                         >Recover</button>
                       )}
@@ -2393,79 +2502,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             onConcentrationBroken={onConcentrationBroken}
           />
         </div>
-
-        {armoryOpen && (
-          <div className={styles.modalOverlay} onClick={() => setArmoryOpen(false)}>
-            <div className={styles.armoryModal} onClick={e => e.stopPropagation()}>
-              <div className={styles.armoryHeader}>
-                <span className={styles.armoryTitle}>Armory</span>
-                <button className={styles.modalClose} onClick={() => setArmoryOpen(false)}>×</button>
-              </div>
-              <div className={styles.armoryTabs}>
-                <button className={`${styles.armoryTab} ${armoryTab === 'browse' ? styles.armoryTabActive : ''}`} onClick={() => setArmoryTab('browse')}>Browse Catalog</button>
-                <button className={`${styles.armoryTab} ${armoryTab === 'custom' ? styles.armoryTabActive : ''}`} onClick={() => setArmoryTab('custom')}>Custom</button>
-              </div>
-              {armoryTab === 'browse' && (
-                <>
-                  <input
-                    className={styles.searchInput}
-                    type="search"
-                    placeholder="Search weapons…"
-                    value={armorySearch}
-                    onChange={e => setArmorySearch(e.target.value)}
-                    autoFocus
-                  />
-                  <div className={styles.armoryList}>
-                    {(['Simple Melee', 'Simple Ranged', 'Martial Melee', 'Martial Ranged', 'Magic'] as const).map(group => {
-                      const groupWeapons = WEAPONS.filter(w => {
-                        const cat = w.proficiencyCategory === 'Simple' ? 'Simple' : w.proficiencyCategory === 'Martial' ? 'Martial' : null
-                        const range = w.rangeType === 'Ranged' ? 'Ranged' : 'Melee'
-                        if (group === 'Magic') return (w.enchantmentBonus ?? 0) > 0
-                        if (!cat) return false
-                        return `${cat} ${range}` === group && (w.enchantmentBonus ?? 0) === 0
-                      }).filter(w => w.name.toLowerCase().includes(armorySearch.toLowerCase()))
-                      if (groupWeapons.length === 0) return null
-                      return (
-                        <div key={group} className={styles.armoryGroup}>
-                          <div className={styles.armoryGroupLabel}>{group}</div>
-                          {groupWeapons.map(w => (
-                            <button key={w.id} className={styles.armoryEntry} onClick={() => addWeaponFromCatalog(w)}>
-                              <span className={styles.armoryEntryName}>{w.name}</span>
-                              <span className={styles.armoryEntryDmg}>{w.damageDie} {w.damageType}</span>
-                              <span className={styles.armoryEntryProps}>{w.properties.slice(0, 2).join(', ')}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-              {armoryTab === 'custom' && (
-                <div className={styles.armoryCustomForm}>
-                  <label className={styles.armoryField}>
-                    <span>Name *</span>
-                    <input className={styles.input} value={customWeapon.name} autoFocus placeholder="e.g. Flame Tongue" onChange={e => setCustomWeapon({ ...customWeapon, name: e.target.value })} />
-                  </label>
-                  <label className={styles.armoryField}>
-                    <span>Damage (e.g. 1d6, 2d6+3)</span>
-                    <input className={styles.input} value={customWeapon.damage} placeholder="1d6" onChange={e => setCustomWeapon({ ...customWeapon, damage: e.target.value })} />
-                  </label>
-                  <label className={styles.armoryField}>
-                    <span>Damage type</span>
-                    <input className={styles.input} value={customWeapon.damageType} placeholder="slashing" onChange={e => setCustomWeapon({ ...customWeapon, damageType: e.target.value })} />
-                  </label>
-                  <label className={styles.armoryField}>
-                    <span>Attack bonus modifier</span>
-                    <input className={styles.input} type="number" value={customWeapon.atkBonus} onChange={e => setCustomWeapon({ ...customWeapon, atkBonus: e.target.value })} />
-                  </label>
-                  {customWeaponError && <span className={styles.armoryError}>{customWeaponError}</span>}
-                  <button className={styles.armoryAddBtn} onClick={saveCustomWeapon}>Add Weapon</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     )
   }
@@ -2488,6 +2524,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           <div className={styles.detailHeader}>
             <span className={styles.detailName}>{selectedActionDef.name}</span>
             <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>{selectedActionDef.type}</span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
           <div className={styles.detailResource}>
@@ -2538,6 +2575,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>
               {selectedActionDef.type}
             </span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
         </div>
@@ -2561,20 +2599,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
             const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
+            const totalToHitDice = rows.filter(r => isActive(r.id) && r.toHitDice).map(r => r.toHitDice!)
             const meleeSubtotals = dmgSubtotals(rows, isActive)
-            const rollState = rollMap[w.id]
-            const adv = rollState?.adv ?? 'n'
-            const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
             return (
               <div key={w.id} className={styles.attackBreakdownSection}>
                 <div className={styles.attackBreakdownHead}>
                   <span>{w.name} {renderMartialAdvLabel()}</span>
-                  <div className={styles.attackHeadActions}>
-                    <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
-                    <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
-                    <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
-                    <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
-                  </div>
                 </div>
                 <table className={styles.attackBreakdownTable}>
                   <thead>
@@ -2586,7 +2616,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
                         onClick={() => toggleActive(row.id)}
                       >
-                        <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{row.name}</td><td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
@@ -2599,8 +2629,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td>
-                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
-                        {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
+                        {formatToHitParts(totalToHit, totalToHitDice)}
                       </td>
                       <td colSpan={5}>{meleeSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
@@ -2631,6 +2660,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>
               {selectedActionDef.type === 'Bonus Action' ? 'Bonus' : selectedActionDef.type}
             </span>
+            {renderActionUseButton()}
           </div>
           <p className={styles.detailFull}>{selectedActionDef.full}</p>
           {!hasTWF && (
@@ -2659,20 +2689,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
             const totalToHit = activeToHits.length > 0 ? activeToHits.reduce((a, b) => a + b, 0) : null
+            const totalToHitDice = rows.filter(r => isActive(r.id) && r.toHitDice).map(r => r.toHitDice!)
             const rangedSubtotals = dmgSubtotals(rows, isActive)
-            const rollState = rollMap[w.id]
-            const adv = rollState?.adv ?? 'n'
-            const d20 = rollState ? (adv === 'a' ? Math.max(rollState.d1, rollState.d2) : adv === 'd' ? Math.min(rollState.d1, rollState.d2) : rollState.d1) : null
             return (
               <div key={w.id} className={styles.attackBreakdownSection}>
                 <div className={styles.attackBreakdownHead}>
                   <span>{w.name} {renderMartialAdvLabel()}</span>
-                  <div className={styles.attackHeadActions}>
-                    <button className={`${styles.advBtn} ${adv === 'n' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'n')}>Norm</button>
-                    <button className={`${styles.advBtn} ${adv === 'a' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'a')}>Adv</button>
-                    <button className={`${styles.advBtn} ${adv === 'd' ? styles.advBtnActive : ''}`} onClick={() => setWeaponAdv(w.id, 'd')}>Dis</button>
-                    <button className={styles.rollBtn} onClick={() => rollWeapon(w.id)} title="Roll d20">🎲</button>
-                  </div>
                 </div>
                 <table className={styles.attackBreakdownTable}>
                   <thead>
@@ -2684,7 +2706,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
                         onClick={() => toggleActive(row.id)}
                       >
-                        <td>{row.name}</td><td>{row.toHit !== null ? fmtMod(row.toHit) : '—'}</td>
+                        <td>{row.name}</td><td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
@@ -2697,8 +2719,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
                       <td>
-                        {d20 !== null && totalToHit !== null ? `${d20} ${fmtMod(totalToHit)} = ${d20 + totalToHit}` : totalToHit !== null ? formatToHit(totalToHit, adv) : '—'}
-                        {rollState && adv !== 'n' && <span className={styles.diceNote}>{` (${rollState.d1}, ${rollState.d2})`}</span>}
+                        {formatToHitParts(totalToHit, totalToHitDice)}
                       </td>
                       <td colSpan={5}>{rangedSubtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
@@ -2720,6 +2741,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
         <div className={styles.detailHeader}>
           <span className={styles.detailName}>Dash</span>
           <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action</span>
+          {renderActionUseButton()}
         </div>
         <p className={styles.detailFull}>
           You gain extra movement for the current turn equal to your speed (after modifiers).
@@ -2738,6 +2760,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
         <div className={styles.detailHeader}>
           <span className={styles.detailName}>{selectedActionDef.name}</span>
           <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>Bonus</span>
+          {renderActionUseButton()}
         </div>
         <p className={styles.detailFull}>{selectedActionDef.full}</p>
         <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
@@ -2763,6 +2786,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
         <div className={styles.detailHeader}>
           <span className={styles.detailName}>{selectedActionDef.name}</span>
           <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>Bonus</span>
+          {renderActionUseButton()}
         </div>
         <p className={styles.detailFull}>{selectedActionDef.full}</p>
         <button
@@ -2776,6 +2800,38 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     )
   }
 
+  if (selectedAction === 'Steady Aim') {
+    const moved = turnState?.movedThisTurn === true
+    const speedZero = turnState?.speedZeroUntilTurnEnd === true
+    return (
+      <div className={styles.detailPane}>
+        <div className={styles.detailHeader}>
+          <span className={styles.detailName}>{selectedActionDef.name}</span>
+          <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>Bonus</span>
+          {renderActionUseButton()}
+        </div>
+        <p className={styles.detailFull}>{selectedActionDef.full}</p>
+        {speedZero && (
+          <p className={styles.detailFull} style={{ color: 'var(--warning)', fontSize: 11 }}>
+            Speed is 0 until the end of this turn.
+          </p>
+        )}
+        <button
+          className={styles.detailChipBtn}
+          disabled={moved}
+          title={moved ? 'Steady Aim requires that you have not moved this turn' : 'Use Steady Aim'}
+          onClick={() => {
+            setAdvantageNextAttack(char.id, 'adv')
+            setSpeedZero(char.id, true)
+            useEconomy(char.id, 'bonus')
+          }}
+        >
+          Use Steady Aim
+        </button>
+      </div>
+    )
+  }
+
   // ALL OTHER ACTIONS
   return (
     <div className={styles.detailPane}>
@@ -2784,6 +2840,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
         <span className={`${styles.detailBadge} ${badgeClass(selectedActionDef.type)}`}>
           {selectedActionDef.type === 'Bonus Action' ? 'Bonus' : selectedActionDef.type}
         </span>
+        {renderActionUseButton()}
       </div>
       {selectedActionDef.resourceKey && (
         <div className={styles.detailResource}>

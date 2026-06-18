@@ -146,7 +146,6 @@ export interface Character {
   selectedManeuver?: string | null
   chosenManeuvers?: string[]
   activeManeuver?: string | null
-  superiorityDiceUsed?: number
   arcaneShots?: string[]
   activeArcaneShot?: string | null
   /** Artificer infusion designs the character knows */

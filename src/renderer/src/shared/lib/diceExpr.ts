@@ -68,7 +68,7 @@ export function combineDiceExpr(expr: string): string {
 /** Doubles every die COUNT (crit), leaving flat modifiers unchanged.
  *  "2d6 + 14" -> "4d6 + 14"; "1d8" -> "2d8". */
 export function critDiceExpr(expr: string): string {
-  if (!expr || expr === 'â€”') return expr
+  if (!expr || expr === '—') return expr
   const { dice, flat } = parseDiceExpr(expr)
   const doubled = combineDiceTerms(dice.map(term => ({ ...term, count: term.count * 2 })))
   const diceExpr = doubled.map(({ count, face }) =>

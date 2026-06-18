@@ -18,6 +18,7 @@ export function TurnHeader({ charId, nextTurnOpen, onToggleNextTurn }: Props) {
   const ts = useAppStore(s => s.turnStates[charId])
   const useEconomy = useAppStore(s => s.useEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
+  const setMoved = useAppStore(s => s.setMoved)
 
   if (!ts) return null
 
@@ -57,6 +58,14 @@ export function TurnHeader({ charId, nextTurnOpen, onToggleNextTurn }: Props) {
           )
         })}
       </div>
+
+      <button
+        className={`${styles.movedBtn} ${ts.movedThisTurn ? styles.movedBtnActive : ''}`}
+        onClick={() => setMoved(charId, !ts.movedThisTurn)}
+        title="Manual movement signal for move-dependent rules"
+      >
+        Moved
+      </button>
 
       <button
         className={`${styles.nextTurnBtn} ${nextTurnOpen ? styles.nextTurnBtnOpen : ''}`}
