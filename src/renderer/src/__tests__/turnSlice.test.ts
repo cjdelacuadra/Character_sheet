@@ -3,6 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import type { StateCreator } from 'zustand'
 import { createTurnSlice, type TurnSlice } from '@/app/store/turnSlice'
 import type { CharacterSlice } from '@/app/store/characterSlice'
+import { formatToHitParts as panelFormatToHitParts, formatToHitRider } from '@/features/combat-actions/ActionDetailPanel'
 import { makeChar } from './helpers'
 
 function makeStore() {
@@ -48,6 +49,21 @@ describe('formatToHitParts', () => {
   })
   it('handles negative flat', () => {
     expect(formatToHitParts(-2, [])).toBe('1d20 - 2')
+  })
+  it('keeps exported base and total rows on a d20 roll', () => {
+    expect(panelFormatToHitParts(9, [])).toBe('1d20 + 9')
+  })
+})
+
+describe('formatToHitRider', () => {
+  it('formats flat to-hit riders without a d20', () => {
+    expect(formatToHitRider(1, [])).toBe('+ 1')
+  })
+  it('returns an em dash when a rider adds no to-hit value', () => {
+    expect(formatToHitRider(null, [])).toBe('\u2014')
+  })
+  it('formats to-hit dice riders without a d20', () => {
+    expect(formatToHitRider(null, ['1d4'])).toBe('+ 1d4')
   })
 })
 

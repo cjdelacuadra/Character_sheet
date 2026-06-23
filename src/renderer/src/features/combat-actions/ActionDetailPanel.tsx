@@ -76,13 +76,44 @@ function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { e
   }))
 }
 
-function formatToHitParts(toHit: number | null, diceParts: string[]): string {
+export function formatToHitParts(toHit: number | null, diceParts: string[]): string {
   const flat =
     toHit !== null && toHit !== 0
       ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
       : null
   const parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
   return parts.join(' ') || '\u2014'
+}
+
+export function formatToHitRider(toHit: number | null, diceParts: string[]): string {
+  const flat =
+    toHit !== null && toHit !== 0
+      ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
+      : null
+  const parts = [...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+  return parts.length ? parts.join(' ') : '—'
+}
+
+const BASE_ATTACK_ROW_IDS = new Set(['normal', 'versatile', 'thrown'])
+
+type AttackConsumption =
+  | { kind: 'economy'; slot: 'action' | 'bonus' | 'reaction'; attacksOverride?: number }
+  | { kind: 'resource'; resourceKey: string; cost: number }
+  | { kind: 'oncePerTurn'; resourceKey: string }
+  | { kind: 'spellSlot' }
+
+const ATTACK_CONSUMPTION: Record<string, AttackConsumption> = {
+  'booming-blade': { kind: 'economy', slot: 'action', attacksOverride: 1 },
+  'maneuver-*': { kind: 'resource', resourceKey: 'Superiority Dice', cost: 1 },
+  'arcane-*': { kind: 'resource', resourceKey: 'Arcane Shot', cost: 1 },
+  'Sneak Attack': { kind: 'oncePerTurn', resourceKey: 'Sneak Attack' },
+  'Divine Smite': { kind: 'spellSlot' },
+}
+
+function getAttackConsumption(rowId: string): AttackConsumption | undefined {
+  if (rowId.startsWith('maneuver-')) return ATTACK_CONSUMPTION['maneuver-*']
+  if (rowId.startsWith('arcane-')) return ATTACK_CONSUMPTION['arcane-*']
+  return ATTACK_CONSUMPTION[rowId]
 }
 
 function criticalSubtotals(
@@ -111,7 +142,7 @@ const GEAR_SLOTS: (keyof Equipment)[] = [
 function buildAttackRows(
   char: Character,
   w: Weapon,
-  opts?: { offHand?: boolean; hasTWF?: boolean },
+  opts?: { offHand?: boolean; hasTWF?: boolean; smiteSlotLevel?: number | null },
 ): AttackRow[] {
   const strMod = mod(effectiveAbilityScore(char, 'str'))
   const dexMod = mod(effectiveAbilityScore(char, 'dex'))
@@ -192,10 +223,28 @@ function buildAttackRows(
     let bonusDmgType: string | null = null
     if (sa.name === 'GWM Power Attack' || sa.name === 'Sharpshooter') {
       toHit = -5; bonusDmg = '10'; bonusDmgType = w.damageType ?? null
+    } else if (sa.name === 'Divine Smite') {
+      const slotLevel = opts?.smiteSlotLevel ?? null
+      bonusDmg = slotLevel ? `${Math.min(2 + (slotLevel - 1), 5)}d8` : null
+      bonusDmgType = slotLevel ? 'radiant' : null
+      rows.push({
+        id: sa.name,
+        name: sa.name,
+        toHit,
+        dmg: null,
+        dmgType: null,
+        bonusDmg,
+        bonusDmgType,
+        disabled: slotLevel === null,
+        note: slotLevel
+          ? `${sa.note ?? ''} +1d8 vs fiends/undead (max 6d8).`.trim()
+          : 'No spell slots available.',
+        group: SPECIAL_GROUP[sa.name] ?? 'both',
+      })
+      continue
     } else if (sa.dice) {
       bonusDmg = sa.dice
       bonusDmgType = sa.name === 'Sneak Attack' ? 'piercing'
-        : sa.name === 'Divine Smite' ? 'radiant'
         : w.damageType ?? null
     }
     rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType, note: sa.note,
@@ -368,15 +417,25 @@ const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th
 
 function BoomingBladeTurnToggle({ charId }: { charId: string }) {
   const ts = useAppStore(s => s.turnStates[charId])
+  const useEconomy = useAppStore(s => s.useEconomy)
+  const recoverEconomy = useAppStore(s => s.recoverEconomy)
   const registerEndOfTurnSpell = useAppStore(s => s.registerEndOfTurnSpell)
   const unregisterEndOfTurnSpell = useAppStore(s => s.unregisterEndOfTurnSpell)
   const armed = !!ts?.endOfTurnSpellIds.includes('booming-blade')
+  const consumption = ATTACK_CONSUMPTION['booming-blade']
   return (
     <button
-      onClick={() => armed
-        ? unregisterEndOfTurnSpell(charId, 'booming-blade')
-        : registerEndOfTurnSpell(charId, 'booming-blade')}
-      title={armed ? 'Cast this turn — will expire on Next Turn' : 'Mark as cast this turn'}
+      onClick={() => {
+        if (consumption.kind !== 'economy') return
+        if (armed) {
+          unregisterEndOfTurnSpell(charId, 'booming-blade')
+          recoverEconomy(charId, consumption.slot)
+        } else {
+          registerEndOfTurnSpell(charId, 'booming-blade')
+          useEconomy(charId, consumption.slot)
+        }
+      }}
+      title={armed ? 'Uncast Booming Blade and refund action' : 'Cast Booming Blade'}
       style={{
         fontSize: 9,
         padding: '2px 5px',
@@ -437,6 +496,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const [maneuverPickerOpen, setManeuverPickerOpen] = useState(false)
   const [arcanePickerOpen, setArcanePickerOpen] = useState(false)
   const [activeRows, setActiveRows] = useState<Record<string, Record<string, boolean>>>({})
+  const [smiteSlotLevel, setSmiteSlotLevel] = useState<number | null>(null)
   const [wildMagicRoll, setWildMagicRoll] = useState<number | null>(null)
   const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
   const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
@@ -462,40 +522,113 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
   })()
 
-  const perAction = computeAttackCount(char)
-  const totalActions = 1 + (turnState?.bonusActions ?? 0)
-  const attacksMax = perAction * totalActions
+  const boomingBladeActive = !!turnState?.endOfTurnSpellIds.includes('booming-blade')
+  const smiteSlotLevels = Object.keys(char.spellSlots)
+    .map(Number)
+    .filter(level => char.spellSlots[level]?.total > 0)
+    .sort((a, b) => a - b)
+  const smiteRemaining = (level: number) => {
+    const slot = char.spellSlots[level]
+    return slot ? Math.max(0, slot.total - slot.used) : 0
+  }
+  const lowestAvailableSmiteSlotLevel = smiteSlotLevels.find(level => smiteRemaining(level) > 0) ?? null
+  const selectedSmiteSlotLevel =
+    smiteSlotLevel !== null && smiteRemaining(smiteSlotLevel) > 0
+      ? smiteSlotLevel
+      : lowestAvailableSmiteSlotLevel
+  const basePerAction = computeAttackCount(char)
+  const perAction = boomingBladeActive ? 1 : basePerAction
+  const totalActions = boomingBladeActive ? 1 : 1 + (turnState?.bonusActions ?? 0)
+  const attacksMax = boomingBladeActive ? 1 : perAction * totalActions
   const attacksUsed = turnState?.attacksUsed ?? 0
   const attacksRemaining = Math.max(0, attacksMax - attacksUsed)
 
-  function spendAttack() {
+  function adjustAttackConsumption(rows: AttackRow[], direction: 'spend' | 'recover') {
+    let resources = char.resources
+    let spellSlots = char.spellSlots
+    let resourcesChanged = false
+    let spellSlotsChanged = false
+
+    for (const row of rows) {
+      const consumption = getAttackConsumption(row.id)
+      if (!consumption || row.disabled) continue
+      if (consumption.kind === 'economy') continue
+      if (consumption.kind === 'resource' || consumption.kind === 'oncePerTurn') {
+        const cost = consumption.kind === 'resource' ? consumption.cost : 1
+        const current = resources[consumption.resourceKey] ?? (consumption.kind === 'oncePerTurn' ? { used: 0, total: 1 } : null)
+        if (!current) continue
+        const used = direction === 'spend'
+          ? Math.min(current.total, current.used + cost)
+          : Math.max(0, current.used - cost)
+        resources = {
+          ...resources,
+          [consumption.resourceKey]: { ...current, used },
+        }
+        resourcesChanged = true
+      }
+      if (consumption.kind === 'spellSlot') {
+        const level = selectedSmiteSlotLevel
+        if (level === null) continue
+        const slot = spellSlots[level]
+        if (!slot) continue
+        if (direction === 'spend' && slot.used >= slot.total) continue
+        const used = direction === 'spend'
+          ? Math.min(slot.total, slot.used + 1)
+          : Math.max(0, slot.used - 1)
+        spellSlots = {
+          ...spellSlots,
+          [level]: { ...slot, used },
+        }
+        spellSlotsChanged = true
+      }
+    }
+
+    if (resourcesChanged || spellSlotsChanged) {
+      update({
+        ...(resourcesChanged ? { resources } : {}),
+        ...(spellSlotsChanged ? { spellSlots } : {}),
+      })
+    }
+  }
+
+  function spendAttack(rows: AttackRow[] = []) {
     if (attacksUsed >= attacksMax) return
-    const before = Math.ceil(attacksUsed / perAction)
-    const after = Math.ceil((attacksUsed + 1) / perAction)
-    if (after > before) {
-      useEconomy(char.id, 'action')
+    if (!boomingBladeActive) {
+      const before = Math.ceil(attacksUsed / perAction)
+      const after = Math.ceil((attacksUsed + 1) / perAction)
+      if (after > before) {
+        useEconomy(char.id, 'action')
+        setAttacked(char.id, true)
+      }
+    } else {
       setAttacked(char.id, true)
     }
+    adjustAttackConsumption(rows, 'spend')
     useAttack(char.id)
   }
 
-  function recoverSpentAttack() {
+  function recoverSpentAttack(rows: AttackRow[] = []) {
     if (attacksUsed <= 0) return
-    const before = Math.ceil(attacksUsed / perAction)
-    const after = Math.ceil((attacksUsed - 1) / perAction)
-    if (after < before) {
-      recoverEconomy(char.id, 'action')
-      if (attacksUsed - 1 === 0) setAttacked(char.id, false)
+    if (!boomingBladeActive) {
+      const before = Math.ceil(attacksUsed / perAction)
+      const after = Math.ceil((attacksUsed - 1) / perAction)
+      if (after < before) {
+        recoverEconomy(char.id, 'action')
+        if (attacksUsed - 1 === 0) setAttacked(char.id, false)
+      }
+    } else if (attacksUsed - 1 === 0) {
+      setAttacked(char.id, false)
     }
+    adjustAttackConsumption(rows, 'recover')
     recoverAttack(char.id)
   }
 
-  function renderAttackControls(extra?: ReactNode) {
+  function renderAttackControls(rows: AttackRow[] = [], extra?: ReactNode) {
   return (
     <div className={styles.attackHeadActions}>
       <button 
         className={styles.attackUseBtn} 
-        onClick={spendAttack} 
+        onClick={() => spendAttack(rows)} 
         disabled={attacksUsed >= attacksMax}
       >
         Attack
@@ -514,7 +647,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               <button
                 type="button"
                 className={`${styles.attackPip} ${filled ? styles.attackPipFull : styles.attackPipSpent}`}
-                onClick={filled ? spendAttack : recoverSpentAttack}
+                onClick={() => filled ? spendAttack(rows) : recoverSpentAttack(rows)}
                 title={filled ? 'Use attack' : 'Recover attack'}
               />
             </React.Fragment>
@@ -525,6 +658,36 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     </div>
   );
 }
+
+  function renderDivineSmiteSlotPicker() {
+    const hasRemaining = smiteSlotLevels.some(level => smiteRemaining(level) > 0)
+    if (!hasRemaining) {
+      return <span className={styles.smiteNoSlots}>no slots</span>
+    }
+    return (
+      <div className={styles.smiteSlotPicker}>
+        {smiteSlotLevels.map(level => {
+          const remaining = smiteRemaining(level)
+          const active = selectedSmiteSlotLevel === level
+          return (
+            <button
+              key={level}
+              type="button"
+              className={`${styles.smiteSlotBtn} ${active ? styles.smiteSlotBtnActive : ''}`}
+              disabled={remaining <= 0}
+              onClick={(event) => {
+                event.stopPropagation()
+                setSmiteSlotLevel(level)
+              }}
+              title={`${remaining}/${char.spellSlots[level]?.total ?? 0} level ${level} slots`}
+            >
+              {level}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   function renderMartialAdvLabel() {
     if (attackAdvantage.martial === 'none') return null
@@ -1996,7 +2159,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
         <div className={styles.attackDetailWeapons}>
             {char.weapons.map(w => {
-              const rows = buildAttackRows(char, w)
+              const rows = buildAttackRows(char, w, { smiteSlotLevel: selectedSmiteSlotLevel })
               const wActive = activeRows[w.id] ?? {}
               const hasVersatile   = rows.some(r => r.id === 'versatile')
               const hasThrown      = rows.some(r => r.id === 'thrown')
@@ -2060,7 +2223,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         onClick={() => !row.disabled && onToggle(row.id)}
                       >
                         <td title={row.note}>{row.name}{row.disabled ? ' *' : ''}{row.note && <span className={styles.diceNote}> note</span>}</td>
-                        <td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
+                        <td>{BASE_ATTACK_ROW_IDS.has(row.id)
+                          ? formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+                          : formatToHitRider(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td style={{ fontSize: '11px', color: (weaponCritMod !== 0 || Object.keys(gearModifierMap).length > 0) ? 'var(--accent)' : 'var(--text-muted)' }}>
                           {(() => {
                             if (row.id === 'normal' && weaponCritMod !== 0) {
@@ -2087,6 +2252,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>
@@ -2151,6 +2317,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   if (row?.disabled) return false
                   if (rid === 'normal')    return !versatileActive
                   if (rid === 'versatile') return  versatileActive
+                  if (rid === 'booming-blade') return boomingBladeActive
                   return rid.startsWith('maneuver-') || rid.startsWith('equip-bonus-') ||
                          rid.startsWith('spell-buff-') || (wActive[rid] ?? false)
                 }
@@ -2158,6 +2325,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   const row = rows.find(r => r.id === rid)
                   if (row?.disabled) return false
                   if (rid === 'thrown') return true
+                  if (rid === 'booming-blade') return boomingBladeActive
                   return rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') ||
                          rid.startsWith('spell-buff-') || rid.startsWith('maneuver-') ||
                          (wActive[rid] ?? false)
@@ -2165,6 +2333,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 function toggleMelee(rid: string) {
                   const row = rows.find(r => r.id === rid)
                   if (row?.disabled) return
+                  if (rid === 'booming-blade') return
                   if (rid === 'normal' || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
                   if (rid === 'versatile') {
                     setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false) } }))
@@ -2173,6 +2342,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
                 }
                 function toggleRanged(rid: string) {
+                  if (rid === 'booming-blade') return
                   if (rid === 'thrown' || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
                 }
@@ -2187,14 +2357,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
                         <span>{w.name} melee {renderMartialAdvLabel()}</span>
-                        {renderAttackControls()}
+                        {renderAttackControls(meleeRows.filter(r => isMeleeActive(r.id)))}
                       </div>
                       {renderTable(meleeRows, isMeleeActive, toggleMelee, meleeTotalToHit, meleeSubtotals, hasVersatile, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
                     <div className={styles.attackBreakdownSection}>
                       <div className={styles.attackBreakdownHead}>
                         <span>{w.name} ranged ({throwRange}) {renderMartialAdvLabel()}</span>
-                        {renderAttackControls()}
+                        {renderAttackControls(rangedRows.filter(r => isRangedActive(r.id)))}
                       </div>
                       {renderTable(rangedRows, isRangedActive, toggleRanged, rangedTotalToHit, rangedSubtotals, false, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                     </div>
@@ -2208,6 +2378,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 if (row?.disabled) return false
                 if (rid === 'normal')    return !versatileActive
                 if (rid === 'versatile') return  versatileActive
+                if (rid === 'booming-blade') return boomingBladeActive
                 return rid.startsWith('maneuver-') ||
                   rid.startsWith('arcane-') ||
                   rid.startsWith('equip-bonus-') ||
@@ -2217,6 +2388,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               function toggleActive(rid: string) {
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return
+                if (rid === 'booming-blade') return
                 if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-')) return
                 if (rid === 'normal') return
                 if (rid === 'versatile') {
@@ -2234,7 +2406,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <div key={w.id} className={styles.attackBreakdownSection}>
                   <div className={styles.attackBreakdownHead}>
                     <span>{w.name} {renderMartialAdvLabel()}</span>
-                    {renderAttackControls()}
+                    {renderAttackControls(rows.filter(r => isActive(r.id)))}
                   </div>
                   {renderTable(rows, isActive, toggleActive, totalToHit, subtotals, hasVersatile, computeCritThreshold(char, { weaponCritMod, gearCritMods }))}
                 </div>
@@ -2270,7 +2442,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: totalDice }
               const usedDice = superiorityDice.used
               const leftDice = Math.max(0, totalDice - usedDice)
-              const dc = 8 + char.proficiencyBonus + mod(char.abilityScores.str)
+              const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))
               const known = maneuversKnown(char.level)
               const chosen = char.chosenManeuvers ?? []
               const active = char.activeManeuver ?? null
@@ -2340,8 +2512,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               )
             })()}
             {char.subclass === 'ArcaneArcher' && (() => {
-              const totalShots = char.level >= 18 ? 4 : 2
               const arcaneResource = char.resources['Arcane Shot']
+              const totalShots = arcaneResource?.total ?? 0
               const usedShots = arcaneResource?.used ?? 0
               const leftShots = Math.max(0, totalShots - usedShots)
               const known = arcaneShotsKnown(char.level)
@@ -2586,14 +2758,20 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
         <div className={styles.attackDetailWeapons}>
           {meleeWeapons.map(w => {
-            const rows = buildAttackRows(char, w)
+            const rows = buildAttackRows(char, w, { smiteSlotLevel: selectedSmiteSlotLevel })
             const wActive = activeRows[w.id] ?? {}
             const isActive = (rid: string) => {
+              const row = rows.find(r => r.id === rid)
+              if (row?.disabled) return false
               if (rid === 'normal') return true
+              if (rid === 'booming-blade') return boomingBladeActive
               if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
               return wActive[rid] ?? false
             }
             function toggleActive(rid: string) {
+              const row = rows.find(r => r.id === rid)
+              if (row?.disabled) return
+              if (rid === 'booming-blade') return
               if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
@@ -2616,11 +2794,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
                         onClick={() => toggleActive(row.id)}
                       >
-                        <td>{row.name}</td><td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
+                        <td>{row.name}</td><td>{BASE_ATTACK_ROW_IDS.has(row.id)
+                          ? formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+                          : formatToHitRider(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>
@@ -2676,14 +2857,20 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
         <div className={styles.attackDetailWeapons}>
           {offHandWeapons.map(w => {
-            const rows = buildAttackRows(char, w, { offHand: true, hasTWF })
+            const rows = buildAttackRows(char, w, { offHand: true, hasTWF, smiteSlotLevel: selectedSmiteSlotLevel })
             const wActive = activeRows[w.id] ?? {}
             const isActive = (rid: string) => {
+              const row = rows.find(r => r.id === rid)
+              if (row?.disabled) return false
               if (rid === 'normal') return true
+              if (rid === 'booming-blade') return boomingBladeActive
               if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
               return wActive[rid] ?? false
             }
             function toggleActive(rid: string) {
+              const row = rows.find(r => r.id === rid)
+              if (row?.disabled) return
+              if (rid === 'booming-blade') return
               if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
@@ -2706,11 +2893,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         className={`${styles.attackBreakdownRow} ${isActive(row.id) ? styles.attackBreakdownRowActive : styles.attackBreakdownRowDimmed} ${row.id !== 'normal' ? styles.attackBreakdownRowToggleable : ''}`}
                         onClick={() => toggleActive(row.id)}
                       >
-                        <td>{row.name}</td><td>{formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
+                        <td>{row.name}</td><td>{BASE_ATTACK_ROW_IDS.has(row.id)
+                          ? formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+                          : formatToHitRider(row.toHit, row.toHitDice ? [row.toHitDice] : [])}</td>
                         <td>{row.dmg ?? '—'}</td><td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
                         </td>

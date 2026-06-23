@@ -2,7 +2,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 
-const CURRENT_SCHEMA_VERSION = 12
+const CURRENT_SCHEMA_VERSION = 13
 
 /**
  * Upgrade a V1 character (no schemaVersion) to V2.
@@ -140,6 +140,25 @@ function v11_to_v12(char: Partial<Character>): Partial<Character> {
   return { ...char, schemaVersion: 12 }
 }
 
+function v12_to_v13(char: Partial<Character>): Partial<Character> {
+  if (char.classId === 'Fighter' && char.subclass === 'ArcaneArcher') {
+    const defaults = char.level && char.abilityScores
+      ? getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
+      : {}
+    const def = defaults['Arcane Shot']
+    if (def) {
+      const previous = char.resources?.['Arcane Shot']
+      char.resources = {
+        ...(char.resources ?? {}),
+        'Arcane Shot': previous
+          ? { used: Math.min(previous.used, def.total), total: def.total }
+          : def,
+      }
+    }
+  }
+  return { ...char, schemaVersion: 13 }
+}
+
 function v6_to_v7(char: Partial<Character>): Partial<Character> {
   const eq = char.equipment ?? { armorId: null, hasShield: false, shieldId: null }
   return {
@@ -176,6 +195,7 @@ export function migrateCharacter(raw: unknown): Character {
   if (version < 10) data = v9_to_v10(data) as typeof data
   if (version < 11) data = v10_to_v11(data) as typeof data
   if (version < 12) data = v11_to_v12(data) as typeof data
+  if (version < 13) data = v12_to_v13(data) as typeof data
 
   // Safety net: the version-gated backfills above don't re-run for characters already at a
   // newer schema version, so one that somehow lacks ownedItemIds keeps it undefined and crashes
@@ -189,6 +209,15 @@ export function migrateCharacter(raw: unknown): Character {
     const def = defaults['Superiority Dice']
     if (def && !data.resources?.['Superiority Dice']) {
       data.resources = { ...(data.resources ?? {}), 'Superiority Dice': def }
+    }
+  }
+  if (data.classId === 'Fighter' && data.subclass === 'ArcaneArcher') {
+    const defaults = data.level && data.abilityScores
+      ? getResourceDefaults(data.classId, data.level, data.abilityScores, data.subclass)
+      : {}
+    const def = defaults['Arcane Shot']
+    if (def && !data.resources?.['Arcane Shot']) {
+      data.resources = { ...(data.resources ?? {}), 'Arcane Shot': def }
     }
   }
 

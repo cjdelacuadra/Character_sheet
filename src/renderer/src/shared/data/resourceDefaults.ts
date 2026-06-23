@@ -6,6 +6,9 @@ const SUBCLASS_RESOURCES: Record<string, ResourceDef[]> = {
   BattleMaster: [
     { name: 'Superiority Dice', recoverOn: 'short', scalingTable: { 3: 4, 7: 5, 15: 6 }, minLevel: 3 },
   ],
+  ArcaneArcher: [
+    { name: 'Arcane Shot', recoverOn: 'short', scalingTable: { 3: 2, 18: 4 }, minLevel: 3 },
+  ],
 }
 
 function resolveTotal(

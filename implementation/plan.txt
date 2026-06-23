@@ -1,32 +1,32 @@
 ========================================================================
-CODEX BUILD PLAN — ATTACK-TABLE ORDER/CRIT + ATTACKS-PER-ACTION + MULTI-ACTION
+CODEX BUILD PLAN — ATTACK-TABLE To-Hit ROWS + BOOMING BLADE ECONOMY
 Project : DnD Character Companion
-Date    : 2026-06-18
+Date    : 2026-06-23
 ========================================================================
 
 WHY THIS PLAN EXISTS
 --------------------
-GOAL 1 — The attack-table Total row is mis-ordered and hides the crit badge:
-  - To Hit prints the flat modifier before the dice riders ("1d20 + 9 +1d10")
-    instead of dice before flat ("1d20 + 1d10 + 9").
-  - The "Crit N+" badge is hidden for normal weapons (threshold 20); it should
-    ALWAYS show (e.g. "Crit 20+").
-GOAL 2 — Number of attacks ignores extra actions. With Action Surge (2+ actions)
-  the attack pips should be attacks-per-action x number-of-actions, and spending
-  attacks should consume actions in blocks (every attacks-per-action attacks = 1
-  action).
-GOAL 3 — With 2+ actions the player cannot select more than one action: using one
-  action (e.g. Dodge) flips EVERY action's "Use Action" button to "Undo" because
-  the used-state is read from the single global actionsUsed counter.
+GOAL 1 — The attack table prints "1d20" on To-Hit cells that should not have it.
+  Only the weapon's own attack rows (Normal / Versatile / thrown base) and the
+  Total row roll the d20. Rider rows must show only their To-Hit contribution:
+    - a rider that adds to hit (Magic Weapon +1) -> "+ 1"
+    - a rider with no to-hit contribution (Sneak Attack, Booming Blade) -> em dash
+  Root cause: formatToHitParts (ActionDetailPanel.tsx:79) always prefixes "1d20",
+  and the per-row To-Hit cell (line 2063) uses it for EVERY row.
+
+GOAL 2 — Booming Blade is not wired to the action economy. Using/casting it
+  should consume a BONUS action. Its "Cast" control (BoomingBladeTurnToggle,
+  line 369) only registers the end-of-turn move-damage spell; it spends nothing.
+  Also audit for other attack-table riders that represent a spell/cantrip cast and
+  wire them the same way (Green-Flame Blade is NOT in the spell data today).
 
 STANDING RULES
 --------------
-  - Do NOT assume anything outside this document. Datasets/logic are supplied.
+  - Do NOT assume anything outside this document; logic is supplied below.
   - Before each task RE-READ the named anchor; if already done, STOP and report.
     If an anchor is missing, STOP and report.
-  - Reuse existing helpers (computeAttackCount, formatToHit, turnSlice setters,
-    useEconomy/recoverEconomy/grantEconomy, useAttack/recoverAttack). Save files
-    UTF-8 (no BOM); grep edited files for "â€"/"Â·" after editing.
+  - Reuse existing helpers (formatToHit, useEconomy/recoverEconomy, the turn
+    state). Save files UTF-8 (no BOM); grep edited files for "â€"/"Â·" after.
 
 
 ========================================================================
@@ -41,180 +41,228 @@ SECTION 0 — GLOBAL STOP CONDITIONS
 SECTION 1 — CURRENT STATE (read first; echo back before editing)
 ========================================================================
 File: src/renderer/src/features/combat-actions/ActionDetailPanel.tsx
-  - formatToHitParts (line 79): returns
-      [ toHit!==null ? formatToHit(toHit) : null, ...diceParts.map(d=>`+${d}`) ]
-    joined by ' '. formatToHit(n) (diceExpr.ts) returns "1d20 + n", so the flat
-    lands BEFORE the dice riders. Used by both per-row cells (line 2026, 2582,
-    2672) and Total-row cells (line 2071, 2595, 2685).
-  - Crit badge: rendered inside renderTable's Total row (line ~2074):
-      critThreshold !== undefined && (critThreshold < 20 || char.subclass==='Champion')
-      ... "Crit {critThreshold}+"
-    The inline ranged/thrown tables (near 2595, 2685) may render their own copy —
-    find every crit-badge gate.
-  - Attack pips / economy (lines 462-491):
-      attacksMax = computeAttackCount(char)           // attacks PER action
-      attacksUsed = turnState.attacksUsed
-      spendAttack(): if attacksUsed===0 -> useEconomy('action') + setAttacked(true);
-                     then useAttack(char.id)
-      recoverSpentAttack(): recoverAttack; if attacksUsed===1 -> recoverEconomy
-                     ('action') + setAttacked(false)
-      pips render `attacksMax` buttons (line 489).
-  - renderActionUseButton (line 536): skips Attack/Off-Hand/Cast a Spell*/
-    resourceKey/Steady Aim; else maps type->economy and sets
-      used = (that economy's *Used counter) > 0
-    label "Use Action|Bonus Action|Reaction"; click toggles useEconomy/
-    recoverEconomy; shows "Undo" when used. Rendered in every action detail.
-  - turnSlice.ts TurnState has actionsUsed/bonusActionsUsed/reactionsUsed,
-    attacksUsed, and grant fields bonusActions/bonusBonusActions/bonusReactions
-    (Action Surge does grantEconomy('action',1) -> bonusActions += 1). Setters:
-    useEconomy/recoverEconomy/grantEconomy/useAttack/recoverAttack; confirmNextTurn
-    + makeFreshTurnState reset the turn.
-  - domain/rules computeAttackCount(character) = attacks per action (Fighter L5->2,
-    L11->3, L20->4; Barb/Pal/Ranger/Monk L5->2; Bladesinger L6->2; else 1).
+  - formatToHitParts (line 79-85): always builds ['1d20', ...dice, flat] -> so a
+    null/zero toHit row still prints "1d20", and a +1 rider prints "1d20 + 1".
+  - Per-row To-Hit cell uses it for ALL rows:
+      line 2063  : <td>{formatToHitParts(row.toHit, row.toHitDice?[row.toHitDice]:[])}</td>
+      lines 2582, 2672 : same, in the thrown / ranged-only table variants.
+  - Total-row To-Hit cell uses it too (this one SHOULD keep "1d20"):
+      lines 2071, 2595, 2685 : {formatToHitParts(totalToHit, totalToHitDice)}
+  - Base weapon attack rows are id 'normal', 'versatile' (melee/one-table) and
+    'thrown' (the ranged base of a thrown weapon — confirm in buildAttackRows;
+    isRangedActive treats 'thrown' as always-active). Everything else is a rider
+    (Sneak Attack, Booming Blade, Magic Weapon via 'spell-buff-...', 'maneuver-...',
+    'arcane-...', 'equip-bonus-...', 'Divine Smite', etc.).
+  - Booming Blade row: buildAttackRows line ~298-300 pushes id 'booming-blade'
+    (toHit null) when melee + knows the cantrip + level>=5. rowResource(line 349)
+    returns 'Cantrip'. BoomingBladeTurnToggle (line 369) renders the "Cast" button
+    in the Resource cell (lines 2090/2624/2714): arming = registerEndOfTurnSpell
+    ('booming-blade'); it does NOT touch economy. Green-Flame Blade is absent from
+    spellData.
 
 
 ========================================================================
-GOAL 1 — ORDER THE ATTACK TABLE + ALWAYS SHOW CRIT
+GOAL 1 — To-Hit: 1d20 only on base attack rows + Total
 ========================================================================
 
----- TASK 1A: To Hit shows dice before the flat modifier ----
+---- TASK 1A: Add a rider To-Hit formatter (no 1d20) ----
 
-File: ActionDetailPanel.tsx formatToHitParts (line 79).
-Rebuild the output order as: 1d20 base, THEN each dice rider, THEN the flat
-modifier last. Do NOT use formatToHit for the bundled "1d20 + flat" (it forces
-flat-before-dice). Replace with logic equivalent to:
+File: ActionDetailPanel.tsx, next to formatToHitParts (line 79).
+Add:
+  function formatToHitRider(toHit: number | null, diceParts: string[]): string {
+    const flat =
+      toHit !== null && toHit !== 0
+        ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
+        : null
+    const parts = [...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+    return parts.length ? parts.join(' ') : '—'
+  }
+(Magic Weapon toHit=+1 -> "+ 1"; a to-hit-dice rider e.g. Bless -> "+ 1d4";
+ Sneak Attack / Booming Blade (no toHit, no toHitDice) -> em dash.)
+Leave formatToHitParts (with "1d20") unchanged — the Total + base rows use it.
 
-  function formatToHitParts(toHit, diceParts):
-    if toHit === null && diceParts.length === 0: return '—'
-    flat = (toHit !== null && toHit !== 0)
-             ? (toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`)
-             : null
-    parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
-    return parts.join(' ')
+---- TASK 1B: Route per-row To-Hit cells by row type ----
 
-So totalToHit=9 with diceParts=['1d10'] -> "1d20 + 1d10 + 9"; a plain row
-toHit=5 -> "1d20 + 5" (unchanged); none -> em dash.
-VERIFY/STOP: if formatToHitParts already orders dice before the flat, STOP.
-Acceptance: Total reads "1d20 + 1d10 + 9" (matches the target), not
-  "1d20 + 9 + 1d10".
+Define a constant near the top of the component / module:
+  const BASE_ATTACK_ROW_IDS = new Set(['normal', 'versatile', 'thrown'])
+VERIFY: confirm these are exactly the weapon's own attack-roll row ids in
+  buildAttackRows. If a base attack row uses a different id, add it; if unsure, STOP.
 
----- TASK 1B: Always show the crit badge ----
-
-File: ActionDetailPanel.tsx — every crit-badge gate (line ~2074 in renderTable;
-plus any copy in the inline ranged/thrown tables near 2595/2685).
-Change the condition from
-  critThreshold !== undefined && (critThreshold < 20 || char.subclass === 'Champion')
-to simply
-  critThreshold !== undefined
-so the badge renders for normal weapons too ("Crit 20+").
-VERIFY/STOP: if the badge already shows at threshold 20, STOP. Find and update
-  ALL occurrences (grep "Crit {critThreshold}").
-Acceptance: a plain longsword shows "Crit 20+"; a Champion still shows "Crit 19+/18+".
-
-
-========================================================================
-GOAL 2 — ATTACKS PER ACTION x NUMBER OF ACTIONS
-========================================================================
-
-Definitions: perAction = computeAttackCount(char); totalActions =
-  1 + (turnState?.bonusActions ?? 0)  (Action Surge / other action grants).
-
----- TASK 2A: attacksMax counts every action ----
-
-File: ActionDetailPanel.tsx line 462.
-  attacksMax = computeAttackCount(char) * totalActions
-(pips at line 489 already render `attacksMax`, so the row auto-grows to
- perAction x totalActions: 2 per action x 2 actions -> 4 pips ●●●●).
-VERIFY/STOP: if attacksMax already multiplies by actions, STOP.
-
----- TASK 2B: spending attacks consumes actions in blocks ----
-
-File: ActionDetailPanel.tsx spendAttack / recoverSpentAttack (lines 466-482).
-Replace the "first attack only" action-spend with block logic keyed on perAction
-(every perAction-th attack starts a new action):
-
-  perAction = computeAttackCount(char)   // >= 1
-  spendAttack():
-    if attacksUsed >= attacksMax: return
-    const before = Math.ceil(attacksUsed / perAction)
-    const after  = Math.ceil((attacksUsed + 1) / perAction)
-    if (after > before) { useEconomy(char.id,'action'); setAttacked(char.id,true) }
-    useAttack(char.id)
-  recoverSpentAttack():
-    if attacksUsed <= 0: return
-    const before = Math.ceil(attacksUsed / perAction)
-    const after  = Math.ceil((attacksUsed - 1) / perAction)
-    if (after < before) {
-      recoverEconomy(char.id,'action')
-      if ((attacksUsed - 1) === 0) setAttacked(char.id,false)
-    }
-    recoverAttack(char.id)
-
-(perAction=2, 4 pips: 1st attack -> action 1 spent; 2nd -> none; 3rd -> action 2
- spent; 4th -> none. Matches ex: attack ●●○○ -> A ●○ 1/2.)
-VERIFY/STOP: if spendAttack already syncs actions by block, STOP.
-Acceptance: Fighter L5 + Action Surge shows 4 attack pips; using 2 marks 1 action
-  used in TurnHeader (A 1/2); using all 4 marks 2/2; undoing mirrors it.
+Change EVERY per-row To-Hit cell (lines 2063, 2582, 2672) from
+    formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+to
+    BASE_ATTACK_ROW_IDS.has(row.id)
+      ? formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+      : formatToHitRider(row.toHit, row.toHitDice ? [row.toHitDice] : [])
+Leave the Total-row cells (2071, 2595, 2685) on formatToHitParts (keep "1d20").
+VERIFY/STOP: if rider rows already render without the "1d20" prefix, STOP.
+Acceptance (matches the target):
+  Normal/Versatile -> "1d20 + 8";  Sneak Attack / Booming Blade -> em dash;
+  Magic Weapon -> "+ 1";  Total -> "1d20 + 9".
 
 
 ========================================================================
-GOAL 3 — ALLOW SELECTING MORE THAN ONE ACTION WHEN ACTIONS REMAIN
+GOAL 2 — Booming Blade as a Cast-a-Spell action + generalized attack consumption
 ========================================================================
 
----- TASK 3A: Per-action used-tracking for the Use/Undo button ----
+CURRENT STATE (what consumes-on-attack exists today):
+  - Booming Blade rider (id 'booming-blade'): NO economy/resource cost; its
+    BoomingBladeTurnToggle (line 369) only registers the move-damage spell.
+  - Superiority Dice (char.resources['Superiority Dice']) and Arcane Shot
+    (char.resources['Arcane Shot']) are real resources with MANUAL use/recover
+    pips (lines ~2287/2294 and ~2360/2367) and an active selection (activeManeuver
+    / activeArcaneShot). Neither is auto-consumed when the attack is made.
+  - Sneak Attack ('1/turn') and Divine Smite ('Spell Slot') are display labels
+    only (rowResource), not tracked.
 
-Problem: renderActionUseButton (line 544) reads `used` from the global
-*Used counter, so any one used action flips ALL action buttons to "Undo".
+---- TASK 2A: Booming Blade per RAW — Cast-a-Spell ACTION, one attack, a mode ----
 
-(1) turnSlice.ts: add `usedActionNames: string[]` to TurnState (init [] in
-    makeFreshTurnState AND reset in confirmNextTurn). Add setters:
-      markActionUsed(charId, name)   -> add name (dedupe)
-      unmarkActionUsed(charId, name) -> remove name
-    (Follow the existing setter pattern.)
+Booming Blade RAW: casting time 1 ACTION; you make ONE melee weapon attack as
+part of the spell; Extra Attack does NOT apply (it is the Cast-a-Spell action,
+not the Attack action). Apply it faithfully:
+  - ECONOMY: using/arming Booming Blade spends ONE **action** (NOT bonus); un-arm
+    refunds. (Supersedes the earlier bonus-action wiring.)
+  - ONE ATTACK: while Booming Blade is the active mode, override attacksMax to 1
+    (bypass computeAttackCount(char) x actions). A cantrip attack never multi-attacks.
+  - MUTUALLY EXCLUSIVE with the normal multi-attack: Booming Blade is an attack
+    MODE, not a rider stacked on a full Attack action. When it is active, the
+    single attack IS the cantrip and the action is spent once via the cast hook —
+    do NOT also spend the normal Attack action. Implement by collapsing the attack
+    pips to 1 while Booming Blade is active and routing that one attack's action
+    cost through the cast hook.
+  - DAMAGE unchanged: keep the on-hit thunder rider (1d8/2d8/3d8 at levels
+    5/11/17) on the hit total; keep the "target moves -> thunder" end-of-turn
+    toggle as the secondary (do NOT fold it into the hit).
+VERIFY/STOP: if Booming Blade already spends an action AND caps to one attack, STOP.
+Acceptance: casting Booming Blade spends 1 action; the attack pips show a single
+  attack even for a Fighter with Extra Attack; the multi-attack Attack action is
+  not also spent; on-hit thunder shows at 5+; the move-damage toggle remains.
 
-(2) ActionDetailPanel.tsx renderActionUseButton (line 536):
-    - used = turnState?.usedActionNames?.includes(action.name) ?? false
-    - capacity for this economy:
-        total = economy==='action'   ? 1 + (turnState?.bonusActions ?? 0)
-              : economy==='bonus'     ? 1 + (turnState?.bonusBonusActions ?? 0)
-              : 1 + (turnState?.bonusReactions ?? 0)
-        usedCount = economy==='action' ? turnState?.actionsUsed ?? 0
-                  : economy==='bonus'  ? turnState?.bonusActionsUsed ?? 0
-                  : turnState?.reactionsUsed ?? 0
-      atCapacity = usedCount >= total
-    - Render:
-        if used  -> "Undo": onClick = recoverEconomy(economy) + unmarkActionUsed(name)
-        else     -> "Use ...": disabled when atCapacity;
-                     onClick = useEconomy(economy) + markActionUsed(name)
-    So with 2 actions, using Dodge (action 1) leaves other action buttons enabled
-    ("Use Action") until actionsUsed reaches total; each action toggles its own
-    Undo independently.
+---- TASK 2B: Generalized attack-consumption registry (economy AND resources) ----
 
-NOTE: attacks (Goal 2) still consume the action economy directly; they share the
-  same usedCount/total capacity, so attacking first correctly reduces remaining
-  action capacity for the Use-Action buttons (and vice-versa).
-VERIFY/STOP: if usedActionNames / per-action toggle already exists, STOP.
-Acceptance: with Action Surge active, selecting Dodge and using its action leaves
-  a second action (e.g. Dash) usable; each shows its own Undo; once both actions
-  are spent, remaining action buttons are disabled; Next Turn resets everything.
+Replace the economy-only idea with one registry declaring, per attack rider/mode,
+what an attack USING it consumes — economy slot AND/OR a named resource — so the
+cost is deducted automatically when the attack is made (the manual pips stay as
+an override/undo, not the only path):
+
+  type AttackConsumption =
+    | { kind: 'economy';  slot: 'action'|'bonus'|'reaction'; attacksOverride?: number }
+    | { kind: 'resource'; resourceKey: string; cost: number }
+    | { kind: 'oncePerTurn'; resourceKey: string }
+    | { kind: 'spellSlot' }   // chosen-level slot; handled by the bespoke path in TASK 2C
+  const ATTACK_CONSUMPTION: Record<string /* rider id or 'prefix-*' */, AttackConsumption> = {
+    'booming-blade': { kind: 'economy', slot: 'action', attacksOverride: 1 },
+    'maneuver-*':    { kind: 'resource', resourceKey: 'Superiority Dice', cost: 1 },
+    'arcane-*':      { kind: 'resource', resourceKey: 'Arcane Shot', cost: 1 },
+    'Sneak Attack':  { kind: 'oncePerTurn', resourceKey: 'Sneak Attack' },
+    'Divine Smite':  { kind: 'spellSlot' },   // see TASK 2C for the slot-level model
+  }
+Wire the consumption hook into the attack/cast flow (spendAttack + the rider
+arm/cast controls): when an attack is made with an active rider, deduct its
+declared cost from char.resources (resource/oncePerTurn) or the turn economy
+(economy kind, applying attacksOverride). Default = no extra cost (base weapon,
+equip-bonus, spell-buff riders).
+
+CONSTRAINTS from the Combat Superiority RAW (enforce for maneuvers):
+  - "Only ONE maneuver per attack": only the single activeManeuver is consumed per
+    attack; never stack multiple maneuver dice on one attack.
+  - A superiority die is expended on use and regained on a short OR long rest —
+    already satisfied (Superiority Dice resource recoverOn 'short'); verify.
+  - Maneuver save DC = 8 + PB + (STR or DEX, player's choice). The maneuver section
+    shows a DC using STR today (line ~2275); change it to 8 + PB + max(STR mod,
+    DEX mod) (or a chosen-ability toggle if one exists).
+
+AUDIT every attack-table rider/mode and confirm its entry:
+  base (normal/versatile/thrown) -> none; Sneak Attack -> 1/turn; Divine Smite ->
+  spell slot (TASK 2C); Booming Blade -> action+1attack; active maneuver ->
+  1 Superiority Die; active arcane shot -> 1 Arcane Shot (seeded by TASK 2D —
+  NOT ad-hoc); equip-bonus/spell-buff -> none. For any OTHER rider whose
+  consumption is ambiguous, or whose resource key is not present in char.resources
+  (and is not covered by a seeding task here), STOP and report rather than guess.
+VERIFY/STOP: if an ATTACK_CONSUMPTION-style registry already exists, reuse it.
+Acceptance: an attack with an active maneuver auto-spends exactly one Superiority
+  Die (one maneuver only); an arcane-shot attack spends one Arcane Shot; Booming
+  Blade spends one action and caps to one attack; base attacks spend nothing extra.
+
+---- TASK 2C: Divine Smite spell-slot model (resolves the 2B 'spellSlot' kind) ----
+
+Divine Smite is a Paladin melee rider (getWeaponSpecialAttacks, domain/rules
+index.ts line ~765) currently hardcoded to dice '2d8', labeled "Spell Slot", with
+no slot selected and no slot actually spent. Model it as a chosen-level slot
+expenditure:
+  - CHOSEN LEVEL: per-attack UI state in ActionDetailPanel (e.g. smiteSlotLevel),
+    default = the LOWEST spell-slot level the Paladin still has remaining. Not
+    persisted (a per-attack choice; reset on re-open is fine).
+  - SELECTOR: in the Divine Smite row, render a compact level picker — one button
+    per Paladin spell-slot level (1..highest the character has) whose
+    char.spellSlots[level] has remaining (used < total). Disable/grey levels with
+    no remaining slots. If NO slots remain at all, Divine Smite is unavailable
+    (show "no slots").
+  - DAMAGE scales with the chosen level: bonusDmg = `${Math.min(2 + (level - 1), 5)}d8`
+    radiant -> 1st 2d8, 2nd 3d8, 3rd 4d8, 4th+ 5d8 (cap 5d8). Replace the fixed
+    '2d8' so the row's Bonus DMG reflects the chosen level. Keep "+1d8 vs fiends/
+    undead (max 6d8)" as a NOTE only (target-type conditional; do NOT auto-add).
+  - CONSUMPTION (the { kind: 'spellSlot' } path): when the attack is made with
+    Divine Smite active (or via the row's smite confirm), spend ONE slot of the
+    chosen level — increment char.spellSlots[level].used (reuse the existing
+    useSlot pattern in SpellsPanel; guard remaining > 0). Provide undo (decrement)
+    consistent with the other riders.
+VERIFY/STOP: if Divine Smite already has a slot-level selector and spends a slot,
+  STOP and report.
+Acceptance: a Paladin picks a slot level for Divine Smite; the bonus radiant dice
+  scale 2d8..5d8 with the level; making the smite spends one slot of that level
+  (visible in the spell-slot tracker) and the bonus damage matches; undo restores
+  the slot.
+
+---- TASK 2D: Seed "Arcane Shot" as a real subclass resource (prereq for 2B) ----
+
+Arcane Shot is currently AD-HOC: ActionDetailPanel (line ~2356) computes
+`totalShots = level>=18 ? 4 : 2` locally and lazily writes char.resources
+['Arcane Shot'] only when the manual pips are clicked. It is NOT seeded by
+resourceDefaults, migrations, or character creation, so 2B's arcane-* consumption
+has no resource to deduct. Seed it the SAME way Superiority Dice was:
+  - resourceDefaults.ts: add to SUBCLASS_RESOURCES (the map at line 5):
+      ArcaneArcher: [
+        { name: 'Arcane Shot', recoverOn: 'short', scalingTable: { 3: 2, 18: 4 }, minLevel: 3 },
+      ]
+    This reproduces today's total (2 uses; 4 at level 18) and recovers on a short
+    or long rest. (If the 18->4 value is wrong for your rules, STOP and confirm —
+    but it mirrors the current UI so it introduces no behavior change.)
+  - migrations/index.ts: bump CURRENT_SCHEMA_VERSION 12 -> 13; add v12_to_v13(char)
+    that, for classId 'Fighter' && subclass 'ArcaneArcher', seeds
+    char.resources['Arcane Shot'] from getResourceDefaults(classId, level,
+    abilityScores, subclass) — mirror the v11_to_v12 BattleMaster block, preserving
+    any existing `used` clamped to the new total. Wire it into the chain
+    (`if (version < 13) data = v12_to_v13(data)`) AND into the bottom safety-net
+    block next to the BattleMaster Superiority Dice re-seed.
+  - migrations.test.ts: update the expected schemaVersion assertions from 12 to 13
+    (they currently assert 12).
+  - ActionDetailPanel arcane-shot UI (line ~2356): read totalShots from the seeded
+    resource (char.resources['Arcane Shot']?.total) instead of the local
+    `level>=18?4:2`, so there is ONE source of truth; the manual pips keep working.
+VERIFY/STOP: if 'Arcane Shot' is already seeded in resourceDefaults/migrations, STOP.
+Acceptance: an Arcane Archer shows "Arcane Shot X/Y" in the Resources panel
+  (column 2), seeded at creation/level-up and recovering on a short rest; the 2B
+  arcane-* consumption deducts from it.
 
 
 ========================================================================
-SECTION 4 — VERIFICATION
+SECTION 3 — VERIFICATION
 ========================================================================
   - npm run typecheck : passes (acceptable: __tests__/* only).
   - npm run dev (Electron), manual:
-      Goal 1: Total shows "1d20 + 1d10 + 9" ordering; every weapon shows a
-        "Crit N+" badge (20+ for normal).
-      Goal 2: Fighter L5 + Action Surge shows 4 attack pips; 2 attacks = 1 action,
-        4 attacks = 2 actions; undo mirrors.
-      Goal 3: with 2 actions, Dodge + a second action are both usable and
-        independently undoable; at capacity the rest disable.
+      Goal 1: with Normal, Sneak Attack, Booming Blade, and Magic Weapon active,
+        the To-Hit column reads 1d20+8 / em-dash / em-dash / "+ 1", and Total reads
+        "1d20 + 9".
+      Goal 2: casting Booming Blade spends one ACTION (TurnHeader A pip drops) and
+        shows a single attack pip even with Extra Attack; an attack with an active
+        maneuver auto-spends one Superiority Die (one maneuver only); an arcane-shot
+        attack spends one Arcane Shot; base attacks spend nothing extra; Next Turn
+        resets the economy.
   - Unit tests (extend src/renderer/src/__tests__/):
-      formatToHitParts(9, ['1d10']) === '1d20 + 1d10 + 9'; (5, []) === '1d20 + 5';
-        (null, []) === em dash.
-      turnSlice: markActionUsed/unmarkActionUsed add/remove and reset on
-        confirmNextTurn; useAttack/recoverAttack adjust attacksUsed.
+      formatToHitRider(1, []) === '+ 1'; formatToHitRider(null, []) === em dash;
+      formatToHitRider(null, ['1d4']) === '+ 1d4';
+      formatToHitParts(9, []) === '1d20 + 9' (base/total unchanged).
 
 
 ========================================================================
