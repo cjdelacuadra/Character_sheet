@@ -36,6 +36,7 @@ export interface CharacterSlice {
   exitCharacter: () => void
   addCharacter: (character: Character) => void
   updateCharacter: (id: string, patch: Partial<Character>) => void
+  dropConcentration: (id: string) => void
   addFeat: (id: string, featId: string, opts?: { abilityChoice?: AbilityScore; spellIds?: string[] }) => void
   removeFeat: (id: string, featId: string) => void
   deleteCharacter: (id: string) => void
@@ -96,6 +97,22 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
+  },
+
+  dropConcentration: (id) => {
+    const char = get().characters[id]
+    if (!char) return
+    const concId = char.concentrationSpellId
+    const nextBuffs = (char.activeBuffSpells ?? []).filter(x => x !== concId)
+    const nextConds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
+    const patch: Partial<Character> = {
+      concentrationSpellId: null,
+      conditionIds: nextConds,
+      activeBuffSpells: nextBuffs,
+      armorClass: computeACFull({ ...char, activeBuffSpells: nextBuffs, conditionIds: nextConds }),
+    }
+    get().updateCharacter(id, patch)
+    get().clearAllSummons(id, { concentrationOnly: true })
   },
 
   addFeat: (id, featId, opts) => {
@@ -323,6 +340,8 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       for (const [key, val] of Object.entries(defaults)) {
         if (!newResources[key]) newResources[key] = val
       }
+      const nextConditionIds = char.conditionIds.filter(c => c.conditionId === 'exhaustion')
+      const nextActiveBuffSpells = (char.activeBuffSpells ?? []).filter(id => id !== char.concentrationSpellId)
 
       const updated: Character = {
         ...char,
@@ -333,8 +352,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         resources: newResources,
         deathSaves: { successes: 0, failures: 0 },
         concentrationSpellId: null,
-        conditionIds: char.conditionIds.filter(c => c.conditionId === 'exhaustion'),
+        conditionIds: nextConditionIds,
+        activeBuffSpells: nextActiveBuffSpells,
         activeSummons: [],
+        armorClass: computeACFull({ ...char, conditionIds: nextConditionIds, activeBuffSpells: nextActiveBuffSpells }),
         isRaging: false,
         isBladesinging: false,
         racialActionUses: {},

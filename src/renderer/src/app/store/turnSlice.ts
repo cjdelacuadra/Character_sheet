@@ -241,8 +241,12 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     const charPatch: Partial<typeof char> = {}
 
     if (decisions.dropConcentration && char.concentrationSpellId) {
+      const concId = char.concentrationSpellId
+      const nextBuffs = (char.activeBuffSpells ?? []).filter(id => id !== concId)
       charPatch.concentrationSpellId = null
       charPatch.conditionIds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
+      charPatch.activeBuffSpells = nextBuffs
+      charPatch.armorClass = computeACFull({ ...char, ...charPatch })
       get().clearAllSummons(charId, { concentrationOnly: true })
     }
 
@@ -254,7 +258,7 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     // Drop active buffs that should end at the start of the next turn: those explicitly
     // registered this turn, OR any active 1-round spell (e.g. Booming Blade) detected by its
     // duration — so 1-turn buffs always clear, regardless of how they were cast.
-    const buffs = char.activeBuffSpells ?? []
+    const buffs = charPatch.activeBuffSpells ?? char.activeBuffSpells ?? []
     const remainingBuffs = buffs.filter(id =>
       !ts.endOfTurnBuffIds.includes(id) && !endsAtStartOfNextTurn(SPELL_BY_ID[id] ?? { duration: '' })
     )

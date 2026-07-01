@@ -39,6 +39,27 @@ describe('updateCharacter', () => {
   })
 })
 
+describe('dropConcentration', () => {
+  it('removes concentration state, only the concentrating buff, and recomputes AC', () => {
+    const store = makeStore()
+    const char = makeChar({
+      abilityScores: { str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 10 },
+      concentrationSpellId: 'shield-of-faith',
+      conditionIds: [{ conditionId: 'concentration' }, { conditionId: 'prone' }],
+      activeBuffSpells: ['shield-of-faith', 'mage-armor'],
+    })
+    store.getState().addCharacter({ ...char, armorClass: computeACFull(char) })
+
+    store.getState().dropConcentration(char.id)
+
+    const updated = store.getState().characters[char.id]
+    expect(updated.concentrationSpellId).toBeNull()
+    expect(updated.conditionIds).toEqual([{ conditionId: 'prone' }])
+    expect(updated.activeBuffSpells).toEqual(['mage-armor'])
+    expect(updated.armorClass).toBe(computeACFull(updated))
+  })
+})
+
 describe('shortRest', () => {
   it('heals roll + CON modifier, capped at max HP', () => {
     const store = makeStore()

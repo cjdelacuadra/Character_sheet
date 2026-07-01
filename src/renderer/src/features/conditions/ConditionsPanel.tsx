@@ -3,6 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID, BUFF_CONDITION_SPELLS } from '@/shared/data/spellData'
 import { computeACFull } from '@/shared/data/charCalculations'
 import { CONDITIONS, CONDITION_BY_ID } from '@/shared/data/conditionsData'
+import { useAppStore } from '@/app/store'
 import styles from './ConditionsPanel.module.css'
 
 interface Props {
@@ -14,9 +15,14 @@ export function ConditionsPanel({ character: char, update }: Props) {
   const [open, setOpen] = useState(false)
   const [buffOpen, setBuffOpen] = useState(false)
   const [buffSearch, setBuffSearch] = useState('')
+  const dropConcentration = useAppStore(s => s.dropConcentration)
 
   function toggle(id: string) {
     const has = char.conditionIds.some(c => c.conditionId === id)
+    if (has && id === 'concentration') {
+      dropConcentration(char.id)
+      return
+    }
     const conditionIds = has
         ? char.conditionIds.filter(c => c.conditionId !== id)
         : [...char.conditionIds, { conditionId: id }]
@@ -27,6 +33,10 @@ export function ConditionsPanel({ character: char, update }: Props) {
   // attack-buff riders) apply. Toggling recomputes AC so setsBaseAC buffs take effect immediately.
   const activeBuffs = char.activeBuffSpells ?? []
   function toggleBuff(id: string) {
+    if (activeBuffs.includes(id) && id === char.concentrationSpellId) {
+      dropConcentration(char.id)
+      return
+    }
     const next = activeBuffs.includes(id) ? activeBuffs.filter(x => x !== id) : [...activeBuffs, id]
     update({ activeBuffSpells: next, armorClass: computeACFull({ ...char, activeBuffSpells: next }) })
   }

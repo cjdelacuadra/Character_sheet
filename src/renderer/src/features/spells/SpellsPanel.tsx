@@ -40,7 +40,7 @@ interface Props {
   onConcentrationBroken?: () => void
 }
 
-export function SpellsPanel({ character: char, update, castingTimeFilter, onLearnSpell, onSummon, onConcentrationBroken }: Props) {
+export function SpellsPanel({ character: char, update, castingTimeFilter, onLearnSpell, onSummon }: Props) {
   const [search, setSearch] = useState('')
   const [schoolFilter, setSchoolFilter] = useState('')
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
@@ -50,6 +50,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
   const useEconomy = useAppStore(s => s.useEconomy)
+  const dropConcentration = useAppStore(s => s.dropConcentration)
   const registerEndOfTurnBuff = useAppStore(s => s.registerEndOfTurnBuff)
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
@@ -106,20 +107,24 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
 
   function setConcentration(spellId: string) {
     const dropping = char.concentrationSpellId === spellId
-    // Starting/switching/dropping concentration ends any prior concentration —
-    // dismiss summons tied to it.
-    onConcentrationBroken?.()
+    if (dropping) {
+      dropConcentration(char.id)
+      return
+    }
+    if (char.concentrationSpellId) {
+      dropConcentration(char.id)
+    }
+    // dropConcentration handles old concentration buff removal and tied summons.
     update({
-      concentrationSpellId: dropping ? null : spellId,
-      conditionIds: dropping
-        ? char.conditionIds.filter(c => c.conditionId !== 'concentration')
-        : [...char.conditionIds.filter(c => c.conditionId !== 'concentration'), { conditionId: 'concentration' }],
+      concentrationSpellId: spellId,
+      conditionIds: [...char.conditionIds.filter(c => c.conditionId !== 'concentration'), { conditionId: 'concentration' }],
     })
   }
 
   // Cast a spell at a given slot level: spend the slot, handle concentration,
   // and create any summon the spell defines.
   function castSpell(spell: typeof SPELLS[number], castLevel: number) {
+    const previousConcentrationId = spell.concentration ? char.concentrationSpellId : null
     if (castLevel > 0) useSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
@@ -134,7 +139,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     // their mechanics (AC / attack riders) apply. Short ones auto-dismiss on Next Turn.
     const shortDuration = endsAtStartOfNextTurn(spell)
     if (isBuffConditionSpell(spell) || shortDuration) {
-      const buffs = char.activeBuffSpells ?? []
+      const buffs = (char.activeBuffSpells ?? []).filter(id => id !== previousConcentrationId)
       if (!buffs.includes(spell.id)) {
         const next = [...buffs, spell.id]
         update({ activeBuffSpells: next, armorClass: computeACFull({ ...char, activeBuffSpells: next }) })
@@ -709,7 +714,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           {activeConcentration && (
             <div className={styles.concentrationBanner}>
               <span className={styles.concLabel}>Concentrating: <strong>{activeConcentration.name}</strong></span>
-              <button className={styles.concDrop} onClick={() => { onConcentrationBroken?.(); update({ concentrationSpellId: null, conditionIds: char.conditionIds.filter(c => c.conditionId !== 'concentration') }) }}>Drop</button>
+              <button className={styles.concDrop} onClick={() => dropConcentration(char.id)}>Drop</button>
             </div>
           )}
 

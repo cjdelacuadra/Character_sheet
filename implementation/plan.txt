@@ -1,32 +1,38 @@
 ========================================================================
-CODEX BUILD PLAN — ATTACK-TABLE To-Hit ROWS + BOOMING BLADE ECONOMY
+CODEX BUILD PLAN — FIX CONCENTRATION DROP (buff not removed)
 Project : DnD Character Companion
-Date    : 2026-06-23
+Date    : 2026-06-24
 ========================================================================
 
-WHY THIS PLAN EXISTS
---------------------
-GOAL 1 — The attack table prints "1d20" on To-Hit cells that should not have it.
-  Only the weapon's own attack rows (Normal / Versatile / thrown base) and the
-  Total row roll the d20. Rider rows must show only their To-Hit contribution:
-    - a rider that adds to hit (Magic Weapon +1) -> "+ 1"
-    - a rider with no to-hit contribution (Sneak Attack, Booming Blade) -> em dash
-  Root cause: formatToHitParts (ActionDetailPanel.tsx:79) always prefixes "1d20",
-  and the per-row To-Hit cell (line 2063) uses it for EVERY row.
+WHY THIS PLAN EXISTS (root cause)
+---------------------------------
+Casting a concentration BUFF (Bless, Magic Weapon, Shield of Faith, ...) writes
+THREE decoupled pieces of state, but the drop paths only clear some:
+  1. concentrationSpellId = spell.id
+  2. a 'concentration' entry in conditionIds
+  3. spell.id added to activeBuffSpells   <-- drives the attack-table rider + AC
+(SpellsPanel.castSpell -> setConcentration at line 107; buff add at line 136-141.)
 
-GOAL 2 — Booming Blade is not wired to the action economy. Using/casting it
-  should consume a BONUS action. Its "Cast" control (BoomingBladeTurnToggle,
-  line 369) only registers the end-of-turn move-damage spell; it spends nothing.
-  Also audit for other attack-table riders that represent a spell/cantrip cast and
-  wire them the same way (Green-Flame Blade is NOT in the spell data today).
+Dropping concentration from the LEFT panel removes the 'concentration' CONDITION
+chip only (ConditionsPanel.toggle('concentration'), line 18-24): it does NOT clear
+concentrationSpellId and does NOT remove spell.id from activeBuffSpells, so the
+buff (and its attack-table rider) persists. The SpellsPanel concentration banner
+"Drop" (line 712) has the SAME gap (clears concentrationSpellId + condition, not
+the buff). A buff added directly via "+ Buff" lives only in activeBuffSpells and
+is removed by its own chip (toggleBuff, line 29-32) — which is why THAT one drops
+correctly. The two flows use different state and different removers.
+
+FIX: make concentration and its buff a single teardown. Add ONE store action that
+drops concentration and everything linked to it, and route every drop entry point
+through it. Also make starting/switching concentration tear down the previous
+concentration's buff, and keep the buff chip and concentration in sync.
 
 STANDING RULES
 --------------
-  - Do NOT assume anything outside this document; logic is supplied below.
-  - Before each task RE-READ the named anchor; if already done, STOP and report.
-    If an anchor is missing, STOP and report.
-  - Reuse existing helpers (formatToHit, useEconomy/recoverEconomy, the turn
-    state). Save files UTF-8 (no BOM); grep edited files for "â€"/"Â·" after.
+  - Do NOT assume anything outside this document. Before each task RE-READ the
+    named anchor; if already done, STOP and report; if an anchor is missing, STOP.
+  - Reuse existing helpers (computeACFull, clearAllSummons). Save files UTF-8
+    (no BOM); grep edited files for "â€"/"Â·" after editing.
 
 
 ========================================================================
@@ -40,229 +46,141 @@ SECTION 0 — GLOBAL STOP CONDITIONS
 ========================================================================
 SECTION 1 — CURRENT STATE (read first; echo back before editing)
 ========================================================================
-File: src/renderer/src/features/combat-actions/ActionDetailPanel.tsx
-  - formatToHitParts (line 79-85): always builds ['1d20', ...dice, flat] -> so a
-    null/zero toHit row still prints "1d20", and a +1 rider prints "1d20 + 1".
-  - Per-row To-Hit cell uses it for ALL rows:
-      line 2063  : <td>{formatToHitParts(row.toHit, row.toHitDice?[row.toHitDice]:[])}</td>
-      lines 2582, 2672 : same, in the thrown / ranged-only table variants.
-  - Total-row To-Hit cell uses it too (this one SHOULD keep "1d20"):
-      lines 2071, 2595, 2685 : {formatToHitParts(totalToHit, totalToHitDice)}
-  - Base weapon attack rows are id 'normal', 'versatile' (melee/one-table) and
-    'thrown' (the ranged base of a thrown weapon — confirm in buildAttackRows;
-    isRangedActive treats 'thrown' as always-active). Everything else is a rider
-    (Sneak Attack, Booming Blade, Magic Weapon via 'spell-buff-...', 'maneuver-...',
-    'arcane-...', 'equip-bonus-...', 'Divine Smite', etc.).
-  - Booming Blade row: buildAttackRows line ~298-300 pushes id 'booming-blade'
-    (toHit null) when melee + knows the cantrip + level>=5. rowResource(line 349)
-    returns 'Cantrip'. BoomingBladeTurnToggle (line 369) renders the "Cast" button
-    in the Resource cell (lines 2090/2624/2714): arming = registerEndOfTurnSpell
-    ('booming-blade'); it does NOT touch economy. Green-Flame Blade is absent from
-    spellData.
+  - SpellsPanel.tsx setConcentration (line 107-118): on start, sets
+    concentrationSpellId + adds 'concentration' condition; on drop (dropping ===
+    true) clears concentrationSpellId + removes 'concentration'. Calls
+    onConcentrationBroken?.() (which clears concentration-tied summons). It does
+    NOT touch activeBuffSpells.
+  - SpellsPanel.tsx castSpell (line 122-143): setConcentration for concentration
+    spells; separately adds buff spells to activeBuffSpells (136-141).
+  - SpellsPanel.tsx concentration banner Drop (line ~712):
+    onConcentrationBroken?.(); update({ concentrationSpellId: null, conditionIds:
+    filter out 'concentration' }) — NO activeBuffSpells removal.
+  - ConditionsPanel.tsx: toggle(id) (18-24) adds/removes a plain condition (incl.
+    'concentration') and recomputes AC — but does NOT clear concentrationSpellId
+    or the buff. toggleBuff(id) (29-32) adds/removes activeBuffSpells + AC. The
+    'concentration' chip is rendered in the conditionIds list (120-146); its ×
+    calls toggle('concentration'). Buff chips (106-116) call toggleBuff.
+  - turnSlice.ts confirmNextTurn: on dropConcentration it clears
+    concentrationSpellId + 'concentration' condition + clearAllSummons(
+    {concentrationOnly:true}) — but does NOT remove the concentrating spell from
+    activeBuffSpells.
+  - characterSlice.ts has clearAllSummons(charId,{concentrationOnly}) and
+    updateCharacter; there is NO dedicated dropConcentration action.
 
 
 ========================================================================
-GOAL 1 — To-Hit: 1d20 only on base attack rows + Total
+TASK 1 — Add a single dropConcentration store action
 ========================================================================
+File: src/renderer/src/app/store/characterSlice.ts (add to the slice interface
+near the other actions, and implement next to updateCharacter).
 
----- TASK 1A: Add a rider To-Hit formatter (no 1d20) ----
+  dropConcentration: (id: string) => void
 
-File: ActionDetailPanel.tsx, next to formatToHitParts (line 79).
-Add:
-  function formatToHitRider(toHit: number | null, diceParts: string[]): string {
-    const flat =
-      toHit !== null && toHit !== 0
-        ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
-        : null
-    const parts = [...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
-    return parts.length ? parts.join(' ') : '—'
+Behavior (do ALL of it in one update so state stays consistent):
+  const char = get().characters[id]; if (!char) return
+  const concId = char.concentrationSpellId
+  // remove ONLY the concentrating spell from activeBuffSpells (leave other buffs,
+  // e.g. Mage Armor / directly-added buffs, untouched)
+  const nextBuffs = (char.activeBuffSpells ?? []).filter(x => x !== concId)
+  const nextConds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
+  const patch = {
+    concentrationSpellId: null,
+    conditionIds: nextConds,
+    activeBuffSpells: nextBuffs,
+    armorClass: computeACFull({ ...char, activeBuffSpells: nextBuffs, conditionIds: nextConds }),
   }
-(Magic Weapon toHit=+1 -> "+ 1"; a to-hit-dice rider e.g. Bless -> "+ 1d4";
- Sneak Attack / Booming Blade (no toHit, no toHitDice) -> em dash.)
-Leave formatToHitParts (with "1d20") unchanged — the Total + base rows use it.
+  get().updateCharacter(id, patch)
+  get().clearAllSummons(id, { concentrationOnly: true })   // dismiss tied summons
 
----- TASK 1B: Route per-row To-Hit cells by row type ----
-
-Define a constant near the top of the component / module:
-  const BASE_ATTACK_ROW_IDS = new Set(['normal', 'versatile', 'thrown'])
-VERIFY: confirm these are exactly the weapon's own attack-roll row ids in
-  buildAttackRows. If a base attack row uses a different id, add it; if unsure, STOP.
-
-Change EVERY per-row To-Hit cell (lines 2063, 2582, 2672) from
-    formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
-to
-    BASE_ATTACK_ROW_IDS.has(row.id)
-      ? formatToHitParts(row.toHit, row.toHitDice ? [row.toHitDice] : [])
-      : formatToHitRider(row.toHit, row.toHitDice ? [row.toHitDice] : [])
-Leave the Total-row cells (2071, 2595, 2685) on formatToHitParts (keep "1d20").
-VERIFY/STOP: if rider rows already render without the "1d20" prefix, STOP.
-Acceptance (matches the target):
-  Normal/Versatile -> "1d20 + 8";  Sneak Attack / Booming Blade -> em dash;
-  Magic Weapon -> "+ 1";  Total -> "1d20 + 9".
+VERIFY/STOP: if a dropConcentration action already exists, reuse it (do not
+  duplicate). If concId is null, it is a safe no-op (still clears the condition).
+Acceptance: calling dropConcentration on a Bless-concentrating character clears
+  concentrationSpellId, the 'concentration' condition, AND removes 'bless' from
+  activeBuffSpells (so the attack-table Bless rider disappears), recomputing AC.
 
 
 ========================================================================
-GOAL 2 — Booming Blade as a Cast-a-Spell action + generalized attack consumption
+TASK 2 — Route every drop entry point through dropConcentration
 ========================================================================
+Replace the ad-hoc concentration-clearing in each place with the store action.
 
-CURRENT STATE (what consumes-on-attack exists today):
-  - Booming Blade rider (id 'booming-blade'): NO economy/resource cost; its
-    BoomingBladeTurnToggle (line 369) only registers the move-damage spell.
-  - Superiority Dice (char.resources['Superiority Dice']) and Arcane Shot
-    (char.resources['Arcane Shot']) are real resources with MANUAL use/recover
-    pips (lines ~2287/2294 and ~2360/2367) and an active selection (activeManeuver
-    / activeArcaneShot). Neither is auto-consumed when the attack is made.
-  - Sneak Attack ('1/turn') and Divine Smite ('Spell Slot') are display labels
-    only (rowResource), not tracked.
+  (a) SpellsPanel.tsx concentration banner "Drop" (line ~712): replace the inline
+      onConcentrationBroken?.() + update({ concentrationSpellId:null, conditionIds:
+      ... }) with a call to the store dropConcentration(char.id). (onConcentration
+      Broken's summon cleanup is now inside the action; keep or drop the prop call
+      to avoid double-clearing — document which.)
+  (b) SpellsPanel.tsx setConcentration (line 107): when dropping (concentrationSpell
+      Id === spellId and the user re-clicks to drop), call dropConcentration(char.id)
+      instead of the inline clear. (See TASK 3 for the START/SWITCH path.)
+  (c) ConditionsPanel.tsx toggle (line 18): when the id being REMOVED is
+      'concentration', call the store dropConcentration(char.id) instead of just
+      filtering the condition — so dropping the concentration chip on the left panel
+      also removes the concentrating buff. (Non-'concentration' conditions keep the
+      existing toggle behavior.) ConditionsPanel must receive dropConcentration
+      (from the store via useAppStore, or as a prop from CharacterView).
+  (d) turnSlice.ts confirmNextTurn: in the dropConcentration branch, ALSO remove
+      the concentrating spell from activeBuffSpells (filter char.activeBuffSpells by
+      the old concentrationSpellId) and recompute AC — or call the shared teardown.
 
----- TASK 2A: Booming Blade per RAW — Cast-a-Spell ACTION, one attack, a mode ----
-
-Booming Blade RAW: casting time 1 ACTION; you make ONE melee weapon attack as
-part of the spell; Extra Attack does NOT apply (it is the Cast-a-Spell action,
-not the Attack action). Apply it faithfully:
-  - ECONOMY: using/arming Booming Blade spends ONE **action** (NOT bonus); un-arm
-    refunds. (Supersedes the earlier bonus-action wiring.)
-  - ONE ATTACK: while Booming Blade is the active mode, override attacksMax to 1
-    (bypass computeAttackCount(char) x actions). A cantrip attack never multi-attacks.
-  - MUTUALLY EXCLUSIVE with the normal multi-attack: Booming Blade is an attack
-    MODE, not a rider stacked on a full Attack action. When it is active, the
-    single attack IS the cantrip and the action is spent once via the cast hook —
-    do NOT also spend the normal Attack action. Implement by collapsing the attack
-    pips to 1 while Booming Blade is active and routing that one attack's action
-    cost through the cast hook.
-  - DAMAGE unchanged: keep the on-hit thunder rider (1d8/2d8/3d8 at levels
-    5/11/17) on the hit total; keep the "target moves -> thunder" end-of-turn
-    toggle as the secondary (do NOT fold it into the hit).
-VERIFY/STOP: if Booming Blade already spends an action AND caps to one attack, STOP.
-Acceptance: casting Booming Blade spends 1 action; the attack pips show a single
-  attack even for a Fighter with Extra Attack; the multi-attack Attack action is
-  not also spent; on-hit thunder shows at 5+; the move-damage toggle remains.
-
----- TASK 2B: Generalized attack-consumption registry (economy AND resources) ----
-
-Replace the economy-only idea with one registry declaring, per attack rider/mode,
-what an attack USING it consumes — economy slot AND/OR a named resource — so the
-cost is deducted automatically when the attack is made (the manual pips stay as
-an override/undo, not the only path):
-
-  type AttackConsumption =
-    | { kind: 'economy';  slot: 'action'|'bonus'|'reaction'; attacksOverride?: number }
-    | { kind: 'resource'; resourceKey: string; cost: number }
-    | { kind: 'oncePerTurn'; resourceKey: string }
-    | { kind: 'spellSlot' }   // chosen-level slot; handled by the bespoke path in TASK 2C
-  const ATTACK_CONSUMPTION: Record<string /* rider id or 'prefix-*' */, AttackConsumption> = {
-    'booming-blade': { kind: 'economy', slot: 'action', attacksOverride: 1 },
-    'maneuver-*':    { kind: 'resource', resourceKey: 'Superiority Dice', cost: 1 },
-    'arcane-*':      { kind: 'resource', resourceKey: 'Arcane Shot', cost: 1 },
-    'Sneak Attack':  { kind: 'oncePerTurn', resourceKey: 'Sneak Attack' },
-    'Divine Smite':  { kind: 'spellSlot' },   // see TASK 2C for the slot-level model
-  }
-Wire the consumption hook into the attack/cast flow (spendAttack + the rider
-arm/cast controls): when an attack is made with an active rider, deduct its
-declared cost from char.resources (resource/oncePerTurn) or the turn economy
-(economy kind, applying attacksOverride). Default = no extra cost (base weapon,
-equip-bonus, spell-buff riders).
-
-CONSTRAINTS from the Combat Superiority RAW (enforce for maneuvers):
-  - "Only ONE maneuver per attack": only the single activeManeuver is consumed per
-    attack; never stack multiple maneuver dice on one attack.
-  - A superiority die is expended on use and regained on a short OR long rest —
-    already satisfied (Superiority Dice resource recoverOn 'short'); verify.
-  - Maneuver save DC = 8 + PB + (STR or DEX, player's choice). The maneuver section
-    shows a DC using STR today (line ~2275); change it to 8 + PB + max(STR mod,
-    DEX mod) (or a chosen-ability toggle if one exists).
-
-AUDIT every attack-table rider/mode and confirm its entry:
-  base (normal/versatile/thrown) -> none; Sneak Attack -> 1/turn; Divine Smite ->
-  spell slot (TASK 2C); Booming Blade -> action+1attack; active maneuver ->
-  1 Superiority Die; active arcane shot -> 1 Arcane Shot (seeded by TASK 2D —
-  NOT ad-hoc); equip-bonus/spell-buff -> none. For any OTHER rider whose
-  consumption is ambiguous, or whose resource key is not present in char.resources
-  (and is not covered by a seeding task here), STOP and report rather than guess.
-VERIFY/STOP: if an ATTACK_CONSUMPTION-style registry already exists, reuse it.
-Acceptance: an attack with an active maneuver auto-spends exactly one Superiority
-  Die (one maneuver only); an arcane-shot attack spends one Arcane Shot; Booming
-  Blade spends one action and caps to one attack; base attacks spend nothing extra.
-
----- TASK 2C: Divine Smite spell-slot model (resolves the 2B 'spellSlot' kind) ----
-
-Divine Smite is a Paladin melee rider (getWeaponSpecialAttacks, domain/rules
-index.ts line ~765) currently hardcoded to dice '2d8', labeled "Spell Slot", with
-no slot selected and no slot actually spent. Model it as a chosen-level slot
-expenditure:
-  - CHOSEN LEVEL: per-attack UI state in ActionDetailPanel (e.g. smiteSlotLevel),
-    default = the LOWEST spell-slot level the Paladin still has remaining. Not
-    persisted (a per-attack choice; reset on re-open is fine).
-  - SELECTOR: in the Divine Smite row, render a compact level picker — one button
-    per Paladin spell-slot level (1..highest the character has) whose
-    char.spellSlots[level] has remaining (used < total). Disable/grey levels with
-    no remaining slots. If NO slots remain at all, Divine Smite is unavailable
-    (show "no slots").
-  - DAMAGE scales with the chosen level: bonusDmg = `${Math.min(2 + (level - 1), 5)}d8`
-    radiant -> 1st 2d8, 2nd 3d8, 3rd 4d8, 4th+ 5d8 (cap 5d8). Replace the fixed
-    '2d8' so the row's Bonus DMG reflects the chosen level. Keep "+1d8 vs fiends/
-    undead (max 6d8)" as a NOTE only (target-type conditional; do NOT auto-add).
-  - CONSUMPTION (the { kind: 'spellSlot' } path): when the attack is made with
-    Divine Smite active (or via the row's smite confirm), spend ONE slot of the
-    chosen level — increment char.spellSlots[level].used (reuse the existing
-    useSlot pattern in SpellsPanel; guard remaining > 0). Provide undo (decrement)
-    consistent with the other riders.
-VERIFY/STOP: if Divine Smite already has a slot-level selector and spends a slot,
-  STOP and report.
-Acceptance: a Paladin picks a slot level for Divine Smite; the bonus radiant dice
-  scale 2d8..5d8 with the level; making the smite spends one slot of that level
-  (visible in the spell-slot tracker) and the bonus damage matches; undo restores
-  the slot.
-
----- TASK 2D: Seed "Arcane Shot" as a real subclass resource (prereq for 2B) ----
-
-Arcane Shot is currently AD-HOC: ActionDetailPanel (line ~2356) computes
-`totalShots = level>=18 ? 4 : 2` locally and lazily writes char.resources
-['Arcane Shot'] only when the manual pips are clicked. It is NOT seeded by
-resourceDefaults, migrations, or character creation, so 2B's arcane-* consumption
-has no resource to deduct. Seed it the SAME way Superiority Dice was:
-  - resourceDefaults.ts: add to SUBCLASS_RESOURCES (the map at line 5):
-      ArcaneArcher: [
-        { name: 'Arcane Shot', recoverOn: 'short', scalingTable: { 3: 2, 18: 4 }, minLevel: 3 },
-      ]
-    This reproduces today's total (2 uses; 4 at level 18) and recovers on a short
-    or long rest. (If the 18->4 value is wrong for your rules, STOP and confirm —
-    but it mirrors the current UI so it introduces no behavior change.)
-  - migrations/index.ts: bump CURRENT_SCHEMA_VERSION 12 -> 13; add v12_to_v13(char)
-    that, for classId 'Fighter' && subclass 'ArcaneArcher', seeds
-    char.resources['Arcane Shot'] from getResourceDefaults(classId, level,
-    abilityScores, subclass) — mirror the v11_to_v12 BattleMaster block, preserving
-    any existing `used` clamped to the new total. Wire it into the chain
-    (`if (version < 13) data = v12_to_v13(data)`) AND into the bottom safety-net
-    block next to the BattleMaster Superiority Dice re-seed.
-  - migrations.test.ts: update the expected schemaVersion assertions from 12 to 13
-    (they currently assert 12).
-  - ActionDetailPanel arcane-shot UI (line ~2356): read totalShots from the seeded
-    resource (char.resources['Arcane Shot']?.total) instead of the local
-    `level>=18?4:2`, so there is ONE source of truth; the manual pips keep working.
-VERIFY/STOP: if 'Arcane Shot' is already seeded in resourceDefaults/migrations, STOP.
-Acceptance: an Arcane Archer shows "Arcane Shot X/Y" in the Resources panel
-  (column 2), seeded at creation/level-up and recovering on a short rest; the 2B
-  arcane-* consumption deducts from it.
+VERIFY/STOP: after this task, grep for every place that sets concentrationSpellId
+  to null; each must also strip the concentrating spell from activeBuffSpells (or
+  go through dropConcentration). If one does not, fix it.
+Acceptance: dropping concentration from (a) the spell banner, (b) re-clicking the
+  spell, (c) the left-panel 'concentration' chip, and (d) Next Turn all remove the
+  Bless/Magic Weapon buff from the attack table and recompute AC.
 
 
 ========================================================================
-SECTION 3 — VERIFICATION
+TASK 3 — Starting/switching concentration tears down the previous buff
+========================================================================
+File: SpellsPanel.tsx setConcentration (line 107) / castSpell (line 122).
+When STARTING a new concentration spell while another is active, the previous
+concentration spell's buff must be removed from activeBuffSpells (today only the
+condition is reused and the old buff lingers).
+Implementation: in the START branch, first drop the existing concentration
+(reuse the TASK 1 teardown for the OLD concentrationSpellId), THEN set the new
+concentrationSpellId + 'concentration' condition, THEN add the new spell's buff
+(the existing castSpell buff-add at 136-141 still runs).
+VERIFY/STOP: if switching concentration already removes the old buff, STOP.
+Acceptance: casting Magic Weapon while concentrating on Bless removes the Bless
+  rider from the attack table and shows only Magic Weapon.
+
+
+========================================================================
+TASK 4 — Keep the buff chip and concentration in sync (bidirectional)
+========================================================================
+File: ConditionsPanel.tsx toggleBuff (line 29).
+When the buff being REMOVED equals char.concentrationSpellId, also drop
+concentration (clear concentrationSpellId + the 'concentration' condition), so
+removing the buff chip and dropping concentration are consistent both directions:
+  if (removing && id === char.concentrationSpellId) -> also clear concentration
+  (call dropConcentration, or fold the concentration clear into the same update).
+VERIFY/STOP: if removing a concentration buff chip already clears concentration,
+  STOP.
+Acceptance: removing the Bless buff chip also clears the 'concentration' condition
+  and concentrationSpellId (no orphaned concentration state), and vice-versa
+  (TASK 2c) dropping the concentration chip removes the Bless buff.
+
+
+========================================================================
+SECTION 5 — VERIFICATION
 ========================================================================
   - npm run typecheck : passes (acceptable: __tests__/* only).
   - npm run dev (Electron), manual:
-      Goal 1: with Normal, Sneak Attack, Booming Blade, and Magic Weapon active,
-        the To-Hit column reads 1d20+8 / em-dash / em-dash / "+ 1", and Total reads
-        "1d20 + 9".
-      Goal 2: casting Booming Blade spends one ACTION (TurnHeader A pip drops) and
-        shows a single attack pip even with Extra Attack; an attack with an active
-        maneuver auto-spends one Superiority Die (one maneuver only); an arcane-shot
-        attack spends one Arcane Shot; base attacks spend nothing extra; Next Turn
-        resets the economy.
+      1. Cast Bless (concentration): a Bless rider appears in the attack table;
+         'concentration' + Bless buff chips appear in the left panel.
+      2. Drop concentration via the left-panel 'concentration' chip -> the Bless
+         rider disappears from the attack table and the Bless buff chip is gone.
+      3. Repeat dropping via the spell banner "Drop" and via Next Turn -> same result.
+      4. Remove the Bless buff chip directly -> concentration also clears.
+      5. Cast Magic Weapon while concentrating on Bless -> only Magic Weapon remains.
+      6. A directly-added "+ Buff" (non-concentration, e.g. Mage Armor) is NOT
+         removed when you drop concentration for a different spell.
   - Unit tests (extend src/renderer/src/__tests__/):
-      formatToHitRider(1, []) === '+ 1'; formatToHitRider(null, []) === em dash;
-      formatToHitRider(null, ['1d4']) === '+ 1d4';
-      formatToHitParts(9, []) === '1d20 + 9' (base/total unchanged).
+      dropConcentration removes concentrationSpellId, the 'concentration' condition,
+      and only the concentrating id from activeBuffSpells (other buffs remain);
+      AC recomputed.
 
 
 ========================================================================
