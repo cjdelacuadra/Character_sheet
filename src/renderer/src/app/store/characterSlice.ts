@@ -12,6 +12,7 @@ import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
+import { applyRestToResources } from '@/domain/rules/resources'
 import { migrateCharacter } from '@/domain/migrations'
 import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
@@ -80,7 +81,26 @@ export interface CharacterSlice {
   addCustomItem: (def: GearEquipmentItem) => void
 }
 
-export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => ({
+export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => {
+  /**
+   * The one write path for character changes: applies the recipe, stamps
+   * updatedAt, persists, and updates the map — replacing the clone-save-return
+   * boilerplate previously repeated in every action. A recipe returning null
+   * aborts (no save, no update).
+   */
+  function mutateCharacter(id: string, recipe: (char: Character) => Partial<Character> | null): void {
+    set((state) => {
+      const char = state.characters[id]
+      if (!char) return state
+      const patch = recipe(char)
+      if (patch === null) return state
+      const updated: Character = { ...char, ...patch, updatedAt: new Date().toISOString() }
+      ipcService.save(id, updated)
+      return { characters: { ...state.characters, [id]: updated } }
+    })
+  }
+
+  return ({
   activeCharacterId: null,
   characters: {},
   customItems: {},
@@ -291,38 +311,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
   },
 
   shortRest: (id, hdRolled) => {
-    set((state) => {
-      const char = state.characters[id]
-      if (!char) return state
-      const cls = CLASS_BY_ID[char.classId]
+    mutateCharacter(id, (char) => {
       const availableHD = char.level - char.hitDiceUsed
-      if (availableHD <= 0) return state
+      if (availableHD <= 0) return null
 
       const healed = Math.max(0, hdRolled + mod(char.abilityScores.con))
-      const newCurrentHp = Math.min(char.hitPoints.max, char.hitPoints.current + healed)
-      const newHdUsed = Math.min(char.level, char.hitDiceUsed + 1)
-
-      const newResources = { ...char.resources }
-      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
-      for (const [name, def] of Object.entries(defaults)) {
-        if (!newResources[name]) newResources[name] = def
-        else newResources[name] = { ...newResources[name], total: def.total }
-      }
-      for (const resDef of cls?.resources ?? []) {
-        if (resDef.recoverOn === 'short' && newResources[resDef.name]) {
-          newResources[resDef.name] = { ...newResources[resDef.name], used: 0 }
-        }
-      }
-      if (char.subclass === 'BattleMaster' && newResources['Superiority Dice']) {
-        newResources['Superiority Dice'] = { ...newResources['Superiority Dice'], used: 0 }
-      }
-      if (char.subclass === 'PsiWarrior' && newResources['Psionic Energy']) {
-        const res = newResources['Psionic Energy']
-        newResources['Psionic Energy'] = { ...res, used: Math.max(0, res.used - 1) }
-      }
-      for (const key of Object.keys(newResources)) {
-        if (key.startsWith('Rune:')) newResources[key] = { ...newResources[key], used: 0 }
-      }
 
       // Recharge short-rest racial actions (e.g. Breath Weapon, Shift, Fey Step, Hidden Step).
       const newRacialUses = { ...(char.racialActionUses ?? {}) }
@@ -337,49 +330,31 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         )
       }
 
-      const updated: Character = {
-        ...char,
-        updatedAt: new Date().toISOString(),
-        hitPoints: { ...char.hitPoints, current: newCurrentHp },
-        hitDiceUsed: newHdUsed,
-        resources: newResources,
+      return {
+        hitPoints: { ...char.hitPoints, current: Math.min(char.hitPoints.max, char.hitPoints.current + healed) },
+        hitDiceUsed: Math.min(char.level, char.hitDiceUsed + 1),
+        resources: applyRestToResources(char, 'short'),
         spellSlots: newSlots,
         racialActionUses: newRacialUses,
       }
-      ipcService.save(id, updated)
-      get().initTurnState?.(id)
-      return { characters: { ...state.characters, [id]: updated } }
     })
+    get().initTurnState?.(id)
   },
 
   longRest: (id) => {
-    set((state) => {
-      const char = state.characters[id]
-      if (!char) return state
+    mutateCharacter(id, (char) => {
       const recoverHD = Math.max(1, Math.floor(char.level / 2))
-      const newHp = { ...char.hitPoints, current: char.hitPoints.max, temp: 0 }
-      const newSlots = Object.fromEntries(
-        Object.entries(char.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
-      )
-      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
-      const newResources: Record<string, { used: number; total: number }> = {}
-      for (const key of Object.keys(char.resources)) {
-        newResources[key] = { ...char.resources[key], used: 0 }
-      }
-      for (const [key, val] of Object.entries(defaults)) {
-        if (!newResources[key]) newResources[key] = val
-      }
       const nextConditionIds = char.conditionIds.filter(c => c.conditionId === 'exhaustion')
       const nextActiveBuffSpells = (char.activeBuffSpells ?? []).filter(id => id !== char.concentrationSpellId)
       const nextBuffStates = removeBuffState(char, char.concentrationSpellId ? [char.concentrationSpellId] : [])
 
-      const updated: Character = {
-        ...char,
-        updatedAt: new Date().toISOString(),
-        hitPoints: newHp,
+      return {
+        hitPoints: { ...char.hitPoints, current: char.hitPoints.max, temp: 0 },
         hitDiceUsed: Math.max(0, char.hitDiceUsed - recoverHD),
-        spellSlots: newSlots,
-        resources: newResources,
+        spellSlots: Object.fromEntries(
+          Object.entries(char.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
+        ),
+        resources: applyRestToResources(char, 'long'),
         deathSaves: { successes: 0, failures: 0 },
         concentrationSpellId: null,
         conditionIds: nextConditionIds,
@@ -391,10 +366,8 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         isBladesinging: false,
         racialActionUses: {},
       }
-      ipcService.save(id, updated)
-      get().initTurnState?.(id)
-      return { characters: { ...state.characters, [id]: updated } }
     })
+    get().initTurnState?.(id)
   },
 
   levelUp: (id, asiChoice, newSpellIds) => {
@@ -832,4 +805,5 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       return { characters: { ...state.characters, [charId]: updated } }
     })
   },
-})
+  })
+}

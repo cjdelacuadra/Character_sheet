@@ -1,38 +1,12 @@
 import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from './characterSlice'
-import { SPELL_BY_ID, endsAtStartOfNextTurn } from '@/shared/data/spellData'
-import { computeACFull, mod } from '@/shared/data/charCalculations'
-import { CLASS_BY_ID } from '@/shared/data/classData'
-import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import {
+  makeFreshTurnState, nextTurnTransition, USED_FIELD, BONUS_FIELD,
+  type EconomyType, type NextTurnDecisions, type TurnState,
+} from '@/domain/rules/economy'
 
-export type EconomyType = 'action' | 'bonus' | 'reaction'
-
-export interface TurnState {
-  actionsUsed: number
-  bonusActionsUsed: number
-  reactionsUsed: number
-  attacksUsed: number
-  bonusActions: number
-  bonusBonusActions: number
-  bonusReactions: number
-  usedActionNames: string[]
-  endOfTurnSpellIds: string[]
-  endOfTurnBuffIds: string[]
-  divineStrikeFired: boolean
-  movedThisTurn: boolean
-  attackedThisTurn: boolean
-  advantageNextAttack: 'none' | 'adv' | 'dis'
-  speedZeroUntilTurnEnd: boolean
-  disengaged: boolean
-  dashed: boolean
-}
-
-export interface NextTurnDecisions {
-  conditionsToDrop: string[]
-  dropConcentration: boolean
-  dropRage?: boolean
-  dropBladesong?: boolean
-}
+export { makeFreshTurnState }
+export type { EconomyType, NextTurnDecisions, TurnState }
 
 export interface TurnSlice {
   turnStates: Record<string, TurnState>
@@ -56,40 +30,6 @@ export interface TurnSlice {
   markActionUsed: (charId: string, name: string) => void
   unmarkActionUsed: (charId: string, name: string) => void
   confirmNextTurn: (charId: string, decisions: NextTurnDecisions) => void
-}
-
-export function makeFreshTurnState(): TurnState {
-  return {
-    actionsUsed: 0,
-    bonusActionsUsed: 0,
-    reactionsUsed: 0,
-    attacksUsed: 0,
-    bonusActions: 0,
-    bonusBonusActions: 0,
-    bonusReactions: 0,
-    usedActionNames: [],
-    endOfTurnSpellIds: [],
-    endOfTurnBuffIds: [],
-    divineStrikeFired: false,
-    movedThisTurn: false,
-    attackedThisTurn: false,
-    advantageNextAttack: 'none',
-    speedZeroUntilTurnEnd: false,
-    disengaged: false,
-    dashed: false,
-  }
-}
-
-const USED_FIELD: Record<EconomyType, keyof TurnState> = {
-  action: 'actionsUsed',
-  bonus: 'bonusActionsUsed',
-  reaction: 'reactionsUsed',
-}
-
-const BONUS_FIELD: Record<EconomyType, keyof TurnState> = {
-  action: 'bonusActions',
-  bonus: 'bonusBonusActions',
-  reaction: 'bonusReactions',
 }
 
 export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], TurnSlice> = (set, get) => ({
@@ -250,85 +190,10 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     const ts = get().turnStates[charId] ?? makeFreshTurnState()
     if (!char) return
 
-    const charPatch: Partial<typeof char> = {}
+    const { charPatch, nextTurnState, clearConcentrationSummons } = nextTurnTransition(char, ts, decisions)
 
-    if (decisions.dropConcentration && char.concentrationSpellId) {
-      const concId = char.concentrationSpellId
-      const nextBuffs = (char.activeBuffSpells ?? []).filter(id => id !== concId)
-      charPatch.concentrationSpellId = null
-      charPatch.conditionIds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
-      charPatch.activeBuffSpells = nextBuffs
-      charPatch.buffStates = Object.fromEntries(
-        Object.entries(char.buffStates ?? {}).filter(([id]) => id !== concId),
-      )
-      charPatch.armorClass = computeACFull({ ...char, ...charPatch })
-      get().clearAllSummons(charId, { concentrationOnly: true })
-    }
-
-    if (decisions.conditionsToDrop.length > 0) {
-      const baseConds = charPatch.conditionIds ?? char.conditionIds
-      charPatch.conditionIds = baseConds.filter(c => !decisions.conditionsToDrop.includes(c.conditionId))
-    }
-
-    // Drop active buffs that should end at the start of the next turn: those explicitly
-    // registered this turn, OR any active 1-round spell (e.g. Booming Blade) detected by its
-    // duration — so 1-turn buffs always clear, regardless of how they were cast.
-    const buffs = charPatch.activeBuffSpells ?? char.activeBuffSpells ?? []
-    const remainingBuffs = buffs.filter(id =>
-      !ts.endOfTurnBuffIds.includes(id) && !endsAtStartOfNextTurn(SPELL_BY_ID[id] ?? { duration: '' })
-    )
-    if (remainingBuffs.length !== buffs.length) {
-      charPatch.activeBuffSpells = remainingBuffs
-      charPatch.buffStates = Object.fromEntries(
-        Object.entries(charPatch.buffStates ?? char.buffStates ?? {}).filter(([id]) => remainingBuffs.includes(id)),
-      )
-      charPatch.armorClass = computeACFull({ ...char, ...charPatch })
-    }
-
-    const activeBuffs = charPatch.activeBuffSpells ?? char.activeBuffSpells ?? []
-    let buffStates = { ...(charPatch.buffStates ?? char.buffStates ?? {}) }
-    let buffStatesChanged = false
-    for (const id of activeBuffs) {
-      const spell = SPELL_BY_ID[id]
-      if (!spell?.turnResource) continue
-      buffStates[id] = { ...(buffStates[id] ?? {}), perTurnUsed: false }
-      buffStatesChanged = true
-      if (spell.turnResource.kind === 'tempHp') {
-        const cls = CLASS_BY_ID[char.classId]
-        const sub = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
-        const ability = sub?.spellcastingAbility ?? cls?.spellcastingAbility
-        const temp = ability ? Math.max(1, mod(char.abilityScores[ability])) : 1
-        charPatch.hitPoints = { ...(charPatch.hitPoints ?? char.hitPoints), temp: Math.max(char.hitPoints.temp, temp) }
-      }
-    }
-    if (buffStatesChanged) charPatch.buffStates = buffStates
-
-    if (decisions.dropRage && char.isRaging) charPatch.isRaging = false
-    if (decisions.dropBladesong && char.isBladesinging) charPatch.isBladesinging = false
-
-    if (Object.keys(charPatch).length > 0) {
-      get().updateCharacter(charId, charPatch)
-    }
-
-    const nextTs: TurnState = {
-      actionsUsed: 0,
-      bonusActionsUsed: 0,
-      reactionsUsed: 0,
-      attacksUsed: 0,
-      bonusActions: 0,
-      bonusBonusActions: 0,
-      bonusReactions: 0,
-      usedActionNames: [],
-      endOfTurnSpellIds: [],
-      endOfTurnBuffIds: [],
-      divineStrikeFired: false,
-      movedThisTurn: false,
-      attackedThisTurn: false,
-      advantageNextAttack: 'none',
-      speedZeroUntilTurnEnd: false,
-      disengaged: false,
-      dashed: false,
-    }
-    set((state) => ({ turnStates: { ...state.turnStates, [charId]: nextTs } }))
+    if (clearConcentrationSummons) get().clearAllSummons(charId, { concentrationOnly: true })
+    if (Object.keys(charPatch).length > 0) get().updateCharacter(charId, charPatch)
+    set((state) => ({ turnStates: { ...state.turnStates, [charId]: nextTurnState } }))
   },
 })
