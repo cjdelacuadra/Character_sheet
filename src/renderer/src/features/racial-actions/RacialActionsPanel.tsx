@@ -4,6 +4,7 @@ import type { RacialAction } from '@/shared/data/raceData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
 import { useAppStore } from '@/app/store'
+import { Panel } from '@/ui/Panel'
 import styles from './RacialActionsPanel.module.css'
 
 interface Props {
@@ -44,12 +45,8 @@ export function RacialActionsPanel({ character: char, update }: Props) {
   }
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Racial Actions</span>
-      </div>
-      <div className={styles.list}>
-        {actions.map(a => {
+    <Panel label="Racial Actions">
+      {actions.map(a => {
           const max = resolveRacialMaxUses(a.maxUses, char.level)
           const used = char.racialActionUses?.[a.id] ?? 0
           const left = max - used
@@ -78,7 +75,6 @@ export function RacialActionsPanel({ character: char, update }: Props) {
             </div>
           )
         })}
-      </div>
-    </section>
+    </Panel>
   )
 }

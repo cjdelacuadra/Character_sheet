@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { mod } from '@/shared/data/charCalculations'
+import { rollDie, rollDiceExpr } from '@/domain/dice'
+import { songOfRestDie } from '@/domain/rules/casterFeatures'
 import styles from './RestPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -18,10 +20,20 @@ export function RestPanel({ character: char, onShortRest, onLongRest, onClose }:
   const [hdRoll, setHdRoll] = useState('')
   const classDef = CLASS_BY_ID[char.classId]
   const availableHD = char.level - char.hitDiceUsed
+  // Song of Rest: extra healing die when spending Hit Dice on a short rest.
+  // Bard is the RAW default source; the die rolls into the same heal total.
+  const songDie = char.classId === 'Bard' ? songOfRestDie(char.level) : null
 
   function rollHitDie() {
     const sides = classDef?.hitDie ?? 8
-    setHdRoll(String(Math.ceil(Math.random() * sides)))
+    setHdRoll(String(rollDie(sides)))
+  }
+
+  function addSongOfRest() {
+    if (!songDie) return
+    const current = parseInt(hdRoll, 10)
+    if (isNaN(current) || current < 1) return
+    setHdRoll(String(current + rollDiceExpr(songDie)))
   }
 
   function doShortRest() {
@@ -70,6 +82,16 @@ export function RestPanel({ character: char, onShortRest, onLongRest, onClose }:
                 onChange={e => setHdRoll(e.target.value)}
               />
               <button className={styles.restRollBtn} onClick={rollHitDie}>🎲 Roll</button>
+              {songDie && (
+                <button
+                  className={styles.restRollBtn}
+                  disabled={!hdRoll || isNaN(parseInt(hdRoll))}
+                  onClick={addSongOfRest}
+                  title={`Song of Rest: add ${songDie} extra healing when you spend Hit Dice`}
+                >
+                  🎵 Song of Rest +{songDie.replace('1d', 'd')}
+                </button>
+              )}
               {healPreview && <span className={styles.restHdNote}>{healPreview}</span>}
               <button
                 className={styles.restConfirmBtn}
