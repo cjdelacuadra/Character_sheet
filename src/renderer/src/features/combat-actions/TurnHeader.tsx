@@ -16,7 +16,7 @@ const TYPE_META: Array<{ type: EconomyType; label: string; labelClass: string; p
 
 export function TurnHeader({ charId, nextTurnOpen, onToggleNextTurn }: Props) {
   const ts = useAppStore(s => s.turnStates[charId])
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
   const setMoved = useAppStore(s => s.setMoved)
 
@@ -45,7 +45,7 @@ export function TurnHeader({ charId, nextTurnOpen, onToggleNextTurn }: Props) {
                     <button
                       key={i}
                       className={`${styles.pip} ${isUsed ? meta.pipClass : styles.pipAvailable}`}
-                      onClick={() => isUsed ? recoverEconomy(charId, type) : useEconomy(charId, type)}
+                      onClick={() => isUsed ? recoverEconomy(charId, type) : spendEconomy(charId, type)}
                       title={isUsed ? 'Un-use' : 'Use'}
                     />
                   )

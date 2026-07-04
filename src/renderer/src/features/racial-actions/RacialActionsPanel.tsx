@@ -18,7 +18,7 @@ const COST_LABEL: Record<RacialAction['cost'], string> = {
 }
 
 export function RacialActionsPanel({ character: char, update }: Props) {
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const raceDef = RACE_BY_ID[char.race]
@@ -46,7 +46,7 @@ export function RacialActionsPanel({ character: char, update }: Props) {
       patch.hitPoints = { ...base, current: Math.min(char.hitPoints.max, base.current + amt) }
     }
     if (Object.keys(patch).length > 0) update(patch)
-    if (a.cost === 'action' || a.cost === 'bonus' || a.cost === 'reaction') useEconomy(char.id, a.cost)
+    if (a.cost === 'action' || a.cost === 'bonus' || a.cost === 'reaction') spendEconomy(char.id, a.cost)
   }
 
   return (

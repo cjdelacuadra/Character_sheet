@@ -50,7 +50,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [learnShowAllLevels, setLearnShowAllLevels] = useState(false)
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const dropConcentration = useAppStore(s => s.dropConcentration)
   const registerEndOfTurnBuff = useAppStore(s => s.registerEndOfTurnBuff)
   const classDef = CLASS_BY_ID[char.classId]
@@ -94,7 +94,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       .map(([lvl]) => Number(lvl))
   )
 
-  function useSlot(level: number) {
+  function spendSlot(level: number) {
     const slot = char.spellSlots[level]
     if (!slot || slot.used >= slot.total) return
     update({ spellSlots: { ...char.spellSlots, [level]: { ...slot, used: slot.used + 1 } } })
@@ -126,7 +126,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   // and create any summon the spell defines.
   function castSpell(spell: typeof SPELLS[number], castLevel: number) {
     const previousConcentrationId = spell.concentration ? char.concentrationSpellId : null
-    if (castLevel > 0) useSlot(castLevel)
+    if (castLevel > 0) spendSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
     // Self-effect: temporary HP (e.g. False Life). Temp HP doesn't stack — keep the higher value.
@@ -148,7 +148,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       if (shortDuration) registerEndOfTurnBuff(char.id, spell.id)
     }
     const econ = castingTimeToEconomy(spell.castingTime)
-    if (econ) useEconomy(char.id, econ)
+    if (econ) spendEconomy(char.id, econ)
     setExpandedSpell(null)
   }
 
@@ -314,7 +314,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             className={styles.spellExpandCastBtn}
             onClick={() => {
               const econ = castingTimeToEconomy(spell.castingTime)
-              if (econ) useEconomy(char.id, econ)
+              if (econ) spendEconomy(char.id, econ)
               setExpandedSpell(null)
             }}
           >
@@ -542,7 +542,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                         <button
                           key={i}
                           className={`${styles.slotPip} ${i < remaining ? styles.pipFull : styles.pipEmpty}`}
-                          onClick={() => i < remaining ? useSlot(Number(lvl)) : recoverSlot(Number(lvl))}
+                          onClick={() => i < remaining ? spendSlot(Number(lvl)) : recoverSlot(Number(lvl))}
                           title={i < remaining ? 'Use slot' : 'Recover slot'}
                         />
                       ))}
@@ -611,7 +611,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                             onClick={() => {
                               if (used < 1) {
                                 const econ = castingTimeToEconomy(spell.castingTime)
-                                if (econ) useEconomy(char.id, econ)
+                                if (econ) spendEconomy(char.id, econ)
                               }
                               update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
                               setExpandedSpell(null)
@@ -680,7 +680,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                           onClick={() => {
                             if (used < 1) {
                               const econ = castingTimeToEconomy(spell.castingTime)
-                              if (econ) useEconomy(char.id, econ)
+                              if (econ) spendEconomy(char.id, econ)
                             }
                             update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
                             setExpandedSpell(null)

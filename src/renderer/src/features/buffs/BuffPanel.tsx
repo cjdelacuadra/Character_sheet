@@ -122,7 +122,7 @@ export function BuffPanel({ character: char, update }: Props) {
     setSelectedId(null)
   }
 
-  function useTurnResource(id: string) {
+  function spendTurnResource(id: string) {
     const spell = SPELL_BY_ID[id]
     if (!spell?.turnResource) return
     if (spell.turnResource.kind === 'heal' && spell.turnResource.formula) {
@@ -161,7 +161,7 @@ export function BuffPanel({ character: char, update }: Props) {
           <button className={styles.detailBtn} onClick={() => consumeOneShot(id)}>Used this hit</button>
         )}
         {(resource?.kind === 'heal' || resource?.kind === 'tempHp' || resource?.kind === 'repeatAttack') && (
-          <button className={styles.detailBtn} disabled={state.perTurnUsed} onClick={() => useTurnResource(id)}>
+          <button className={styles.detailBtn} disabled={state.perTurnUsed} onClick={() => spendTurnResource(id)}>
             {resource.kind === 'heal' ? `Heal ${resource.formula}` : resource.kind === 'tempHp' ? 'Apply temp HP' : 'Use'}
           </button>
         )}

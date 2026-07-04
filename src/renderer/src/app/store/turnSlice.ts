@@ -12,9 +12,9 @@ export interface TurnSlice {
   turnStates: Record<string, TurnState>
   getTurnState: (charId: string) => TurnState
   initTurnState: (charId: string) => void
-  useEconomy: (charId: string, type: EconomyType) => void
+  spendEconomy: (charId: string, type: EconomyType) => void
   recoverEconomy: (charId: string, type: EconomyType) => void
-  useAttack: (charId: string) => void
+  spendAttack: (charId: string) => void
   recoverAttack: (charId: string) => void
   grantEconomy: (charId: string, type: EconomyType, count?: number) => void
   registerEndOfTurnSpell: (charId: string, spellId: string) => void
@@ -45,7 +45,7 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     }))
   },
 
-  useEconomy: (charId, type) => {
+  spendEconomy: (charId, type) => {
     set((state) => {
       const ts = state.turnStates[charId] ?? makeFreshTurnState()
       const field = USED_FIELD[type]
@@ -65,7 +65,7 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     })
   },
 
-  useAttack: (charId) => {
+  spendAttack: (charId) => {
     set((state) => {
       const ts = state.turnStates[charId] ?? makeFreshTurnState()
       const next = { ...ts, attacksUsed: ts.attacksUsed + 1 }

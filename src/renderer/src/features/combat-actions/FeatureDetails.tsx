@@ -62,7 +62,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
   const [wildMagicRoll, setWildMagicRoll] = useState<number | null>(null)
   const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   // In feature context there is no selected action, so the legacy
   // use-action button never rendered; kept as a no-op for the ported markup.
   const renderActionUseButton = () => null
@@ -669,7 +669,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
       if (!cdRes || cdRemaining <= 0) return
       update({ resources: { ...char.resources, 'Channel Divinity': { ...cdRes, used: cdRes.used + 1 } } })
       if (optionAction === 'action' || optionAction === 'bonus' || optionAction === 'reaction') {
-        useEconomy(char.id, optionAction)
+        spendEconomy(char.id, optionAction)
       }
     }
     const cdFormula = (formula: string) =>

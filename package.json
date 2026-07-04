@@ -12,6 +12,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
+    "lint": "eslint src electron",
     "test:watch": "vitest",
     "dist": "npm run build && electron-builder"
   },
@@ -28,8 +29,18 @@
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "signAndEditExecutable": false
     },
@@ -52,6 +63,7 @@
     "@capacitor/cli": "^7.6.6",
     "@capacitor/ios": "^7.6.6",
     "@electron/asar": "^4.2.0",
+    "@eslint/js": "^10.0.1",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -59,7 +71,11 @@
     "electron": "^42.2.0",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.4",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.1",
     "vite": "^7.3.3",
     "vitest": "^4.1.6"
   },

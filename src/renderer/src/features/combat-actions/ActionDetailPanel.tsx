@@ -64,7 +64,7 @@ const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th
 
 function BoomingBladeTurnToggle({ charId }: { charId: string }) {
   const ts = useAppStore(s => s.turnStates[charId])
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
   const registerEndOfTurnSpell = useAppStore(s => s.registerEndOfTurnSpell)
   const unregisterEndOfTurnSpell = useAppStore(s => s.unregisterEndOfTurnSpell)
@@ -79,7 +79,7 @@ function BoomingBladeTurnToggle({ charId }: { charId: string }) {
           recoverEconomy(charId, consumption.slot)
         } else {
           registerEndOfTurnSpell(charId, 'booming-blade')
-          useEconomy(charId, consumption.slot)
+          spendEconomy(charId, consumption.slot)
         }
       }}
       title={armed ? 'Uncast Booming Blade and refund action' : 'Cast Booming Blade'}
@@ -147,10 +147,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
   const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
   const turnState = useAppStore(s => s.turnStates[char.id])
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
-  const useAttack = useAppStore(s => s.useAttack)
-  const recoverAttack = useAppStore(s => s.recoverAttack)
+  const spendTurnAttack = useAppStore(s => s.spendAttack)
+  const recoverTurnAttack = useAppStore(s => s.recoverAttack)
   const markActionUsed = useAppStore(s => s.markActionUsed)
   const unmarkActionUsed = useAppStore(s => s.unmarkActionUsed)
   const setAttacked = useAppStore(s => s.setAttacked)
@@ -279,7 +279,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       const before = Math.ceil(attacksUsed / perAction)
       const after = Math.ceil((attacksUsed + 1) / perAction)
       if (after > before) {
-        useEconomy(char.id, 'action')
+        spendEconomy(char.id, 'action')
         setAttacked(char.id, true)
       }
     } else {
@@ -287,7 +287,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
     adjustAttackConsumption(rows, 'spend')
     consumeOneShotRows(rows)
-    useAttack(char.id)
+    spendTurnAttack(char.id)
   }
 
   function recoverSpentAttack(rows: AttackRow[] = []) {
@@ -303,7 +303,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       setAttacked(char.id, false)
     }
     adjustAttackConsumption(rows, 'recover')
-    recoverAttack(char.id)
+    recoverTurnAttack(char.id)
   }
 
   function renderAttackControls(rows: AttackRow[] = [], extra?: ReactNode) {
@@ -434,7 +434,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             unmarkActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, false)
           } else {
-            useEconomy(char.id, economy)
+            spendEconomy(char.id, economy)
             markActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, true)
           }
@@ -1405,7 +1405,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           onClick={() => {
             setAdvantageNextAttack(char.id, 'adv')
             setSpeedZero(char.id, true)
-            useEconomy(char.id, 'bonus')
+            spendEconomy(char.id, 'bonus')
           }}
         >
           Use Steady Aim

@@ -23,7 +23,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
   const entries = Object.entries(char.resources)
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [fomOpen, setFomOpen] = useState(false)
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const grantEconomy = useAppStore(s => s.grantEconomy)
   if (entries.length === 0) return null
 
@@ -34,7 +34,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
     update({ resources: { ...char.resources, [name]: { ...res, used: clamped } } })
   }
 
-  function useResource(name: string) {
+  function spendResource(name: string) {
     const res = char.resources[name]
     if (!res || res.used >= res.total) return
     const effect = RESOURCE_EFFECTS.find(entry => entry.resourceKey === name)
@@ -49,7 +49,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
       grantEconomy(char.id, 'action', 1)
       return
     }
-    if (effect?.economy) useEconomy(char.id, effect.economy)
+    if (effect?.economy) spendEconomy(char.id, effect.economy)
   }
 
   function recoverResource(name: string) {
@@ -95,7 +95,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
                 <div className={styles.resourcePool}>
                   <button
                     className={styles.poolBtn}
-                    onClick={() => useResource(name)}
+                    onClick={() => spendResource(name)}
                     disabled={remaining <= 0}
                     title="Spend 1"
                   >−</button>
@@ -124,7 +124,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
                     <button
                       key={i}
                       className={`${styles.resourcePip} ${i < remaining ? styles.resourcePipFull : styles.resourcePipEmpty}`}
-                      onClick={() => i < remaining ? useResource(name) : recoverResource(name)}
+                      onClick={() => i < remaining ? spendResource(name) : recoverResource(name)}
                       title={i < remaining ? 'Use' : 'Recover'}
                     />
                   ))}

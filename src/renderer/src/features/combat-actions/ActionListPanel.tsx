@@ -28,7 +28,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const grantEconomy = useAppStore(s => s.grantEconomy)
   const setAttacked = useAppStore(s => s.setAttacked)
   const setDisengaged = useAppStore(s => s.setDisengaged)
@@ -104,7 +104,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     return chips
   }
 
-  function useResource(key: string, total: number, actionType?: ActionDef['type']) {
+  function spendResource(key: string, total: number, actionType?: ActionDef['type']) {
     const res = char.resources[key] ?? { used: 0, total }
     if (res.used >= res.total) return
     const effect = RESOURCE_EFFECTS.find(entry => entry.resourceKey === key)
@@ -121,12 +121,12 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
       return
     }
     if (effect?.economy) {
-      useEconomy(char.id, effect.economy)
+      spendEconomy(char.id, effect.economy)
       return
     }
     if (actionType) {
       const econ = actionTypeToEconomy(actionType)
-      if (econ) useEconomy(char.id, econ)
+      if (econ) spendEconomy(char.id, econ)
     }
   }
 
@@ -155,7 +155,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     if (isActionPrereqBlocked(action) || isActionDepleted(action)) return
     if (action.name === 'Disengage') {
       setDisengaged(char.id, true)
-      useEconomy(char.id, 'action')
+      spendEconomy(char.id, 'action')
     }
     onSelectAction(action.name)
   }
@@ -184,7 +184,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
                           <button
                             key={i}
                             className={`${styles.chipPip} ${i < remaining ? styles.chipPipFull : styles.chipPipEmpty}`}
-                            onClick={() => i < remaining ? useResource(key, total, type) : recoverResource(key, total)}
+                            onClick={() => i < remaining ? spendResource(key, total, type) : recoverResource(key, total)}
                             title={i < remaining ? 'Use' : 'Recover'}
                           />
                         ))}

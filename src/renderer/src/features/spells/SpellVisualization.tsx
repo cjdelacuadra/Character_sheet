@@ -508,7 +508,7 @@ export function SpellVisualization({ spell, character, slotLevel }: Props) {
     setSphereMode('square')
     setWallStart(null)
     setWallEnd(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [spell.id, slotLevel])
 
   // Animation — restarts whenever the spell OR any targeting state changes so the
