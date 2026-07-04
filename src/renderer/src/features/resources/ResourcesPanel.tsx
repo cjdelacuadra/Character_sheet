@@ -2,7 +2,12 @@ import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import { getResourceDefaultDefinition } from '@/shared/data/resourceDefaults'
 import { RESOURCE_EFFECTS } from '@/shared/data/resourceEffects'
+import {
+  CREATE_SLOT_COST, SORCERY_POINTS_RESOURCE,
+  canConvertSlot, canCreateSlot, convertSlotToPoints, createSlotFromPoints,
+} from '@/domain/rules/fontOfMagic'
 import { useAppStore } from '@/app/store'
+import { Panel } from '@/ui/Panel'
 import styles from './ResourcesPanel.module.css'
 
 interface Props {
@@ -17,6 +22,7 @@ const POOL_THRESHOLD = 12
 export function ResourcesPanel({ character: char, update }: Props) {
   const entries = Object.entries(char.resources)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  const [fomOpen, setFomOpen] = useState(false)
   const useEconomy = useAppStore(s => s.useEconomy)
   const grantEconomy = useAppStore(s => s.grantEconomy)
   if (entries.length === 0) return null
@@ -62,11 +68,21 @@ export function ResourcesPanel({ character: char, update }: Props) {
     }
   }
 
+  // Font of Magic (flexible casting) is available to anyone with the
+  // Sorcery Points pool — the buttons explain themselves via canCreate/canConvert.
+  const hasSorceryPoints = !!char.resources[SORCERY_POINTS_RESOURCE]
+
+  function fomCreate(level: number) {
+    const patch = createSlotFromPoints(char, level)
+    if (patch) update(patch)
+  }
+  function fomConvert(level: number) {
+    const patch = convertSlotToPoints(char, level)
+    if (patch) update(patch)
+  }
+
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Resources</span>
-      </div>
+    <Panel label="Resources">
       <div className={styles.resourceList}>
         {entries.map(([name, res]) => {
           const remaining = res.total - res.used
@@ -119,10 +135,66 @@ export function ResourcesPanel({ character: char, update }: Props) {
                   {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
                 </span>
               )}
+              {name === SORCERY_POINTS_RESOURCE && (
+                <button
+                  className={styles.fomToggle}
+                  onClick={() => setFomOpen(v => !v)}
+                  title="Font of Magic: convert sorcery points and spell slots"
+                >⇄ Slots</button>
+              )}
             </div>
           )
         })}
+
+        {hasSorceryPoints && fomOpen && (
+          <div className={styles.fomBox}>
+            <div className={styles.fomRow}>
+              <span className={styles.fomLabel}>Points → slot</span>
+              {Object.entries(CREATE_SLOT_COST).map(([lvl, cost]) => {
+                const level = Number(lvl)
+                const reason = canCreateSlot(char, level)
+                return (
+                  <button
+                    key={lvl}
+                    className={styles.fomBtn}
+                    disabled={reason !== null}
+                    onClick={() => fomCreate(level)}
+                    title={reason === null
+                      ? `Recover one expended level-${level} slot for ${cost} sorcery points`
+                      : reason === 'not-enough-points' ? 'Not enough sorcery points'
+                      : reason === 'no-expended-slot' ? 'No expended slot of this level'
+                      : reason === 'no-such-slot' ? 'No slots of this level'
+                      : 'Unavailable'}
+                  >
+                    L{lvl} ({cost}pt)
+                  </button>
+                )
+              })}
+            </div>
+            <div className={styles.fomRow}>
+              <span className={styles.fomLabel}>Slot → points</span>
+              {Object.keys(char.spellSlots).map(lvl => {
+                const level = Number(lvl)
+                const reason = canConvertSlot(char, level)
+                return (
+                  <button
+                    key={lvl}
+                    className={styles.fomBtn}
+                    disabled={reason !== null}
+                    onClick={() => fomConvert(level)}
+                    title={reason === null
+                      ? `Expend a level-${level} slot to gain ${level} sorcery points`
+                      : reason === 'no-available-slot' ? 'All slots of this level are spent'
+                      : 'Unavailable'}
+                  >
+                    L{lvl} (+{level}pt)
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
-    </section>
+    </Panel>
   )
 }
