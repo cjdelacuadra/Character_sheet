@@ -20,7 +20,6 @@ import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
 import { TurnHeader } from '@/features/combat-actions/TurnHeader'
 import { NextTurnChecklist } from '@/features/combat-actions/NextTurnChecklist'
-import { FeatureDetailPanel } from '@/features/detail-panel/FeatureDetailPanel'
 import { SkillSaveDetailPanel } from '@/features/detail-panel/SkillSaveDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
 import { ShopPanel } from '@/features/shop/ShopPanel'
@@ -375,7 +374,12 @@ export function CharacterView() {
               )}
             </>
           )}
-          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && selectedAction !== null && (
+          {/* Feature selections render through ActionDetailPanel's rich feature
+              details (Wild Shape, Channel Divinity, invocation/infusion/rune
+              pickers, toggles…). These were unreachable dead UI before: the old
+              guard required an action, while the feature region required no
+              action — every feature click fell back to a plain-text panel. */}
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && (selectedAction !== null || selectedFeature !== null) && (
             <ActionDetailPanel
               character={char}
               update={update}
@@ -384,14 +388,6 @@ export function CharacterView() {
               selectedFeature={selectedFeature}
               onSummon={(templateId, count, source) => summonFromTemplate(char.id, templateId, count, source)}
               onConcentrationBroken={() => clearAllSummons(char.id, { concentrationOnly: true })}
-            />
-          )}
-          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
-            <FeatureDetailPanel
-              character={char}
-              feature={selectedFeature}
-              update={update}
-              onClose={() => setPane(null)}
             />
           )}
           {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && selectedDetail && (
