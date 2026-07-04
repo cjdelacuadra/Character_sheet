@@ -3,7 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import type { StateCreator } from 'zustand'
 import { createTurnSlice, type TurnSlice } from '@/app/store/turnSlice'
 import type { CharacterSlice } from '@/app/store/characterSlice'
-import { formatToHitParts as panelFormatToHitParts, formatToHitRider } from '@/features/combat-actions/ActionDetailPanel'
+import { formatToHitParts as panelFormatToHitParts, formatToHitRider } from '@/features/combat-actions/attackRows'
 import { makeChar } from './helpers'
 
 function makeStore() {
