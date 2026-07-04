@@ -4,6 +4,7 @@ import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import type { Equipment } from '@/entities/character/types'
@@ -1528,8 +1529,18 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     // ── Channel Divinity ──────────────────────────────────────────────
     const isChannelDivinity = selectedFeature.name === 'Channel Divinity (1/rest)'
     if (isChannelDivinity) {
-      const domainAbility = char.subclass ? SUBCLASS_BY_ID[char.subclass]?.channelDivinityDesc : null
       const cdRes = char.resources['Channel Divinity']
+      const cdRemaining = cdRes ? cdRes.total - cdRes.used : 0
+      const cdOptions = channelDivinityOptionsFor(char.subclass, char.level)
+      const spendChannelDivinity = (optionAction: 'action' | 'bonus' | 'reaction' | 'special') => {
+        if (!cdRes || cdRemaining <= 0) return
+        update({ resources: { ...char.resources, 'Channel Divinity': { ...cdRes, used: cdRes.used + 1 } } })
+        if (optionAction === 'action' || optionAction === 'bonus' || optionAction === 'reaction') {
+          useEconomy(char.id, optionAction)
+        }
+      }
+      const cdFormula = (formula: string) =>
+        formula.replace('<level*2>', String(char.level * 2)).replace('<level>', String(char.level))
       return (
         <>
           <ResourcesPanel character={char} update={update} />
@@ -1537,23 +1548,42 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Channel Divinity</span>
               <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
-              {renderActionUseButton()}
             </div>
             {cdRes && (
               <div className={styles.detailResource}>
-                {cdRes.total - cdRes.used} / {cdRes.total} uses remaining
+                {cdRemaining} / {cdRes.total} uses remaining
               </div>
             )}
-            {domainAbility && (
-              <>
-                <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Domain Ability</p>
-                <p className={styles.detailFull}>{domainAbility}</p>
-              </>
-            )}
-            <p className={styles.detailFull} style={{ fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Turn Undead</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
-              Each undead that can see or hear you within 30 ft must make a WIS save (DC 8 + Prof + WIS). On a failed save, the creature is turned for 1 minute.
-            </p>
+            {cdOptions.map(opt => {
+              const mech = opt.mechanics
+              const mechLine =
+                mech?.kind === 'healPool' && mech.amountPerLevel > 0 ? `Heal pool: ${mech.amountPerLevel * char.level} HP` :
+                mech?.kind === 'damage' ? `Damage: ${cdFormula(mech.formula)} ${mech.damageType}${mech.save ? ` (${mech.save.toUpperCase()} save)` : ''}` :
+                mech?.kind === 'tempHp' ? `Temp HP: ${cdFormula(mech.formula)}` :
+                mech?.kind === 'attackBonus' ? `+${mech.value} to the attack roll` :
+                null
+              return (
+                <div key={opt.id} style={{ marginTop: 8 }}>
+                  <div className={styles.detailHeader}>
+                    <span className={styles.detailName} style={{ fontSize: 12 }}>{opt.name}</span>
+                    <span className={`${styles.detailBadge} ${styles.badgeAction}`}>
+                      {opt.action === 'bonus' ? 'Bonus' : opt.action === 'reaction' ? 'Reaction' : opt.action === 'special' ? 'Special' : 'Action'}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.actionUseBtn}
+                      disabled={cdRemaining <= 0}
+                      onClick={() => spendChannelDivinity(opt.action)}
+                      title={cdRemaining <= 0 ? 'No Channel Divinity uses remaining' : 'Spend 1 Channel Divinity use'}
+                    >
+                      Use
+                    </button>
+                  </div>
+                  {mechLine && <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 2 }}>{mechLine}</p>}
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
+                </div>
+              )
+            })}
           </div>
         </>
       )
