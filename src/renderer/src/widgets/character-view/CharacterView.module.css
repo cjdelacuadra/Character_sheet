@@ -2351,12 +2351,12 @@
   vertical-align: middle;
 }
 
-/* â”€â”€ Drawer backdrop (hidden on desktop) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Drawer backdrop (hidden on desktop) ───────────────────────────────── */
 .drawerBackdrop {
   display: none;
 }
 
-/* â”€â”€ TABLET PORTRAIT LAYOUT (768px â€“ 999px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── TABLET PORTRAIT LAYOUT (768px – 999px) ──────────────────────────── */
 /* At this width the 3-column layout does not fit. The left column becomes  */
 /* a fixed slide-in drawer. Center and right columns fill the full width.   */
 @media (max-width: 999px) {

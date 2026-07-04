@@ -134,7 +134,7 @@ export function computeSpellDamage(
 
   const hitParts: { expr: string; type: string }[] = []
   let hitFormula = dmgType ? `${combined} ${dmgType}` : combined
-  if (dmgType && combined !== 'â€”') hitParts.push({ expr: combined, type: dmgType })
+  if (dmgType && combined !== '—') hitParts.push({ expr: combined, type: dmgType })
   for (const rider of otherType) {
     const parts = [...rider.dice, rider.flat ? String(rider.flat) : null].filter(Boolean) as string[]
     if (!parts.length) continue

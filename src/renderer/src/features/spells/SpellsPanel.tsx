@@ -684,7 +684,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                             setExpandedSpell(null)
                           }}
                         >
-                          {used < 1 ? 'Cast (1/long rest)' : 'Already used Â· click to recover'}
+                          {used < 1 ? 'Cast (1/long rest)' : 'Already used · click to recover'}
                         </button>
                       </div>
                     </div>

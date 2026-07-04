@@ -124,13 +124,12 @@ describe('spellcasting parity with legacy', () => {
     }
   })
 
-  it('mojibake fix: attack-roll spell with no damage no longer emits a placeholder crit', () => {
+  it('mojibake fix: attack-roll spell with no damage emits no placeholder crit (both engines)', () => {
     const noDamageAttackSpell = { ...SPELL_BY_ID['fire-bolt'], id: 'x', damageFormula: undefined, scalingDice: undefined, damageType: 'fire' }
     const { v13, v14 } = both({ classId: 'Wizard' })
-    const fixed = spellcasting.computeSpellDamage(noDamageAttackSpell, 0, v14)
-    expect(fixed.critFormula).toBe('')
-    // Legacy bug: the corrupted 'â€”' guard let the '—' placeholder into crit parts.
-    const buggy = legacy.computeSpellDamage(noDamageAttackSpell, 0, v13)
-    expect(buggy.critFormula).not.toBe('')
+    // Originally a legacy-only bug (a corrupted em-dash literal in the guard);
+    // the literal is fixed, so both engines agree.
+    expect(spellcasting.computeSpellDamage(noDamageAttackSpell, 0, v14).critFormula).toBe('')
+    expect(legacy.computeSpellDamage(noDamageAttackSpell, 0, v13).critFormula).toBe('')
   })
 })
