@@ -33,6 +33,11 @@ import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { useAppStore } from '@/app/store'
 import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
+import {
+  activeInfusionsOf, activeRunesOf, chainFamiliarOf, fightingStyleLocked, fightingStyleOf,
+  infusionsKnownOf, invocationsOf, isBladesinging, isRaging, masterySpellsOf,
+  pactBoonLockedOf, pactBoonOf, runesKnownOf, tomeCantripsOf, wildShapeFormOf,
+} from '@/domain/character/compat'
 import styles from './ActionDetailPanel.module.css'
 
 const SUBCLASS_FEATURE_NAMES = new Set([
@@ -72,8 +77,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
     const classDef = CLASS_BY_ID[char.classId]
     const hasPendingAsi = (classDef?.asiLevels ?? []).includes(char.level) &&
       !(char.completedAsiLevels ?? []).includes(char.level)
-    const isLocked = (char.fightingStyleLocked ?? false) && !hasPendingAsi
-    const chosen = char.fightingStyle ? FIGHTING_STYLE_BY_ID[char.fightingStyle] : null
+    const isLocked = fightingStyleLocked(char) && !hasPendingAsi
+    const chosen = fightingStyleOf(char) ? FIGHTING_STYLE_BY_ID[fightingStyleOf(char)!] : null
     return (
       <>
         <ResourcesPanel character={char} update={update} />
@@ -109,7 +114,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                 {FIGHTING_STYLES.map(s => (
                   <button
                     key={s.id}
-                    className={`${styles.fightingStyleOption} ${(pendingStyle ?? char.fightingStyle) === s.id ? styles.fightingStyleOptionActive : ''}`}
+                    className={`${styles.fightingStyleOption} ${(pendingStyle ?? fightingStyleOf(char)) === s.id ? styles.fightingStyleOptionActive : ''}`}
                     onClick={() => setPendingStyle(s.id)}
                   >
                     <span className={styles.fightingStyleName}>{s.name}</span>
@@ -117,12 +122,12 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                   </button>
                 ))}
               </div>
-              {(pendingStyle || char.fightingStyle) && (
+              {(pendingStyle || fightingStyleOf(char)) && (
                 <button
                   className={styles.armoryAddBtn}
                   style={{ marginTop: 8 }}
                   onClick={() => {
-                    update({ fightingStyle: pendingStyle ?? char.fightingStyle ?? undefined, fightingStyleLocked: true })
+                    update({ fightingStyle: pendingStyle ?? fightingStyleOf(char) ?? undefined, fightingStyleLocked: true })
                     setPendingStyle(null)
                   }}
                 >
@@ -219,8 +224,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
               {level1Spells.map(id => (
                 <button
                   key={id}
-                  className={`${styles.masterySpellChip} ${char.masterySpells?.level1 === id ? styles.masterySpellChipActive : ''}`}
-                  onClick={() => update({ masterySpells: { ...char.masterySpells, level1: id } })}
+                  className={`${styles.masterySpellChip} ${masterySpellsOf(char).level1 === id ? styles.masterySpellChipActive : ''}`}
+                  onClick={() => update({ masterySpells: { ...masterySpellsOf(char), level1: id } })}
                 >
                   {SPELL_BY_ID[id]?.name ?? id}
                 </button>
@@ -232,8 +237,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
               {level2Spells.map(id => (
                 <button
                   key={id}
-                  className={`${styles.masterySpellChip} ${char.masterySpells?.level2 === id ? styles.masterySpellChipActive : ''}`}
-                  onClick={() => update({ masterySpells: { ...char.masterySpells, level2: id } })}
+                  className={`${styles.masterySpellChip} ${masterySpellsOf(char).level2 === id ? styles.masterySpellChipActive : ''}`}
+                  onClick={() => update({ masterySpells: { ...masterySpellsOf(char), level2: id } })}
                 >
                   {SPELL_BY_ID[id]?.name ?? id}
                 </button>
@@ -313,12 +318,12 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   // ── Eldritch Invocations ──────────────────────────────────────────
   const isEldritchInvocations = selectedFeature.name === 'Eldritch Invocations'
   if (isEldritchInvocations) {
-    const known = char.warlockInvocations ?? []
+    const known = invocationsOf(char)
     const maxKnown = maxInvocations(char.level)
     const eligible = INVOCATIONS.filter(inv =>
       (inv.prerequisiteLevel ?? 2) <= char.level &&
-      (!inv.prerequisite || inv.prerequisite === 'Pact of the Blade' ? char.pactBoon === 'blade' :
-        inv.prerequisite === 'Pact of the Tome' ? char.pactBoon === 'tome' : true)
+      (!inv.prerequisite || inv.prerequisite === 'Pact of the Blade' ? pactBoonOf(char) === 'blade' :
+        inv.prerequisite === 'Pact of the Tome' ? pactBoonOf(char) === 'tome' : true)
     )
     return (
       <>
@@ -335,8 +340,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
               const isKnown = known.includes(inv.id)
               const levelOk = (inv.prerequisiteLevel ?? 2) <= char.level
               const prereqOk = !inv.prerequisite ||
-                (inv.prerequisite === 'Pact of the Blade' && char.pactBoon === 'blade') ||
-                (inv.prerequisite === 'Pact of the Tome' && char.pactBoon === 'tome')
+                (inv.prerequisite === 'Pact of the Blade' && pactBoonOf(char) === 'blade') ||
+                (inv.prerequisite === 'Pact of the Tome' && pactBoonOf(char) === 'tome')
               const canAdd = !isKnown && known.length < maxKnown && levelOk && prereqOk
               const isDisabled = !isKnown && !canAdd
               return (
@@ -371,8 +376,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   // ── Artificer Infusions ───────────────────────────────────────────
   const isInfuseItem = selectedFeature.name === 'Infuse Item'
   if (isInfuseItem) {
-    const known = char.artificerInfusions ?? []
-    const active = char.activeArtificerInfusions ?? []
+    const known = infusionsKnownOf(char)
+    const active = activeInfusionsOf(char)
     const maxKnown = maxInfusionsKnown(char.level)
     const maxActive = maxInfusionsActive(char.level)
     return (
@@ -452,8 +457,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   // ── Pact Boon ─────────────────────────────────────────────────────
   const isRuneCarver = selectedFeature.name === 'Rune Carver' && char.subclass === 'RuneKnight'
   if (isRuneCarver) {
-    const known = char.knownRunes ?? []
-    const active = char.activeRunes ?? []
+    const known = runesKnownOf(char)
+    const active = activeRunesOf(char)
     const maxKnown = char.level >= 15 ? 5 : char.level >= 10 ? 4 : char.level >= 7 ? 3 : 2
     return (
       <>
@@ -547,8 +552,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
       { id: 'chain', name: 'Pact of the Chain', description: 'Learn Find Familiar. Your familiar can take one of the following forms: imp, pseudodragon, quasit, or sprite. It can attack as a reaction while you cast a spell.' },
       { id: 'tome', name: 'Pact of the Tome', description: 'Your patron gives you a grimoire called a Book of Shadows. It contains 3 cantrips of your choice from any class. These count as warlock spells for you.' },
     ]
-    const isLocked = char.pactBoonLocked ?? false
-    const chosen = char.pactBoon ? PACT_OPTIONS.find(p => p.id === char.pactBoon) : null
+    const isLocked = pactBoonLockedOf(char)
+    const chosen = pactBoonOf(char) ? PACT_OPTIONS.find(p => p.id === pactBoonOf(char)) : null
 
     // Pact of the Blade: add weapon on confirm
     const handleConfirmBlade = () => {
@@ -592,18 +597,18 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                   Your Pact Weapon appears in your weapons list and uses CHA for attacks/damage (Hex Warrior).
                 </p>
               )}
-              {chosen?.id === 'tome' && char.tomeCantrips && char.tomeCantrips.length > 0 && (
+              {chosen?.id === 'tome' && tomeCantripsOf(char).length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Cantrips Known:</p>
-                  {char.tomeCantrips.map(cid => {
+                  {tomeCantripsOf(char).map(cid => {
                     const spell = SPELL_BY_ID[cid]
                     return <p key={cid} className={styles.detailFull} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{spell?.name || cid}</p>
                   })}
                 </div>
               )}
-              {chosen?.id === 'chain' && char.chainFamiliarType && (
+              {chosen?.id === 'chain' && chainFamiliarOf(char) && (
                 <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
-                  Familiar: <strong>{char.chainFamiliarType}</strong>
+                  Familiar: <strong>{chainFamiliarOf(char)}</strong>
                 </p>
               )}
               <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
@@ -619,7 +624,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                 {PACT_OPTIONS.map(p => (
                   <button
                     key={p.id}
-                    className={`${styles.fightingStyleOption} ${(pendingBoon ?? char.pactBoon) === p.id ? styles.fightingStyleOptionActive : ''}`}
+                    className={`${styles.fightingStyleOption} ${(pendingBoon ?? pactBoonOf(char)) === p.id ? styles.fightingStyleOptionActive : ''}`}
                     onClick={() => setPendingBoon(p.id)}
                   >
                     <span className={styles.fightingStyleName}>{p.name}</span>
@@ -627,12 +632,12 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                   </button>
                 ))}
               </div>
-              {(pendingBoon || char.pactBoon) && (
+              {(pendingBoon || pactBoonOf(char)) && (
                 <button
                   className={styles.armoryAddBtn}
                   style={{ marginTop: 8 }}
                   onClick={() => {
-                    const boonId = pendingBoon ?? char.pactBoon
+                    const boonId = pendingBoon ?? pactBoonOf(char)
                     if (boonId === 'blade') {
                       handleConfirmBlade()
                     } else if (boonId === 'tome') {
@@ -992,7 +997,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
               )}
             </div>
           )}
-          {char.isRaging ? (
+          {isRaging(char) ? (
             <div className={styles.detailResource} style={{ color: 'var(--danger, #ef4444)' }}>Currently Raging</div>
           ) : (
             rageRes && <div className={styles.detailResource}>{rageRes.total - rageRes.used} / {rageRes.total} rages remaining</div>
@@ -1002,7 +1007,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on STR checks and STR saving throws</p>
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Resistance to bludgeoning, piercing, and slashing damage</p>
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Rage ends if you don't attack or take damage since your last turn, or you fall unconscious.</p>
-          {char.isRaging ? (
+          {isRaging(char) ? (
             <button
               className={styles.armoryAddBtn}
               style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
@@ -1054,7 +1059,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
             <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
             {renderActionUseButton()}
           </div>
-          {char.isBladesinging ? (
+          {isBladesinging(char) ? (
             <div className={styles.detailResource} style={{ color: 'var(--accent)' }}>Bladesong Active</div>
           ) : (
             <div className={styles.detailResource}>{total - used} / {total} uses · Long rest recharge</div>
@@ -1065,12 +1070,12 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on Acrobatics checks</p>
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +{Math.max(1, intMod)} to Constitution saves (concentration)</p>
           <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Requires: light or no armor, no shield, no two-handed weapon. Ends if you don armor or a shield, wield a two-handed weapon, or are incapacitated.</p>
-          {blocked && !char.isBladesinging && (
+          {blocked && !isBladesinging(char) && (
             <p className={styles.detailFull} style={{ color: 'var(--danger, #ef4444)', fontSize: 11, marginTop: 4 }}>
               {isMedHeavy ? 'Remove medium/heavy armor first.' : hasShield ? 'Unequip shield first.' : 'Unequip two-handed weapon first.'}
             </p>
           )}
-          {char.isBladesinging ? (
+          {isBladesinging(char) ? (
             <button
               className={styles.armoryAddBtn}
               style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
@@ -1138,7 +1143,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
     const crLabel = wsLimit.maxCR === 0.25 ? 'CR 1/4' : wsLimit.maxCR === 0.5 ? 'CR 1/2' : `CR ${wsLimit.maxCR}`
     const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= wsLimit.maxCR)
     const selectedBeast = eligibleBeasts.find(beast => beast.id === selectedWildShapeBeastId) ?? eligibleBeasts[0]
-    const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !char.wildShapeForm
+    const currentForm = wildShapeFormOf(char)
+    const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !currentForm
     return (
       <>
         <ResourcesPanel character={char} update={update} />
@@ -1153,9 +1159,9 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
           {wsRes && (
             <div className={styles.detailResource}>{wsRes.total - wsRes.used} / {wsRes.total} uses remaining</div>
           )}
-          {char.wildShapeForm && (
+          {currentForm && (
             <div className={styles.detailResource}>
-              Current form: {char.wildShapeForm.name} · {char.wildShapeForm.hp.current}/{char.wildShapeForm.hp.max} HP
+              Current form: {currentForm.name} · {currentForm.hp.current}/{currentForm.hp.max} HP
             </div>
           )}
           <p className={styles.detailFull} style={{ marginTop: 6 }}>
@@ -1218,7 +1224,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
             >
               Enter Wild Shape
             </button>
-            {char.wildShapeForm && (
+            {currentForm && (
               <button
                 className={styles.detailChipBtn}
                 onClick={() => update({ wildShapeForm: undefined })}

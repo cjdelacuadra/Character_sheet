@@ -75,6 +75,8 @@ export interface CharacterV14 {
   feats: string[]
   /** Chosen ability for ability-choice feats (Resilient, half-feats…). */
   featChoices?: Record<string, AbilityScore>
+  completedAsiLevels: number[]
+  completedAsiChoices?: Record<number, string>
 
   /** All class/subclass/racial feature choices and runtime state, keyed by feature id. */
   featureState: Record<string, FeatureState>

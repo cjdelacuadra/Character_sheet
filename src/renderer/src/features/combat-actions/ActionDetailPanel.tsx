@@ -37,6 +37,7 @@ import {
   BASE_ATTACK_ROW_IDS, ATTACK_CONSUMPTION, type AttackRow,
 } from './attackRows'
 import { FeatureDetails } from './FeatureDetails'
+import { activeArcaneShotOf, activeManeuverOf, arcaneShotsKnownOf, fightingStyleOf, hasSpellSniper, maneuversKnownOf } from '@/domain/character/compat'
 import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
 import styles from './ActionDetailPanel.module.css'
 
@@ -824,8 +825,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))
               const known = maneuversKnown(char.level)
-              const chosen = char.chosenManeuvers ?? []
-              const active = char.activeManeuver ?? null
+              const chosen = maneuversKnownOf(char)
+              const active = activeManeuverOf(char)
               return (
                 <div className={styles.specialAttackList}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -897,8 +898,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const usedShots = arcaneResource?.used ?? 0
               const leftShots = Math.max(0, totalShots - usedShots)
               const known = arcaneShotsKnown(char.level)
-              const learned = char.arcaneShots ?? []
-              const activeShot = char.activeArcaneShot ?? null
+              const learned = arcaneShotsKnownOf(char)
+              const activeShot = activeArcaneShotOf(char)
               return (
                 <div className={styles.specialAttackList}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -981,7 +982,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
                 <div style={{ padding: '8px 14px', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 11 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Casting Time</span><span>{spell.castingTime}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spellSniperRange(spell, char.spellSniperDoubleRange)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spellSniperRange(spell, hasSpellSniper(char))}</span>
                   <span style={{ color: 'var(--text-muted)' }}>Spell Attack</span><span>{fmtMod(computeSpellAttackBonus(char))} to hit</span>
                 </div>
                 <p style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>{spell.description}</p>
@@ -998,12 +999,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <button className={styles.modalClose} onClick={() => setManeuverPickerOpen(false)}>×</button>
               </div>
               <div className={styles.armoryList}>
-                {MANEUVERS.filter(m => !(char.chosenManeuvers ?? []).includes(m.id)).map(m => (
+                {MANEUVERS.filter(m => !maneuversKnownOf(char).includes(m.id)).map(m => (
                   <button
                     key={m.id}
                     className={styles.armoryEntry}
                     onClick={() => {
-                      update({ chosenManeuvers: [...(char.chosenManeuvers ?? []), m.id] })
+                      update({ chosenManeuvers: [...maneuversKnownOf(char), m.id] })
                       setManeuverPickerOpen(false)
                     }}
                   >
@@ -1024,12 +1025,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <button className={styles.modalClose} onClick={() => setArcanePickerOpen(false)}>×</button>
               </div>
               <div className={styles.armoryList}>
-                {ARCANE_SHOTS.filter(s => !(char.arcaneShots ?? []).includes(s.id)).map(s => (
+                {ARCANE_SHOTS.filter(s => !arcaneShotsKnownOf(char).includes(s.id)).map(s => (
                   <button
                     key={s.id}
                     className={styles.armoryEntry}
                     onClick={() => {
-                      update({ arcaneShots: [...(char.arcaneShots ?? []), s.id] })
+                      update({ arcaneShots: [...arcaneShotsKnownOf(char), s.id] })
                       setArcanePickerOpen(false)
                     }}
                   >
@@ -1220,7 +1221,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       w.rangeType !== 'Ranged' &&
       (w.properties ?? []).some(p => p.toLowerCase() === 'light')
     )
-    const hasTWF = char.fightingStyle === 'two-weapon-fighting'
+    const hasTWF = fightingStyleOf(char) === 'two-weapon-fighting'
     const strMod = mod(char.abilityScores.str)
     const dexMod = mod(char.abilityScores.dex)
     return (

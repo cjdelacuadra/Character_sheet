@@ -248,7 +248,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c:
     const now = new Date().toISOString()
     return {
       id: crypto.randomUUID(),
-      schemaVersion: 10,
+      schemaVersion: 13,
       createdAt: now,
       updatedAt: now,
       name: basics.name.trim(),

@@ -14,7 +14,7 @@ import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import { applyRestToResources } from '@/domain/rules/resources'
 import { racialActionUsesOf } from '@/domain/character/compat'
-import { migrateCharacter } from '@/domain/migrations'
+import { migrateCharacterV14 } from '@/domain/character/migrations'
 import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
@@ -82,6 +82,62 @@ export interface CharacterSlice {
   addCustomItem: (def: GearEquipmentItem) => void
 }
 
+
+/**
+ * Transition shim: any patch that writes a legacy one-off class field is
+ * mirrored into featureState, so bridge accessors (featureState-first) see
+ * every write regardless of which generation the writer targeted. Removed at
+ * cutover together with the legacy fields themselves.
+ */
+function mirrorLegacyPatch(char: Character, patch: Partial<Character>): Partial<Character> {
+  type FS = NonNullable<Character['featureState']>[string]
+  const entries: Array<[string, FS]> = []
+  const has = (k: keyof Character) => Object.prototype.hasOwnProperty.call(patch, k)
+
+  if (has('isRaging')) entries.push(['rage', { on: patch.isRaging === true }])
+  if (has('isBladesinging')) entries.push(['bladesong', { on: patch.isBladesinging === true }])
+  if (has('fightingStyle') || has('fightingStyleLocked')) entries.push(['fighting-style', {
+    ...(has('fightingStyle') ? { choice: patch.fightingStyle } : {}),
+    ...(has('fightingStyleLocked') ? { locked: patch.fightingStyleLocked } : {}),
+  }])
+  if (has('masterySpells')) entries.push(['spell-mastery', { data: patch.masterySpells ? { ...patch.masterySpells } : {} }])
+  if (has('warlockInvocations')) entries.push(['invocations', { known: patch.warlockInvocations }])
+  if (has('artificerInfusions') || has('activeArtificerInfusions')) entries.push(['infusions', {
+    ...(has('artificerInfusions') ? { known: patch.artificerInfusions } : {}),
+    ...(has('activeArtificerInfusions') ? { active: patch.activeArtificerInfusions } : {}),
+  }])
+  if (has('knownRunes') || has('activeRunes')) entries.push(['runes', {
+    ...(has('knownRunes') ? { known: patch.knownRunes } : {}),
+    ...(has('activeRunes') ? { active: patch.activeRunes } : {}),
+  }])
+  if (has('pactBoon') || has('pactBoonLocked')) entries.push(['pact-boon', {
+    ...(has('pactBoon') ? { choice: patch.pactBoon } : {}),
+    ...(has('pactBoonLocked') ? { locked: patch.pactBoonLocked } : {}),
+  }])
+  if (has('tomeCantrips')) entries.push(['pact-of-the-tome', { known: patch.tomeCantrips }])
+  if (has('chainFamiliarType')) entries.push(['pact-of-the-chain', { choice: patch.chainFamiliarType }])
+  if (has('hexWarriorWeaponId')) entries.push(['hex-warrior', { choice: patch.hexWarriorWeaponId }])
+  if (has('chosenTotem')) entries.push(['totem-spirit', { choice: patch.chosenTotem }])
+  if (has('circleOfLandTerrain')) entries.push(['circle-of-the-land', { choice: patch.circleOfLandTerrain }])
+  if (has('chosenManeuvers') || has('activeManeuver') || has('selectedManeuver')) entries.push(['maneuvers', {
+    ...(has('chosenManeuvers') ? { known: patch.chosenManeuvers ?? [] } : {}),
+    ...(has('activeManeuver') ? { active: patch.activeManeuver ? [patch.activeManeuver] : [] } : {}),
+  }])
+  if (has('arcaneShots') || has('activeArcaneShot')) entries.push(['arcane-shots', {
+    ...(has('arcaneShots') ? { known: patch.arcaneShots } : {}),
+    ...(has('activeArcaneShot') ? { active: patch.activeArcaneShot ? [patch.activeArcaneShot] : [] } : {}),
+  }])
+  if (has('racialActionUses')) entries.push(['racial-actions', { uses: patch.racialActionUses ?? {} }])
+  if (has('wildShapeForm')) entries.push(['wild-shape', { data: patch.wildShapeForm ? { form: patch.wildShapeForm } : {} }])
+
+  if (entries.length === 0) return patch
+  let featureState = { ...(patch.featureState ?? char.featureState ?? {}) }
+  for (const [key, fsPatch] of entries) {
+    featureState = { ...featureState, [key]: { ...featureState[key], ...fsPatch } }
+  }
+  return { ...patch, featureState }
+}
+
 export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => {
   /**
    * The one write path for character changes: applies the recipe, stamps
@@ -95,7 +151,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       if (!char) return state
       const patch = recipe(char)
       if (patch === null) return state
-      const updated: Character = { ...char, ...patch, updatedAt: new Date().toISOString() }
+      const updated: Character = { ...char, ...mirrorLegacyPatch(char, patch), updatedAt: new Date().toISOString() }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
@@ -142,7 +198,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         }
         nextPatch = { ...patch, buffStates }
       }
-      const updated: Character = { ...current, ...nextPatch, updatedAt: new Date().toISOString() }
+      const updated: Character = { ...current, ...mirrorLegacyPatch(current, nextPatch), updatedAt: new Date().toISOString() }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
@@ -290,7 +346,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         charIds.map(async (id) => {
           const data = await ipcService.load(id)
           if (data == null) return [id, null] as const
-          return [id, migrateCharacter(data)] as const
+          // THE FLIP: saves load as v14 — legacy one-off fields are folded into
+          // featureState. The store's Character type stays the transitional
+          // superset until cutover, hence the cast.
+          return [id, migrateCharacterV14(data) as unknown as Character] as const
         })
       )
       const characters = Object.fromEntries(
