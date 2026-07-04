@@ -6,6 +6,8 @@ import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
+import { portentDiceCount } from '@/domain/rules/casterFeatures'
+import { rollDie } from '@/domain/dice'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import type { Equipment } from '@/entities/character/types'
@@ -1656,6 +1658,54 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
               )
             })}
+          </div>
+        </>
+      )
+    }
+
+    // ── Portent (Divination) ──────────────────────────────────────────
+    const isPortent = selectedFeature.name === 'Portent' || selectedFeature.name === 'Greater Portent'
+    if (isPortent) {
+      const portentState = char.featureState?.['portent'] ?? {}
+      const rolls = (portentState.data?.rolls as number[] | undefined) ?? []
+      const diceCount = portentDiceCount(char.level)
+      const setRolls = (next: number[]) =>
+        update({ featureState: { ...(char.featureState ?? {}), portent: { ...portentState, data: { ...portentState.data, rolls: next } } } })
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Portent</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>{diceCount} dice / long rest</span>
+              <button
+                type="button"
+                className={styles.actionUseBtn}
+                onClick={() => setRolls(Array.from({ length: diceCount }, () => rollDie(20)))}
+                title="Roll your foretelling dice (after a long rest)"
+              >
+                Roll {diceCount}d20
+              </button>
+            </div>
+            {rolls.length > 0 ? (
+              <div className={styles.detailResource} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                Foretold:
+                {rolls.map((r, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={styles.actionUseBtn}
+                    onClick={() => setRolls(rolls.filter((_, j) => j !== i))}
+                    title="Spend this foretelling roll (replaces any attack roll, save, or ability check)"
+                  >
+                    {r} ✕
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>No foretelling dice recorded — roll after a long rest.</p>
+            )}
+            <p className={styles.detailFull}>{selectedFeature.desc}</p>
           </div>
         </>
       )

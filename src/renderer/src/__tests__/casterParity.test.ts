@@ -5,6 +5,10 @@ import {
   arcaneWardMax, bardicInspirationDie, divineInterventionSucceeds,
   portentDiceCount, songOfRestDie, wildShapeLimit,
 } from '@/domain/rules/casterFeatures'
+import * as legacyRules from '@/domain/rules'
+import * as newSpellcasting from '@/domain/rules/spellcasting'
+import { SPELL_BY_ID } from '@/shared/data/spellData'
+import { makeChar } from './helpers'
 import {
   CREATE_SLOT_COST, canCreateSlot, canConvertSlot, convertSlotToPoints,
   createSlotFromPoints, sorceryPointsAvailable,
@@ -99,6 +103,25 @@ describe('trackable caster features', () => {
     expect(divineInterventionSucceeds(10, 10)).toBe(true)
     expect(divineInterventionSucceeds(10, 11)).toBe(false)
     expect(divineInterventionSucceeds(20, 100)).toBe(true)
+  })
+})
+
+describe('Agonizing Blast wiring', () => {
+  const eldritchBlast = SPELL_BY_ID['eldritch-blast']
+
+  it('legacy engine adds CHA mod per beam only with the invocation known', () => {
+    const base = makeChar({ schemaVersion: 13, classId: 'Warlock', abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 } })
+    const plain = legacyRules.computeSpellDamage(eldritchBlast, 0, base)
+    expect(plain.hitFormula).toBe('1d10 force')
+    const agonizing = legacyRules.computeSpellDamage(eldritchBlast, 0, { ...base, warlockInvocations: ['agonizingBlast'] })
+    expect(agonizing.hitFormula).toBe('1d10 + 4 force')
+  })
+
+  it('new engine reads either schema generation (no class gate)', () => {
+    const v13 = makeChar({ schemaVersion: 13, classId: 'Bard', abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 16 }, warlockInvocations: ['agonizingBlast'] })
+    expect(newSpellcasting.computeSpellDamage(eldritchBlast, 0, v13).hitFormula).toBe('1d10 + 3 force')
+    const v14 = { ...v13, warlockInvocations: undefined, featureState: { invocations: { known: ['agonizingBlast'] } } }
+    expect(newSpellcasting.computeSpellDamage(eldritchBlast, 0, v14).hitFormula).toBe('1d10 + 3 force')
   })
 })
 

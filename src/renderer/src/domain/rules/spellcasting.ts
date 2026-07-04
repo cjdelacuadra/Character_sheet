@@ -23,6 +23,14 @@ export interface CasterInput {
   proficiencyBonus: number
   activeBuffSpells?: string[]
   conditionIds?: import('@/entities/character/types').ActiveCondition[]
+  /** Legacy (v13) known invocations; v14 uses featureState['invocations'].known. */
+  warlockInvocations?: string[]
+  featureState?: Record<string, import('@/entities/character/types').FeatureState>
+}
+
+/** Known Eldritch Invocations from either schema generation. */
+export function knownInvocations(char: Pick<CasterInput, 'warlockInvocations' | 'featureState'>): string[] {
+  return char.featureState?.['invocations']?.known ?? char.warlockInvocations ?? []
 }
 
 const NO_DAMAGE = '—'
@@ -95,6 +103,13 @@ export function computeSpellDamage(
     baseDice = computeUpcastDice(spell.scalingDice, slotLevel)
   } else {
     baseDice = NO_DAMAGE
+  }
+
+  // Agonizing Blast: +CHA mod per Eldritch Blast beam, keyed on the known
+  // invocation (never the class).
+  if (spell.id === 'eldritch-blast' && knownInvocations(char).includes('agonizingBlast')) {
+    const chaMod = mod(effectiveAbility(char, 'cha'))
+    if (chaMod !== 0) baseDice = combineDiceExpr(`${baseDice} + ${chaMod}`)
   }
 
   const dmgType = spell.damageType ?? ''

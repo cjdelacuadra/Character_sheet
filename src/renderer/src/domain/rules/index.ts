@@ -114,6 +114,14 @@ export function computeSpellDamage(
     baseDice = '—'
   }
 
+  // Agonizing Blast (Eldritch Invocation): add CHA mod to each Eldritch
+  // Blast beam. Keyed on the known-invocation list, not the class — any
+  // character granted the invocation gets the damage.
+  if (spell.id === 'eldritch-blast' && (character.warlockInvocations ?? []).includes('agonizingBlast')) {
+    const chaMod = mod(effectiveAbilityScore(character, 'cha'))
+    if (chaMod !== 0) baseDice = combineDiceExpr(`${baseDice} + ${chaMod}`)
+  }
+
   const dmgType = spell.damageType ?? ''
   const riders = computeEquipmentStats(character).bonusDamage.filter(b => b.appliesTo === 'all')
   const sameType = riders.filter(b => b.dmgType === dmgType)
