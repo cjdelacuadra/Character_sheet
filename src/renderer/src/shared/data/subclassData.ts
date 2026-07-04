@@ -95,7 +95,7 @@ export const SUBCLASSES: SubclassDef[] = [
   { id: 'WildMagicBarbarian', label: 'Path of Wild Magic',              classId: 'Barbarian', unlocksAtLevel: 3, description: 'Wild magic surges through you as you rage, producing random arcane effects that grow stronger with time.',
     subclassFeatures: [
       { level: 3, name: 'Magic Awareness', desc: 'As an action, describe the location of magical influences within 1 mile. Uses = PB per long rest.' },
-      { level: 3, name: 'Wild Surge', desc: 'When you enter your rage, roll on the Wild Magic table (d8) — effects include force-shielding allies, teleport-on-hit, summoning a flumph (kidding — actually random arcane effects per TCoE). // TODO: mechanical wiring — random-table roll feature.' },
+      { level: 3, name: 'Wild Surge', desc: 'When you enter your rage, roll on the Wild Magic table (d8) — effects include force-shielding allies, teleport-on-hit, summoning a flumph (kidding — actually random arcane effects per TCoE). (wired: the Wild Surge detail rolls on the d8 table)' },
       { level: 6, name: 'Bolstering Magic', desc: 'Touch a creature as an action and confer either: a d3 bonus to attack rolls and ability checks for 10 minutes, or roll a d6 — the creature recovers an expended spell slot of that level or lower. Uses = PB per long rest.' },
       { level: 10, name: 'Unstable Backlash', desc: 'When you take damage or fail a saving throw while raging, use your reaction to roll on the Wild Magic table again and immediately produce the new effect (replaces the current effect).' },
       { level: 14, name: 'Controlled Surge', desc: 'Roll on the Wild Magic table twice and choose which effect to use. If you roll doubles, pick any effect.' },
@@ -250,7 +250,7 @@ export const SUBCLASSES: SubclassDef[] = [
     channelDivinityDesc: 'Guided Strike: Add +10 to one attack roll you make.',
     subclassSpells: { 1: ['divine-favor', 'shield-of-faith'], 3: ['magic-weapon', 'spiritual-weapon'], 5: ['spirit-guardians'], 7: ['stoneskin', 'freedom-of-movement'], 9: ['flame-strike', 'hold-monster'] },
     subclassFeatures: [
-      // TODO: mechanical wiring — War Priest is a subclass-resource bonus-action attack. Could be modeled as a resource entry "War Priest" with WIS mod uses per long rest, refreshed via short rest. For now: text only.
+      // (wired: War Priest is a resource-backed bonus action in the action list)
       { level: 1, name: 'War Priest', desc: 'When you use the Attack action, make one weapon attack as a bonus action. Uses = WIS mod (min 1) per long rest; recover all on a short or long rest.' },
       { level: 6, name: 'War God\'s Blessing', desc: 'When a creature within 30 ft makes an attack roll, use your reaction to grant a +10 bonus to the roll (using Channel Divinity).' },
       { level: 8, name: 'Divine Strike', desc: 'Once per turn, when you hit with a weapon, add 1d8 (2d8 at lv 14) damage of the weapon\'s type.' },
@@ -435,7 +435,7 @@ export const SUBCLASSES: SubclassDef[] = [
   // ── Fighter (level 3) ───────────────────────────────────────────
   { id: 'Champion',       label: 'Champion',       classId: 'Fighter', unlocksAtLevel: 3, description: 'Master of martial perfection. Critical hits on 19–20, and later 18–20. Exceptional Athletics at higher levels.',
     subclassFeatures: [
-      // TODO: mechanical wiring — Improved/Superior Critical extends crit threshold; consumers in computeAttackBonus / damage computation should treat crits on 19-20 (lv 3) and 18-20 (lv 15).
+      // (wired: computeCritThreshold treats crits at 19–20 from level 3, 18–20 at 15)
       { level: 3, name: 'Improved Critical', desc: 'Your weapon attacks score a critical hit on a roll of 19 or 20.' },
       { level: 7, name: 'Remarkable Athlete', desc: "Add half your proficiency bonus (round up) to any STR, DEX, or CON check that doesn't already include your proficiency bonus. Long jump distance increases by your STR mod (feet) when you move at least 10 ft on foot." },
       { level: 10, name: 'Additional Fighting Style', desc: 'Choose a second option from the Fighting Style class feature.' },
@@ -788,7 +788,7 @@ export const SUBCLASSES: SubclassDef[] = [
     ] },
   { id: 'Swashbuckler',    label: 'Swashbuckler',   classId: 'Rogue', unlocksAtLevel: 3, description: 'Elegant and dangerous in a duel. Sneak Attack with a single adjacent enemy, no ally required.',
     subclassFeatures: [
-      // TODO: mechanical wiring — Rakish Audacity extends Sneak Attack to allow no-ally-required when alone with target. Could be wired in getSpecialAttacks().
+      // (wired: Sneak Attack condition text reflects Rakish Audacity)
       { level: 3, name: 'Fancy Footwork', desc: 'When you make a melee attack against a creature, it can\'t make OAs against you for the rest of the turn.' },
       { level: 3, name: 'Rakish Audacity', desc: '+CHA mod to initiative. You can use Sneak Attack without an ally next to the target as long as no other enemy is within 5 ft of you.' },
       { level: 9, name: 'Panache', desc: 'Make CHA (Persuasion) vs WIS (Insight). On win: hostile creatures have disadvantage on attacks vs anyone but you (and have OA disadvantage vs you); non-hostile become charmed for 1 minute.' },
@@ -921,7 +921,7 @@ export const SUBCLASSES: SubclassDef[] = [
     subclassSpells: { 1: ['shield', 'wrathful-smite'], 3: ['blur', 'branding-smite'], 5: ['blink'], 9: ['banishing-smite', 'cone-of-cold'] },
     description: 'Pact with a shadowy entity of the Shadowfell. Use CHA for weapon attacks and curse enemies.',
     subclassFeatures: [
-      // TODO: mechanical wiring — Hex Warrior CHA-for-weapon-attacks; extend computeAttackBonus/computeWeaponDamage to allow CHA for a bonded weapon.
+      // (wired: the bonded weapon uses CHA for attack and damage rolls)
       { level: 1, name: 'Hex Warrior', desc: "After a long rest, touch one weapon you're proficient with (no two-handed). You can use CHA instead of STR/DEX for attack and damage with that weapon. Also gain proficiency with medium armor, shields, and martial weapons." },
       { level: 1, name: "Hexblade's Curse", desc: 'As a bonus action, curse one creature within 30 ft for 1 minute. Bonus to damage rolls vs the target = your PB; crit on 19-20; if it dies, regain HP = warlock level + CHA mod. 1/short rest.' },
       { level: 6, name: "Accursed Specter", desc: 'When you kill a humanoid, raise its spirit as a specter under your control for 1 hour (or short rest). 1/long rest.' },
@@ -1027,7 +1027,7 @@ export const SUBCLASSES: SubclassDef[] = [
   { id: 'Bladesinging',   label: 'Bladesinging',             classId: 'Wizard', unlocksAtLevel: 2, description: 'Elven tradition blending sword and spell. Bladesong grants AC and speed bonuses while active.',
     subclassFeatures: [
       { level: 2, name: 'Training in War and Song', desc: 'Gain proficiency with light armor and one one-handed melee weapon.' },
-      // TODO: mechanical wiring — Bladesong is an active toggle similar to Rage. Add a buff-active flag and AC/speed bonuses while active.
+      // (wired: Bladesong toggle applies +INT AC and +10 ft speed while active)
       { level: 2, name: 'Bladesong', desc: 'As a bonus action, enter Bladesong (1 min, ends if you wear medium/heavy armor, shield, or incapacitated). Gain +INT mod (min +1) AC, +10 ft speed, advantage on DEX (Acrobatics), +INT mod on CON concentration saves. Uses = PB per long rest.' },
       { level: 6, name: 'Extra Attack', desc: 'You can attack twice when you take the Attack action. One of these can be replaced with a cantrip (1 action casting time).' },
       { level: 10, name: 'Song of Defense', desc: 'While Bladesong is active, when you take damage, expend a slot as a reaction to reduce the damage by 5 × slot level.' },

@@ -13,7 +13,6 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:csv": "tsx scripts/gen-equipment-csv.mts",
     "dist": "npm run build && electron-builder"
   },
   "build": {
