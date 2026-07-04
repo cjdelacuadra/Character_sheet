@@ -6,7 +6,7 @@ import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
-import { portentDiceCount } from '@/domain/rules/casterFeatures'
+import { portentDiceCount, wildShapeLimit } from '@/domain/rules/casterFeatures'
 import { rollDie } from '@/domain/dice'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
@@ -2006,10 +2006,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     if (isWildShape) {
       const wsRes = char.resources['Wild Shape']
       const isMoon = char.subclass === 'CircleOfTheMoon'
-      const crCap = char.level >= 8 ? 1 : char.level >= 4 ? 0.5 : 0.25
-      const crLimit = char.level >= 8 ? 'CR 1' : char.level >= 4 ? 'CR 1/2' : 'CR 1/4'
-      const moonCr = char.level >= 9 ? 'CR ' + Math.floor(char.level / 3) : char.level >= 6 ? 'CR 2' : 'CR 1'
-      const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= crCap)
+      // Moon-aware limits from the rules engine: CR cap, movement modes, and
+      // bonus-action economy. (Previously the beast filter used the standard
+      // cap even for Moon druids, hiding their CR-1 forms at level 2.)
+      const wsLimit = wildShapeLimit(char.level, isMoon) ?? { maxCR: 0.25, canSwim: false, canFly: false, economy: 'action' as const }
+      const crLabel = wsLimit.maxCR === 0.25 ? 'CR 1/4' : wsLimit.maxCR === 0.5 ? 'CR 1/2' : `CR ${wsLimit.maxCR}`
+      const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= wsLimit.maxCR)
       const selectedBeast = eligibleBeasts.find(beast => beast.id === selectedWildShapeBeastId) ?? eligibleBeasts[0]
       const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !char.wildShapeForm
       return (
@@ -2018,7 +2020,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           <div className={styles.detailPane}>
             <div className={styles.detailHeader}>
               <span className={styles.detailName}>Wild Shape</span>
-              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action · SR</span>
+              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>
+                {wsLimit.economy === 'bonus' ? 'Bonus · SR' : 'Action · SR'}
+              </span>
               {renderActionUseButton()}
             </div>
             {wsRes && (
@@ -2030,11 +2034,11 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               </div>
             )}
             <p className={styles.detailFull} style={{ marginTop: 6 }}>
-              CR limit: <strong>{isMoon ? moonCr : crLimit}</strong>
-              {isMoon && <span style={{ color: 'var(--accent)', marginLeft: 6, fontSize: 11 }}>Circle of the Moon</span>}
+              CR limit: <strong>{crLabel}</strong>
+              {isMoon && <span style={{ color: 'var(--accent)', marginLeft: 6, fontSize: 11 }}>Circle of the Moon{wsLimit.economy === 'bonus' ? ' · bonus action' : ''}</span>}
             </p>
             <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
-              {char.level < 4 ? '• No fly or swim speed' : char.level < 8 ? '• No fly speed' : '• Fly and swim speeds allowed'}
+              {!wsLimit.canSwim ? '• No fly or swim speed' : !wsLimit.canFly ? '• No fly speed' : '• Fly and swim speeds allowed'}
             </p>
             <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
               You retain your personality, memories, and mental ability scores. You revert when reduced to 0 HP, you choose to, or the duration ends (hours = ½ druid level).
