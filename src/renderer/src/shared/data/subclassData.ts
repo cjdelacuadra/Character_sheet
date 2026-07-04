@@ -395,7 +395,15 @@ export const SUBCLASSES: SubclassDef[] = [
       { level: 6, name: 'Fungal Infestation', desc: 'When a Small or Medium beast or humanoid dies within 10 ft, use your reaction to animate it as a zombie (CR 1/4). It acts on your initiative and obeys your commands for 1 hour.' },
       { level: 10, name: 'Spreading Spores', desc: 'As a bonus action, throw spores up to 30 ft. They create a 10-ft cube halo effect for 1 minute (deals damage as Halo of Spores at end of each turn while within).' },
       { level: 14, name: 'Fungal Body', desc: 'Immune to being blinded, deafened, frightened, and poisoned. Critical hits against you don\'t deal extra damage.' },
-    ] },
+    ],
+    // Circle Spells (GGtR/TCoE) — always prepared. 'contagion' (lv 9) is not in the spell catalog yet.
+    subclassSpells: {
+      2: ['chill-touch'],
+      3: ['blindness-deafness', 'gentle-repose'],
+      5: ['animate-dead', 'gaseous-form'],
+      7: ['blight', 'confusion'],
+      9: ['cloudkill'],
+    } },
   { id: 'CircleOfStars',       label: 'Circle of Stars',        classId: 'Druid', unlocksAtLevel: 2, description: 'Draw power from constellations. Star Map grants bonus spells and three star forms for Wild Shape.',
     subclassFeatures: [
       { level: 2, name: 'Star Map', desc: 'Create a star chart. Learn Guidance cantrip (counts as a druid cantrip), and cast Guiding Bolt without a slot PB times per long rest.' },
@@ -403,14 +411,26 @@ export const SUBCLASSES: SubclassDef[] = [
       { level: 6, name: 'Cosmic Omen', desc: 'After a long rest, roll a d6 (or omen die). On even: Weal — use reaction to add 1d6 to nearby ally\'s rolls. On odd: Woe — subtract 1d6 from enemy rolls. PB uses per long rest.' },
       { level: 10, name: 'Twinkling Constellations', desc: 'Archer/Chalice/Dragon improve. You can change starry form choice at the start of each turn. Also gain a flying speed of 20 ft while in starry form.' },
       { level: 14, name: 'Full of Stars', desc: 'While in starry form, gain resistance to bludgeoning, piercing, and slashing damage.' },
-    ] },
+    ],
+    // Star Map: Guidance + Guiding Bolt always known (free casts tracked as a resource elsewhere).
+    subclassSpells: {
+      2: ['guidance', 'guiding-bolt'],
+    } },
   { id: 'CircleOfWildfire',    label: 'Circle of Wildfire',     classId: 'Druid', unlocksAtLevel: 2, description: 'Summon a Wildfire Spirit that aids in healing and destruction. Embrace the cycle of destruction and regrowth.',
     subclassFeatures: [
       { level: 2, name: 'Summon Wildfire Spirit', desc: 'Expend a Wild Shape use to summon a Wildfire Spirit (small elemental, scales with druid level). 1-hour duration. Wildfire Teleport: spirit can teleport using its action.' },
       { level: 6, name: 'Enhanced Bond', desc: 'When you cast a fire or healing spell, you can target through your Wildfire Spirit (within 30 ft). Spell damage rolls add +1d8.' },
       { level: 10, name: 'Cauterizing Flames', desc: 'When a Small+ creature dies within 30 ft of you or your spirit, a harmless flame appears for 1 minute. Use a bonus action to channel it: deal 2d10+druid level fire to a creature, or restore HP equally to one creature.' },
       { level: 14, name: 'Blazing Revival', desc: 'When you drop to 0 HP while your Wildfire Spirit is present, the spirit perishes and you regain HP equal to half your max. 1/long rest.' },
-    ] },
+    ],
+    // Circle Spells (TCoE) — always prepared. 'aura-of-life' (lv 7) is not in the spell catalog yet.
+    subclassSpells: {
+      2: ['burning-hands', 'cure-wounds'],
+      3: ['flaming-sphere', 'scorching-ray'],
+      5: ['plant-growth', 'revivify'],
+      7: ['fire-shield'],
+      9: ['flame-strike', 'mass-cure-wounds'],
+    } },
 
   // ── Fighter (level 3) ───────────────────────────────────────────
   { id: 'Champion',       label: 'Champion',       classId: 'Fighter', unlocksAtLevel: 3, description: 'Master of martial perfection. Critical hits on 19–20, and later 18–20. Exceptional Athletics at higher levels.',
