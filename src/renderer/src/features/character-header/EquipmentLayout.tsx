@@ -10,7 +10,6 @@ import type { ShopItemKind } from '@/shared/data/equipment/catalogue'
 import { computeEquipmentStats, type EquipmentStats } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import { InventoryGrid } from '@/features/inventory/InventoryGrid'
-import { ShopModal } from '@/features/inventory/ShopModal'
 import { ItemCard } from '@/features/inventory/ItemCard'
 import { ItemEditorPanel } from '@/features/inventory/ItemEditorPanel'
 import styles from './EquipmentLayout.module.css'
@@ -489,7 +488,6 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
   )
 
   const [inventoryFilter,     setInventoryFilter]     = useState<ShopItemKind | null>(null)
-  const [shopOpen,            setShopOpen]            = useState(false)
   const [draggedId,           setDraggedId]           = useState<string | null>(null)
   const [slotBreakdown,       setSlotBreakdown]       = useState<keyof Equipment | null>(null)
   const [weaponBreakdown,     setWeaponBreakdown]     = useState<number | null>(null)
@@ -503,7 +501,6 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
     if (id) {
       setSlotBreakdown(null)
       setWeaponBreakdown(null)
-      setShopOpen(false)
       onInventorySelectItem?.(id)
     } else {
       onInventorySelectItem?.(null)
@@ -735,11 +732,13 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
 
           <div className={styles.inventoryCol}>
             {(() => {
-              const externalOpen = isShopOpen ?? false
-              const open = onOpenShop ? externalOpen : shopOpen
+              // One shop for the whole app: CharacterView's ShopPanel, driven
+              // via the pane router props. (The old internal ShopModal fallback
+              // was unreachable — every mount provides the handlers.)
+              const open = isShopOpen ?? false
               const handleToggleShop = () => {
-                if (open) { onCloseShop ? onCloseShop() : setShopOpen(false) }
-                else { setInventorySelectedId(null); onOpenShop ? onOpenShop() : setShopOpen(true) }
+                if (open) { onCloseShop?.() }
+                else { setInventorySelectedId(null); onOpenShop?.() }
               }
               return (
                 <InventoryGrid
@@ -802,10 +801,6 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
         )}
       </DragOverlay>
 
-      {/* Shop modal */}
-      {shopOpen && (
-        <ShopModal character={char} onClose={() => setShopOpen(false)} filterKind={inventoryFilter} />
-      )}
     </DndContext>
   )
 }
