@@ -5,6 +5,7 @@ import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
+import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import type { Equipment } from '@/entities/character/types'
@@ -1580,6 +1581,77 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     </button>
                   </div>
                   {mechLine && <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 2 }}>{mechLine}</p>}
+                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )
+    }
+
+    // ── Metamagic ─────────────────────────────────────────────────────
+    const isMetamagic = selectedFeature.name === 'Metamagic'
+    if (isMetamagic) {
+      const metaState = char.featureState?.['metamagic'] ?? {}
+      const known = metaState.known ?? []
+      const limit = metamagicKnownCount(char.level)
+      const spRes = char.resources['Sorcery Points']
+      const spRemaining = spRes ? spRes.total - spRes.used : 0
+      const toggleKnown = (id: string) => {
+        const next = known.includes(id)
+          ? known.filter(x => x !== id)
+          : known.length < limit ? [...known, id] : known
+        update({ featureState: { ...(char.featureState ?? {}), metamagic: { ...metaState, known: next } } })
+      }
+      const spendMetamagic = (cost: number) => {
+        if (!spRes || spRemaining < cost) return
+        update({ resources: { ...char.resources, 'Sorcery Points': { ...spRes, used: spRes.used + cost } } })
+      }
+      return (
+        <>
+          <ResourcesPanel character={char} update={update} />
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Metamagic</span>
+              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>{known.length}/{limit} known</span>
+            </div>
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
+              Choose your known options ({limit} at your level), then spend sorcery points when you apply one to a spell.
+            </p>
+            {METAMAGIC_OPTIONS.map(opt => {
+              const isKnown = known.includes(opt.id)
+              const costLabel = opt.costsSpellLevel ? 'spell level' : `${opt.cost} pt`
+              return (
+                <div key={opt.id} style={{ marginTop: 8 }}>
+                  <div className={styles.detailHeader}>
+                    <span className={styles.detailName} style={{ fontSize: 12 }}>{opt.name}</span>
+                    <span className={`${styles.detailBadge} ${styles.badgeBonus}`}>{costLabel}</span>
+                    <button
+                      type="button"
+                      className={styles.actionUseBtn}
+                      disabled={!isKnown && known.length >= limit}
+                      onClick={() => toggleKnown(opt.id)}
+                    >
+                      {isKnown ? 'Forget' : 'Learn'}
+                    </button>
+                    {isKnown && !opt.costsSpellLevel && (
+                      <button
+                        type="button"
+                        className={styles.actionUseBtn}
+                        disabled={spRemaining < opt.cost}
+                        onClick={() => spendMetamagic(opt.cost)}
+                        title={spRemaining < opt.cost ? 'Not enough sorcery points' : `Spend ${opt.cost} sorcery point${opt.cost > 1 ? 's' : ''}`}
+                      >
+                        Spend {opt.cost}pt
+                      </button>
+                    )}
+                    {isKnown && opt.costsSpellLevel && (
+                      <span className={styles.detailResource} title="Cost equals the spell's level (minimum 1) — spend from the Sorcery Points pool above">
+                        cost = spell level
+                      </span>
+                    )}
+                  </div>
                   <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
                 </div>
               )

@@ -26,7 +26,9 @@ const V13_LEGACY_FIELDS = [
 ] as const
 
 export function v13_to_v14(v13: Character): CharacterV14 {
-  const featureState: Record<string, FeatureState> = {}
+  // Seed with any featureState the character accumulated pre-flip (features
+  // like metamagic adopt the map early); legacy-derived keys overwrite.
+  const featureState: Record<string, FeatureState> = { ...(v13.featureState ?? {}) }
   const put = (key: string, state: FeatureState) => {
     // Only create entries that carry actual state, so fresh characters stay lean.
     const hasContent = Object.values(state).some(v =>

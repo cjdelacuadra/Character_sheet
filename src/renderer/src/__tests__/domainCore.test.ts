@@ -133,6 +133,17 @@ describe('domain/character v13→v14 migration', () => {
     expect(fresh.featureState).toEqual({})
   })
 
+  it('preserves featureState entries adopted before the flip (e.g. metamagic)', () => {
+    const v13 = makeChar({
+      schemaVersion: 13,
+      featureState: { metamagic: { known: ['quickened', 'twinned'] } },
+      chosenManeuvers: ['riposte'],
+    })
+    const migrated = v13_to_v14(v13)
+    expect(migrated.featureState['metamagic']).toEqual({ known: ['quickened', 'twinned'] })
+    expect(migrated.featureState['maneuvers']).toEqual({ known: ['riposte'] })
+  })
+
   it('migrateCharacterV14 runs the full chain from v1 raw data', () => {
     const v1 = { id: 'old', name: 'Old Timer', race: 'Human', classId: 'Fighter', background: 'Soldier', level: 3, experiencePoints: 900, abilityScores: { str: 16, dex: 12, con: 14, int: 10, wis: 10, cha: 8 }, hitPoints: { current: 28, max: 28, temp: 0 }, armorClass: 16, speed: 30, initiative: 1, proficiencyBonus: 2, equipment: { armorId: 'chain-mail', hasShield: true } }
     const migrated = migrateCharacterV14(v1)

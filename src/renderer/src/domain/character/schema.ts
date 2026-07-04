@@ -13,32 +13,19 @@
  */
 import type {
   AbilityScore, AbilityScores, ActiveCondition, BuffRuntime, Equipment,
-  HitPoints, Skill, SpellSlots, Weapon,
+  FeatureState, HitPoints, Skill, SpellSlots, Weapon,
 } from '@/entities/character/types'
 import type { ActiveSummon } from '@/entities/summon/types'
 
 export const CURRENT_SCHEMA_VERSION = 14
 
 /**
- * Generic per-feature runtime/choice state. Keyed by a stable feature id
+ * Generic per-feature runtime/choice state, keyed by a stable feature id
  * (e.g. 'maneuvers', 'invocations', 'totem-spirit', 'rage', 'wild-shape').
+ * The interface lives in entities/character/types so v13 code can adopt it
+ * incrementally before the flip; re-exported here as the v14 home.
  */
-export interface FeatureState {
-  /** Learned options (maneuvers, invocations, runes, infusions, metamagic…). */
-  known?: string[]
-  /** Currently applied options (active runes/infusions, readied maneuver…). */
-  active?: string[]
-  /** Single choice (totem animal, land terrain, pact boon, bonded weapon id…). */
-  choice?: string
-  /** Toggle state for stance-like features (rage, bladesong). */
-  on?: boolean
-  /** Choice finalized — pickers stop offering a change (pact boon, fighting style). */
-  locked?: boolean
-  /** Per-option limited-use counters (racial actions, per-option feature uses). */
-  uses?: Record<string, number>
-  /** Feature-specific structured blob (e.g. wild-shape form: name/hp/ac/cr/speed). */
-  data?: Record<string, unknown>
-}
+export type { FeatureState } from '@/entities/character/types'
 
 export interface CharacterV14 {
   id: string
