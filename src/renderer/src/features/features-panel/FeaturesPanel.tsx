@@ -8,6 +8,7 @@ import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { SPELLS } from '@/shared/data/spellData'
 import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
+import { Panel } from '@/ui/Panel'
 import styles from './FeaturesPanel.module.css'
 
 type SourcedFeature = FeatureEntry & { source: 'class' | 'race' | 'custom' | 'feat'; customIndex?: number; featId?: string }
@@ -230,18 +231,13 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
     .filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase()))
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Features</span>
-        <span className={styles.addActions}>
-          <button className={styles.addBtn} onClick={() => { setFeatOpen(v => !v); setAddOpen(false) }}>
-            {featOpen ? 'Cancel' : '+ Add Feat'}
-          </button>
-          <button className={styles.addBtn} onClick={() => { setAddOpen(v => !v); setFeatOpen(false) }}>
-            {addOpen ? 'Cancel' : '+ Add Feature'}
-          </button>
-        </span>
-      </div>
+    <Panel
+      label="Features"
+      actions={[
+        { label: featOpen ? 'Cancel' : '+ Add Feat', onClick: () => { setFeatOpen(v => !v); setAddOpen(false) } },
+        { label: addOpen ? 'Cancel' : '+ Add Feature', onClick: () => { setAddOpen(v => !v); setFeatOpen(false) } },
+      ]}
+    >
       {featOpen && (
         <div className={styles.addForm}>
           <input
@@ -440,6 +436,6 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
           })}
         </div>
       )}
-    </section>
+    </Panel>
   )
 }
