@@ -33,7 +33,9 @@ export function collectBuffSpellEffects(
     const spell = SPELL_BY_ID[spellId]
     if (!spell) continue
     const src = { sourceId: spell.id, sourceLabel: spell.name, sourceType: 'buff' as const }
-    const scope = spell.buffTarget === 'weapon' ? ('weapon' as const) : ('all' as const)
+    // attackBuff fields describe weapon-attack buffs in this app's model
+    // (Divine Favor, Hunter's Mark, Elemental Weapon) — never spell damage.
+    const scope = 'weapon' as const
 
     if (spell.setsBaseAC !== undefined) out.push({ ...src, effect: { kind: 'acBase', value: spell.setsBaseAC, addDex: true } })
     if (spell.acBonus)          out.push({ ...src, effect: { kind: 'acBonus', value: spell.acBonus } })
