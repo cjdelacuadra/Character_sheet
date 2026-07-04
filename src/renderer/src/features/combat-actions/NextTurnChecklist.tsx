@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAppStore } from '@/app/store'
+import { isBladesinging, isRaging } from '@/domain/character/compat'
 import type { Character } from '@/entities/character/types'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import styles from './NextTurnChecklist.module.css'
@@ -110,7 +111,7 @@ export function NextTurnChecklist({ character, onClose }: Props) {
               </div>
             )
           })}
-          {character.isRaging && (
+          {isRaging(character) && (
             <div className={styles.conditionRow}>
               <span className={styles.condName}>Rage</span>
               <div className={styles.condDecision}>
@@ -129,7 +130,7 @@ export function NextTurnChecklist({ character, onClose }: Props) {
               </div>
             </div>
           )}
-          {character.isBladesinging && (
+          {isBladesinging(character) && (
             <div className={styles.conditionRow}>
               <span className={styles.condName}>Bladesong</span>
               <div className={styles.condDecision}>

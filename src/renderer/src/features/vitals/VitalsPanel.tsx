@@ -3,6 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { wildShapeFormOf } from '@/domain/character/compat'
 import { computeACFull, computeSpeedFull, computeDarkvision, computeInitiativeFull, applyHpDelta, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -31,8 +32,13 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
-  const wildShapeHpPct = char.wildShapeForm && char.wildShapeForm.hp.max > 0
-    ? Math.max(0, Math.min(100, (char.wildShapeForm.hp.current / char.wildShapeForm.hp.max) * 100))
+  const wildShapeForm = wildShapeFormOf(char)
+  const patchWildShapeForm = (form: Character['wildShapeForm']) => update({
+    wildShapeForm: form,
+    featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: form ? { form } : {} } },
+  })
+  const wildShapeHpPct = wildShapeForm && wildShapeForm.hp.max > 0
+    ? Math.max(0, Math.min(100, (wildShapeForm.hp.current / wildShapeForm.hp.max) * 100))
     : 0
   const eq = char.equipment
   const classDef = CLASS_BY_ID[char.classId]
@@ -79,18 +85,19 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   }
 
   function applyHp(delta: number) {
-    if (delta < 0 && char.wildShapeForm) {
+    if (delta < 0 && wildShapeForm) {
       const damage = Math.abs(delta)
-      const form = char.wildShapeForm
+      const form = wildShapeForm
       const remainingFormHp = form.hp.current - damage
       if (remainingFormHp > 0) {
-        update({ wildShapeForm: { ...form, hp: { ...form.hp, current: remainingFormHp } } })
+        patchWildShapeForm({ ...form, hp: { ...form.hp, current: remainingFormHp } })
         return
       }
       const overflow = Math.abs(Math.min(0, remainingFormHp))
       const next = applyHpDelta(hp, -overflow)
       update({
         wildShapeForm: undefined,
+        featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: {} } },
         hitPoints: { ...hp, current: next.current, temp: next.temp },
       })
       return
@@ -203,22 +210,22 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         {computeDarkvision(char) > 0 && <span className={styles.secondaryStat}><strong>{computeDarkvision(char)}</strong> Darkvision ft</span>}
       </div>
 
-      {char.wildShapeForm && (
+      {wildShapeForm && (
         <>
           <div className={styles.hpRow} style={{ gridTemplateColumns: '1fr auto' }}>
             <div className={styles.hpCurrentSection}>
               <span className={styles.hpMaxLabel}>
-                Wild Shape: {char.wildShapeForm.name} · AC {char.wildShapeForm.ac} · CR {char.wildShapeForm.cr} · {char.wildShapeForm.speed}
+                Wild Shape: {wildShapeForm.name} · AC {wildShapeForm.ac} · CR {wildShapeForm.cr} · {wildShapeForm.speed}
               </span>
               <span className={styles.hpCurrent}>
-                {char.wildShapeForm.hp.current}
+                {wildShapeForm.hp.current}
               </span>
             </div>
             <div className={styles.hpTempSection}>
               <span className={styles.hpSectionLabel}>Beast HP</span>
               <button
                 className={`${styles.tempHpChip} ${styles.tempHpActive}`}
-                onClick={() => update({ wildShapeForm: undefined })}
+                onClick={() => patchWildShapeForm(undefined)}
                 title="Leave Wild Shape"
               >
                 Leave

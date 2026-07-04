@@ -13,6 +13,7 @@ import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
 import { applyRestToResources } from '@/domain/rules/resources'
+import { racialActionUsesOf } from '@/domain/character/compat'
 import { migrateCharacter } from '@/domain/migrations'
 import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
@@ -318,7 +319,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       const healed = Math.max(0, hdRolled + mod(char.abilityScores.con))
 
       // Recharge short-rest racial actions (e.g. Breath Weapon, Shift, Fey Step, Hidden Step).
-      const newRacialUses = { ...(char.racialActionUses ?? {}) }
+      const newRacialUses = { ...racialActionUsesOf(char) }
       for (const a of RACE_BY_ID[char.race]?.racialActions ?? []) {
         if (a.recharge === 'short') delete newRacialUses[a.id]
       }
@@ -336,6 +337,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         resources: applyRestToResources(char, 'short'),
         spellSlots: newSlots,
         racialActionUses: newRacialUses,
+        featureState: {
+          ...(char.featureState ?? {}),
+          'racial-actions': { ...(char.featureState?.['racial-actions'] ?? {}), uses: newRacialUses },
+        },
       }
     })
     get().initTurnState?.(id)
@@ -365,6 +370,12 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         isRaging: false,
         isBladesinging: false,
         racialActionUses: {},
+        featureState: {
+          ...(char.featureState ?? {}),
+          rage: { ...(char.featureState?.['rage'] ?? {}), on: false },
+          bladesong: { ...(char.featureState?.['bladesong'] ?? {}), on: false },
+          'racial-actions': { ...(char.featureState?.['racial-actions'] ?? {}), uses: {} },
+        },
       }
     })
     get().initTurnState?.(id)

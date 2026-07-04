@@ -4,6 +4,7 @@ import { computeACFull } from '@/shared/data/charCalculations'
 import { CONDITIONS, CONDITION_BY_ID } from '@/shared/data/conditionsData'
 import { useAppStore } from '@/app/store'
 import { Panel } from '@/ui/Panel'
+import { isRaging } from '@/domain/character/compat'
 import styles from './ConditionsPanel.module.css'
 
 interface Props {
@@ -52,12 +53,12 @@ export function ConditionsPanel({ character: char, update }: Props) {
       )}
 
       <div className={styles.condTags}>
-        {char.isRaging && (
+        {isRaging(char) && (
           <div className={`${styles.condTag} ${styles.condTagRage}`} title="Rage is active">
             raging - +{char.level >= 16 ? 4 : char.level >= 9 ? 3 : 2} dmg - resistance: B/P/S - adv STR
           </div>
         )}
-        {char.conditionIds.length === 0 && !open && !char.isRaging && (
+        {char.conditionIds.length === 0 && !open && !isRaging(char) && (
           <span className={styles.emptyNote}>None</span>
         )}
         {char.conditionIds.map(c => {

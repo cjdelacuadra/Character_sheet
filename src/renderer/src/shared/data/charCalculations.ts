@@ -7,6 +7,7 @@ import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'
 import { SPELL_BY_ID } from './spellData'
 import { CONDITION_BY_ID } from './conditionsData'
+import { fightingStyleOf, isBladesinging } from '@/domain/character/compat'
 
 export function mod(score: number): number {
   // Guard against undefined/NaN scores (e.g. a partial AbilityScores object) so a missing
@@ -56,6 +57,7 @@ export function computeAC(char: {
   subclass?: string
   fightingStyle?: string
   isBladesinging?: boolean
+  featureState?: Character['featureState']
   activeBuffSpells?: string[]
 }, abilityBonus?: Partial<Record<AbilityScore, number>>): number {
   const { abilityScores, equipment, classId, race, subclass } = char
@@ -104,7 +106,7 @@ export function computeAC(char: {
   const armorType = armor?.type
   const isLightOrNoArmor = armorId === 'none' || !armor || armorType === 'light'
   const bladesongBonus =
-    char.isBladesinging && subclass === 'Bladesinging' && isLightOrNoArmor && shield === 0
+    isBladesinging(char) && subclass === 'Bladesinging' && isLightOrNoArmor && shield === 0
       ? Math.max(1, intMod)
       : 0
 
@@ -116,7 +118,7 @@ export function computeAC(char: {
     armor.dexCap === 0         ? 0      :
     Math.min(dexMod, armor.dexCap)
 
-  const defenseBonus = char.fightingStyle === 'defense' ? 1 : 0
+  const defenseBonus = fightingStyleOf(char) === 'defense' ? 1 : 0
   const armoredAC = armor.baseAC + (armor.enchantmentBonus ?? 0) + effectiveDex + shield + defenseBonus
   return Math.max(unarmoredAC, armoredAC) + bladesongBonus
 }
@@ -172,11 +174,11 @@ export function computeConditionModifiers(char: Pick<Character, 'conditionIds'>)
 }
 
 /** Base speed + equipment speed bonuses + active subclass and spell buffs. */
-export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass' | 'conditionIds'> & { activeBuffSpells?: string[] }): number {
+export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass' | 'conditionIds'> & { activeBuffSpells?: string[]; featureState?: Character['featureState'] }): number {
   const buffSpeedBonus = (char.activeBuffSpells ?? []).reduce((sum, id) => sum + (SPELL_BY_ID[id]?.speedBonus ?? 0), 0)
   const buffSpeedMultiplier = (char.activeBuffSpells ?? []).reduce((product, id) => product * (SPELL_BY_ID[id]?.speedMultiplier ?? 1), 1)
   const base = char.speed + computeEquipmentStats(char).speedBonus + buffSpeedBonus
-  const bladesongBonus = char.isBladesinging && char.subclass === 'Bladesinging' ? 10 : 0
+  const bladesongBonus = isBladesinging(char) && char.subclass === 'Bladesinging' ? 10 : 0
   return Math.floor((base + bladesongBonus) * buffSpeedMultiplier * computeConditionModifiers(char).speedMultiplier)
 }
 

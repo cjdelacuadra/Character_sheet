@@ -7,6 +7,7 @@ import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
+import { hasSpellSniper, landTerrainOf, masterySpellsOf } from '@/domain/character/compat'
 import type { EconomyType } from '@/app/store/turnSlice'
 import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
@@ -253,7 +254,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       <>
         <dl className={styles.spellExpandMeta}>
           <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
-          <dt>Range</dt><dd>{spellSniperRange(spell, char.spellSniperDoubleRange)}</dd>
+          <dt>Range</dt><dd>{spellSniperRange(spell, hasSpellSniper(char))}</dd>
           <dt>Components</dt><dd>{spell.components}</dd>
           <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
           {spell.saveAbility && (<><dt>Save DC</dt><dd>{spellSaveDC} {spell.saveAbility.toUpperCase()}</dd></>)}
@@ -308,7 +309,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             })}
           </ul>
         )}
-        {(spell.id === char.masterySpells?.level1 || spell.id === char.masterySpells?.level2) && (
+        {(spell.id === masterySpellsOf(char).level1 || spell.id === masterySpellsOf(char).level2) && (
           <button
             className={styles.spellExpandCastBtn}
             onClick={() => {
@@ -471,8 +472,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     }
   }
   // Circle of the Land Druid: terrain-keyed circle spells (PHB).
-  if (char.subclass === 'CircleOfTheLand' && char.circleOfLandTerrain) {
-    const terrainTable = LAND_CIRCLE_SPELLS[char.circleOfLandTerrain]
+  const landTerrain = landTerrainOf(char) as keyof typeof LAND_CIRCLE_SPELLS | undefined
+  if (char.subclass === 'CircleOfTheLand' && landTerrain) {
+    const terrainTable = LAND_CIRCLE_SPELLS[landTerrain]
     for (const [lvlStr, ids] of Object.entries(terrainTable)) {
       if (Number(lvlStr) <= char.level) subclassGrantedIds.push(...(ids ?? []))
     }

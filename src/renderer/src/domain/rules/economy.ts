@@ -9,6 +9,7 @@ import { SPELL_BY_ID, endsAtStartOfNextTurn } from '@/shared/data/spellData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeACFull, mod } from '@/shared/data/charCalculations'
+import { isBladesinging, isRaging } from '@/domain/character/compat'
 
 export type EconomyType = 'action' | 'bonus' | 'reaction'
 
@@ -139,8 +140,18 @@ export function nextTurnTransition(
   }
   if (buffStatesChanged) charPatch.buffStates = buffStates
 
-  if (decisions.dropRage && char.isRaging) charPatch.isRaging = false
-  if (decisions.dropBladesong && char.isBladesinging) charPatch.isBladesinging = false
+  // Dual-write during the v13→v14 transition: legacy flag + featureState toggle.
+  let nextFeatureState = charPatch.featureState ?? char.featureState ?? {}
+  if (decisions.dropRage && isRaging(char)) {
+    charPatch.isRaging = false
+    nextFeatureState = { ...nextFeatureState, rage: { ...nextFeatureState['rage'], on: false } }
+    charPatch.featureState = nextFeatureState
+  }
+  if (decisions.dropBladesong && isBladesinging(char)) {
+    charPatch.isBladesinging = false
+    nextFeatureState = { ...nextFeatureState, bladesong: { ...nextFeatureState['bladesong'], on: false } }
+    charPatch.featureState = nextFeatureState
+  }
 
   return { charPatch, nextTurnState: makeFreshTurnState(), clearConcentrationSummons }
 }

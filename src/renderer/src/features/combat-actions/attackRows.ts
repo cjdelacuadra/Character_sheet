@@ -12,6 +12,7 @@ import { combineDiceExpr, critDiceExpr } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { MANEUVER_BY_ID } from '@/shared/data/maneuversData'
 import { ARCANE_SHOT_BY_ID } from '@/shared/data/arcaneShotsData'
+import { activeArcaneShotOf, activeManeuverOf, fightingStyleOf } from '@/domain/character/compat'
 
 export function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
 
@@ -129,7 +130,7 @@ export function buildAttackRows(
   const rawDmgMod = isFinesse ? Math.max(strMod, dexMod) : isMelee ? strMod : dexMod
   const dmgMod = opts?.offHand ? (opts.hasTWF ? rawDmgMod : Math.min(0, rawDmgMod)) : rawDmgMod
   const enchBonus = w.enchantmentBonus ?? 0
-  const duelingBonus = char.fightingStyle === 'dueling' && isMelee && !isTwoHanded && !opts?.offHand ? 2 : 0
+  const duelingBonus = fightingStyleOf(char) === 'dueling' && isMelee && !isTwoHanded && !opts?.offHand ? 2 : 0
   const totalDmgMod = dmgMod + enchBonus + duelingBonus
   const versatileProp = props.find(p => p.startsWith('versatile ('))
   const versatileDie = versatileProp?.match(/versatile \((\d+d\d+)\)/)?.[1]
@@ -229,7 +230,7 @@ export function buildAttackRows(
 
   if (char.subclass === 'BattleMaster') {
     const dieSize = char.level >= 10 ? '1d10' : '1d8'
-    const mId = char.activeManeuver ?? null
+    const mId = activeManeuverOf(char)
     if (mId) {
       const m = MANEUVER_BY_ID[mId]
       if (m?.dmgType === 'weapon') {
@@ -260,7 +261,7 @@ export function buildAttackRows(
   }
 
   if (char.subclass === 'ArcaneArcher') {
-    const shotId = char.activeArcaneShot ?? null
+    const shotId = activeArcaneShotOf(char)
     if (shotId) {
       const shot = ARCANE_SHOT_BY_ID[shotId]
       if (shot) rows.push({
