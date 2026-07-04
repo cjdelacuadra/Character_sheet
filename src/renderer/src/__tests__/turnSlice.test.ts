@@ -102,6 +102,22 @@ describe('turn effects', () => {
       disengaged: false,
     })
   })
+
+  it('resets active turnResource buff per-turn usage on confirmNextTurn', () => {
+    const store = makeStore()
+    const char = makeChar({
+      activeBuffSpells: ['aura-of-vitality'],
+      buffStates: { 'aura-of-vitality': { trackedTargetLabel: 'Ally', perTurnUsed: true } },
+    })
+    store.setState({ characters: { [char.id]: char } })
+
+    store.getState().confirmNextTurn(char.id, {
+      conditionsToDrop: [],
+      dropConcentration: false,
+    })
+
+    expect(store.getState().characters[char.id].buffStates?.['aura-of-vitality']?.perTurnUsed).toBe(false)
+  })
 })
 
 describe('markActionUsed / unmarkActionUsed', () => {

@@ -1,7 +1,9 @@
 import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from './characterSlice'
 import { SPELL_BY_ID, endsAtStartOfNextTurn } from '@/shared/data/spellData'
-import { computeACFull } from '@/shared/data/charCalculations'
+import { computeACFull, mod } from '@/shared/data/charCalculations'
+import { CLASS_BY_ID } from '@/shared/data/classData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 
 export type EconomyType = 'action' | 'bonus' | 'reaction'
 
@@ -22,6 +24,7 @@ export interface TurnState {
   advantageNextAttack: 'none' | 'adv' | 'dis'
   speedZeroUntilTurnEnd: boolean
   disengaged: boolean
+  dashed: boolean
 }
 
 export interface NextTurnDecisions {
@@ -49,6 +52,7 @@ export interface TurnSlice {
   setAdvantageNextAttack: (charId: string, state: TurnState['advantageNextAttack']) => void
   setSpeedZero: (charId: string, speedZero: boolean) => void
   setDisengaged: (charId: string, disengaged: boolean) => void
+  setDashed: (charId: string, dashed: boolean) => void
   markActionUsed: (charId: string, name: string) => void
   unmarkActionUsed: (charId: string, name: string) => void
   confirmNextTurn: (charId: string, decisions: NextTurnDecisions) => void
@@ -72,6 +76,7 @@ export function makeFreshTurnState(): TurnState {
     advantageNextAttack: 'none',
     speedZeroUntilTurnEnd: false,
     disengaged: false,
+    dashed: false,
   }
 }
 
@@ -216,6 +221,13 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     })
   },
 
+  setDashed: (charId, dashed) => {
+    set((state) => {
+      const ts = state.turnStates[charId] ?? makeFreshTurnState()
+      return { turnStates: { ...state.turnStates, [charId]: { ...ts, dashed } } }
+    })
+  },
+
   markActionUsed: (charId, name) => {
     set((state) => {
       const ts = state.turnStates[charId] ?? makeFreshTurnState()
@@ -246,6 +258,9 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
       charPatch.concentrationSpellId = null
       charPatch.conditionIds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
       charPatch.activeBuffSpells = nextBuffs
+      charPatch.buffStates = Object.fromEntries(
+        Object.entries(char.buffStates ?? {}).filter(([id]) => id !== concId),
+      )
       charPatch.armorClass = computeACFull({ ...char, ...charPatch })
       get().clearAllSummons(charId, { concentrationOnly: true })
     }
@@ -264,8 +279,29 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
     )
     if (remainingBuffs.length !== buffs.length) {
       charPatch.activeBuffSpells = remainingBuffs
+      charPatch.buffStates = Object.fromEntries(
+        Object.entries(charPatch.buffStates ?? char.buffStates ?? {}).filter(([id]) => remainingBuffs.includes(id)),
+      )
       charPatch.armorClass = computeACFull({ ...char, ...charPatch })
     }
+
+    const activeBuffs = charPatch.activeBuffSpells ?? char.activeBuffSpells ?? []
+    let buffStates = { ...(charPatch.buffStates ?? char.buffStates ?? {}) }
+    let buffStatesChanged = false
+    for (const id of activeBuffs) {
+      const spell = SPELL_BY_ID[id]
+      if (!spell?.turnResource) continue
+      buffStates[id] = { ...(buffStates[id] ?? {}), perTurnUsed: false }
+      buffStatesChanged = true
+      if (spell.turnResource.kind === 'tempHp') {
+        const cls = CLASS_BY_ID[char.classId]
+        const sub = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
+        const ability = sub?.spellcastingAbility ?? cls?.spellcastingAbility
+        const temp = ability ? Math.max(1, mod(char.abilityScores[ability])) : 1
+        charPatch.hitPoints = { ...(charPatch.hitPoints ?? char.hitPoints), temp: Math.max(char.hitPoints.temp, temp) }
+      }
+    }
+    if (buffStatesChanged) charPatch.buffStates = buffStates
 
     if (decisions.dropRage && char.isRaging) charPatch.isRaging = false
     if (decisions.dropBladesong && char.isBladesinging) charPatch.isBladesinging = false
@@ -291,6 +327,7 @@ export const createTurnSlice: StateCreator<CharacterSlice & TurnSlice, [], [], T
       advantageNextAttack: 'none',
       speedZeroUntilTurnEnd: false,
       disengaged: false,
+      dashed: false,
     }
     set((state) => ({ turnStates: { ...state.turnStates, [charId]: nextTs } }))
   },

@@ -27,6 +27,21 @@ function formatAsiChoice(choice: AsiChoice): string {
   return `Feat: ${featName}${abSuffix}`
 }
 
+function seedBuffState(char: Character, spellId: string): Character['buffStates'] {
+  const spell = SPELL_BY_ID[spellId]
+  if (!spell?.turnResource) return char.buffStates
+  return {
+    ...(char.buffStates ?? {}),
+    [spellId]: char.buffStates?.[spellId] ?? (spell.buffTarget && spell.buffTarget !== 'self' ? { trackedTargetLabel: '' } : {}),
+  }
+}
+
+function removeBuffState(char: Character, spellIds: string[]): Character['buffStates'] {
+  const next = { ...(char.buffStates ?? {}) }
+  for (const spellId of spellIds) delete next[spellId]
+  return next
+}
+
 export interface CharacterSlice {
   activeCharacterId: string | null
   characters: Record<string, Character>
@@ -93,7 +108,20 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
 
   updateCharacter: (id, patch) => {
     set((state) => {
-      const updated: Character = { ...state.characters[id], ...patch, updatedAt: new Date().toISOString() }
+      const current = state.characters[id]
+      if (!current) return state
+      let nextPatch = patch
+      if (current && patch.activeBuffSpells) {
+        const previous = new Set(current.activeBuffSpells ?? [])
+        const next = new Set(patch.activeBuffSpells)
+        const removed = [...previous].filter(spellId => !next.has(spellId))
+        let buffStates = removeBuffState({ ...current, buffStates: patch.buffStates ?? current.buffStates }, removed)
+        for (const spellId of patch.activeBuffSpells) {
+          buffStates = seedBuffState({ ...current, buffStates }, spellId)
+        }
+        nextPatch = { ...patch, buffStates }
+      }
+      const updated: Character = { ...current, ...nextPatch, updatedAt: new Date().toISOString() }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
@@ -109,6 +137,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       concentrationSpellId: null,
       conditionIds: nextConds,
       activeBuffSpells: nextBuffs,
+      buffStates: removeBuffState(char, concId ? [concId] : []),
       armorClass: computeACFull({ ...char, activeBuffSpells: nextBuffs, conditionIds: nextConds }),
     }
     get().updateCharacter(id, patch)
@@ -342,6 +371,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       }
       const nextConditionIds = char.conditionIds.filter(c => c.conditionId === 'exhaustion')
       const nextActiveBuffSpells = (char.activeBuffSpells ?? []).filter(id => id !== char.concentrationSpellId)
+      const nextBuffStates = removeBuffState(char, char.concentrationSpellId ? [char.concentrationSpellId] : [])
 
       const updated: Character = {
         ...char,
@@ -354,6 +384,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         concentrationSpellId: null,
         conditionIds: nextConditionIds,
         activeBuffSpells: nextActiveBuffSpells,
+        buffStates: nextBuffStates,
         activeSummons: [],
         armorClass: computeACFull({ ...char, conditionIds: nextConditionIds, activeBuffSpells: nextActiveBuffSpells }),
         isRaging: false,

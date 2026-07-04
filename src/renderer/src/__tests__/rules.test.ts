@@ -14,7 +14,7 @@ import {
 } from '@/domain/rules'
 import { critDiceExpr } from '@/shared/lib/diceExpr'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { endsAtStartOfNextTurn, isBuffConditionSpell, SPELL_BY_ID } from '@/shared/data/spellData'
+import { endsAtStartOfNextTurn, getBuffCategory, getBuffTarget, isBuffConditionSpell, SPELL_BY_ID } from '@/shared/data/spellData'
 import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
 import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
 import { RACE_BY_ID } from '@/shared/data/raceData'
@@ -114,6 +114,19 @@ describe('computeSpellLevelUpConfig prepared casters', () => {
     const oldCfg = computeSpellLevelUpConfig(CLASS_BY_ID.Cleric, 4, 5)
     const cfg = computeSpellLevelUpConfig(CLASS_BY_ID.Cleric, 5, 6)
     expect(cfg.maxSlotLevel).toBe(oldCfg.maxSlotLevel)
+  })
+})
+
+describe('buff classification', () => {
+  it('classifies sample buff-condition spells by category and target', () => {
+    expect(getBuffCategory(SPELL_BY_ID['searing-smite'])).toBe('damage')
+    expect(getBuffTarget(SPELL_BY_ID['searing-smite'])).toBe('self')
+    expect(getBuffCategory(SPELL_BY_ID['haste'])).toBe('mobility')
+    expect(getBuffTarget(SPELL_BY_ID['magic-weapon'])).toBe('weapon')
+    expect(getBuffCategory(SPELL_BY_ID['aura-of-vitality'])).toBe('healing')
+    expect(getBuffTarget(SPELL_BY_ID['aura-of-vitality'])).toBe('ally')
+    expect(getBuffCategory(SPELL_BY_ID['bless'])).toBe('accuracy')
+    expect(getBuffTarget(SPELL_BY_ID['hex'])).toBe('enemy')
   })
 })
 

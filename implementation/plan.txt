@@ -1,38 +1,42 @@
 ========================================================================
-CODEX BUILD PLAN — FIX CONCENTRATION DROP (buff not removed)
+CODEX BUILD PLAN — BUFF SYSTEM: MAP, CATEGORIZE, WIRE EFFECTS, BUFF PANEL
 Project : DnD Character Companion
-Date    : 2026-06-24
+Date    : 2026-07-02
 ========================================================================
 
-WHY THIS PLAN EXISTS (root cause)
----------------------------------
-Casting a concentration BUFF (Bless, Magic Weapon, Shield of Faith, ...) writes
-THREE decoupled pieces of state, but the drop paths only clear some:
-  1. concentrationSpellId = spell.id
-  2. a 'concentration' entry in conditionIds
-  3. spell.id added to activeBuffSpells   <-- drives the attack-table rider + AC
-(SpellsPanel.castSpell -> setConcentration at line 107; buff add at line 136-141.)
+WHY THIS PLAN EXISTS
+--------------------
+Buff spells are stored in char.activeBuffSpells and a FEW effects are wired
+(Longstrider speedBonus, Divine Favor attackBuff, Mage Armor/Shield AC), but most
+are "cataloged, not connected". implementation/findings.txt lists the visible gaps:
+  - Fighting Spirit -> no temp HP, no attack advantage this turn
+  - Dash -> speed does not double
+  - Haste -> speed does not double
+  - *_smite (Searing/Thunderous/Wrathful/Branding/...) -> no damage added
+  - Zephyr Strike -> no speed, no damage
+  - Aura of Vitality -> no per-turn healing tracked
 
-Dropping concentration from the LEFT panel removes the 'concentration' CONDITION
-chip only (ConditionsPanel.toggle('concentration'), line 18-24): it does NOT clear
-concentrationSpellId and does NOT remove spell.id from activeBuffSpells, so the
-buff (and its attack-table rider) persists. The SpellsPanel concentration banner
-"Drop" (line 712) has the SAME gap (clears concentrationSpellId + condition, not
-the buff). A buff added directly via "+ Buff" lives only in activeBuffSpells and
-is removed by its own chip (toggleBuff, line 29-32) — which is why THAT one drops
-correctly. The two flows use different state and different removers.
+Goal: (1) MAP every buff, (2) verify its effect + who it targets (self / a worn
+weapon / an ally / an enemy), (3) CATEGORIZE it (e.g. damage buffs: Zephyr Strike,
+Elemental Weapon, Holy Weapon), (4) TAG per-turn "turn-resource" buffs (e.g. Aura
+of Vitality = pick+track a creature and heal it each turn), then build a BUFF PANEL
+(modeled on the Summons panel) grouped by category, and finally WIRE the effects.
 
-FIX: make concentration and its buff a single teardown. Add ONE store action that
-drops concentration and everything linked to it, and route every drop entry point
-through it. Also make starting/switching concentration tear down the previous
-concentration's buff, and keep the buff chip and concentration in sync.
+DESIGN NOTE (from the requester): the app has NO multi-character party model, and
+any buff can be applied to any character for HOMEBREW or because an ally used it on
+them. So: effects that target the CASTER apply to computations; effects that target
+another creature / an enemy / a weapon are TRACKED (a chosen label + per-turn
+counter), not written onto another sheet. Buffs are not hard-gated by class.
 
 STANDING RULES
 --------------
-  - Do NOT assume anything outside this document. Before each task RE-READ the
-    named anchor; if already done, STOP and report; if an anchor is missing, STOP.
-  - Reuse existing helpers (computeACFull, clearAllSummons). Save files UTF-8
-    (no BOM); grep edited files for "â€"/"Â·" after editing.
+  - Do NOT assume anything outside this document; the taxonomy + key mappings are
+    supplied. For unlisted buffs, classify by the RULES in SECTION 2; if a buff's
+    effect cannot be expressed by the schema, STOP and report it (do not invent).
+  - Before each task RE-READ the named anchor; if already done, STOP and report.
+  - Reuse existing fields/helpers (SpellEntry buff fields, computeACFull,
+    computeSpeedFull, the attack-table spell-buff riders, SummonsPanel patterns).
+  - Save files UTF-8 (no BOM); grep edited files for "â€"/"Â·" afterward.
 
 
 ========================================================================
@@ -46,141 +50,251 @@ SECTION 0 — GLOBAL STOP CONDITIONS
 ========================================================================
 SECTION 1 — CURRENT STATE (read first; echo back before editing)
 ========================================================================
-  - SpellsPanel.tsx setConcentration (line 107-118): on start, sets
-    concentrationSpellId + adds 'concentration' condition; on drop (dropping ===
-    true) clears concentrationSpellId + removes 'concentration'. Calls
-    onConcentrationBroken?.() (which clears concentration-tied summons). It does
-    NOT touch activeBuffSpells.
-  - SpellsPanel.tsx castSpell (line 122-143): setConcentration for concentration
-    spells; separately adds buff spells to activeBuffSpells (136-141).
-  - SpellsPanel.tsx concentration banner Drop (line ~712):
-    onConcentrationBroken?.(); update({ concentrationSpellId: null, conditionIds:
-    filter out 'concentration' }) — NO activeBuffSpells removal.
-  - ConditionsPanel.tsx: toggle(id) (18-24) adds/removes a plain condition (incl.
-    'concentration') and recomputes AC — but does NOT clear concentrationSpellId
-    or the buff. toggleBuff(id) (29-32) adds/removes activeBuffSpells + AC. The
-    'concentration' chip is rendered in the conditionIds list (120-146); its ×
-    calls toggle('concentration'). Buff chips (106-116) call toggleBuff.
-  - turnSlice.ts confirmNextTurn: on dropConcentration it clears
-    concentrationSpellId + 'concentration' condition + clearAllSummons(
-    {concentrationOnly:true}) — but does NOT remove the concentrating spell from
-    activeBuffSpells.
-  - characterSlice.ts has clearAllSummons(charId,{concentrationOnly}) and
-    updateCharacter; there is NO dedicated dropConcentration action.
+  - spellData.ts SpellEntry already has buff fields: attackBuff {toHit, toHitDice,
+    bonusDmg, bonusDmgType}, grantsTempHp, tempHpPerUpcast, tempHpBuff, setsBaseAC,
+    acBonus, speedBonus, speedMultiplier, saveBonusDice, and vizCategory
+    'self-buff'. isBuffConditionSpell() + BUFF_CONDITION_SPELLS select buff spells.
+  - Wired today: speedBonus (Longstrider), attackBuff (Divine Favor), setsBaseAC
+    (Mage Armor), acBonus (Shield/Shield of Faith), speedMultiplier (Haste — VERIFY
+    it is actually applied in computeSpeedFull; findings say it is not).
+  - NOT wired: the Smites (searing/thunderous/wrathful/branding — vizCategory
+    'self-buff' but NO attackBuff), Zephyr Strike, Elemental Weapon, Holy Weapon,
+    Aura of Vitality (per-turn heal), Heroism (temp HP each turn), Hex/Hunter's Mark
+    (per-turn move + damage vs a marked enemy), and the non-spell features Fighting
+    Spirit (Samurai) and Dash (action).
+  - activeBuffSpells is managed by ConditionsPanel ("+ Buff", toggleBuff) and
+    SpellsPanel.castSpell. The attack table already renders attackBuff as
+    "spell-buff-*" rider rows.
+  - SummonsPanel.tsx is the PANEL MODEL: groupByType -> collapsible groups; header
+    with "+ Summon"/Catalog/Clear; selectable rows; per-item state. Mirror it.
 
 
 ========================================================================
-TASK 1 — Add a single dropConcentration store action
+SECTION 2 — BUFF TAXONOMY + CLASSIFICATION (the "map/categorize/tag" steps)
 ========================================================================
-File: src/renderer/src/app/store/characterSlice.ts (add to the slice interface
-near the other actions, and implement next to updateCharacter).
 
-  dropConcentration: (id: string) => void
-
-Behavior (do ALL of it in one update so state stays consistent):
-  const char = get().characters[id]; if (!char) return
-  const concId = char.concentrationSpellId
-  // remove ONLY the concentrating spell from activeBuffSpells (leave other buffs,
-  // e.g. Mage Armor / directly-added buffs, untouched)
-  const nextBuffs = (char.activeBuffSpells ?? []).filter(x => x !== concId)
-  const nextConds = char.conditionIds.filter(c => c.conditionId !== 'concentration')
-  const patch = {
-    concentrationSpellId: null,
-    conditionIds: nextConds,
-    activeBuffSpells: nextBuffs,
-    armorClass: computeACFull({ ...char, activeBuffSpells: nextBuffs, conditionIds: nextConds }),
+Add classification fields to SpellEntry (spellData.ts) — declarative, per buff:
+  buffCategory?: 'damage' | 'defense' | 'mobility' | 'accuracy' | 'healing' | 'utility'
+  buffTags?: string[]                 // secondary categories (a buff may be several)
+  buffTarget?: 'self' | 'weapon' | 'ally' | 'enemy'
+  turnResource?: {                    // per-turn tracking (the "fourth tag")
+    kind: 'heal' | 'tempHp' | 'onHitRider' | 'repeatAttack' | 'moveMark'
+    formula?: string                  // dice/number: '2d6' heal, '1d6' rider, etc.
+    damageType?: string               // REQUIRED for kind 'onHitRider' — the rider's
+                                      //   damage type ('fire','thunder','force',
+                                      //   'psychic','radiant','necrotic','cold',...).
+                                      //   An onHitRider becomes a typed attack-table
+                                      //   entry with EXACTLY the same shape as
+                                      //   attackBuff: { bonusDmg: formula,
+                                      //   bonusDmgType: damageType }.
+    economy?: 'action' | 'bonus'      // action spent each turn (if any)
+    oneShot?: boolean                 // consumed on the next hit then ends (smites)
+    label: string                     // UI text, e.g. "Heal a tracked creature 2d6/turn"
   }
-  get().updateCharacter(id, patch)
-  get().clearAllSummons(id, { concentrationOnly: true })   // dismiss tied summons
+  RULE: every turnResource with kind 'onHitRider' MUST supply both formula and
+  damageType. If a source spell's rider damage type is unclear, STOP and report
+  (do not guess a type).
 
-VERIFY/STOP: if a dropConcentration action already exists, reuse it (do not
-  duplicate). If concId is null, it is a safe no-op (still clears the condition).
-Acceptance: calling dropConcentration on a Bless-concentrating character clears
-  concentrationSpellId, the 'concentration' condition, AND removes 'bless' from
-  activeBuffSpells (so the attack-table Bless rider disappears), recomputing AC.
+CATEGORY definitions (primary bucket for the panel; use buffTags for extras):
+  - damage   : adds damage to an attack (persistent, or one-shot next hit).
+  - defense  : AC, temp HP, resistance.
+  - mobility : speed change (flat or multiplier).
+  - accuracy : to-hit and/or saving-throw bonus.
+  - healing  : restores HP over time / temp HP each turn.
+  - utility  : anything else (fly, invisibility, etc.).
 
+TARGET definitions (who the effect lands on):
+  - self   : caster's own stats -> APPLY to computations.
+  - weapon : a wielded weapon (Magic/Elemental/Holy Weapon, Divine Favor) -> the
+             damage rider applies to the character's weapon attacks (self weapon).
+  - ally   : another creature (Bless multi, Aura of Vitality heal, Heroism on other)
+             -> TRACK a chosen label + per-turn counter; do NOT edit other sheets.
+  - enemy  : an enemy marker (Hex, Hunter's Mark) -> TRACK the marked target; the
+             on-hit damage rider applies to the character's attacks.
 
-========================================================================
-TASK 2 — Route every drop entry point through dropConcentration
-========================================================================
-Replace the ad-hoc concentration-clearing in each place with the store action.
+CLASSIFICATION RULES (apply to EVERY spell in BUFF_CONDITION_SPELLS; supplied
+mappings below are authoritative, classify the rest by these rules):
+  - has attackBuff / adds "extra NdX <type> damage on a hit" -> category 'damage',
+    turnResource.kind 'onHitRider' with oneShot:true IF the text says "next time/
+    first time you hit" (smites), else persistent.
+  - setsBaseAC / acBonus / "temporary hit points" / resistance -> 'defense'.
+  - speedBonus / speedMultiplier / "speed increases"/"doubled" -> 'mobility'.
+  - "+1d4 to attack rolls"/"to hit"/"saving throws" -> 'accuracy'
+    (saveBonusDice / attackBuff.toHitDice).
+  - "regain/heal ... at the start of each ... turn" or heals a creature each turn
+    -> 'healing' + turnResource ('heal' or 'tempHp').
+  - target = 'weapon' if it enchants a weapon; 'ally'/'enemy' per the text; else 'self'.
+  If a buff needs a field the schema lacks, STOP and report.
 
-  (a) SpellsPanel.tsx concentration banner "Drop" (line ~712): replace the inline
-      onConcentrationBroken?.() + update({ concentrationSpellId:null, conditionIds:
-      ... }) with a call to the store dropConcentration(char.id). (onConcentration
-      Broken's summon cleanup is now inside the action; keep or drop the prop call
-      to avoid double-clearing — document which.)
-  (b) SpellsPanel.tsx setConcentration (line 107): when dropping (concentrationSpell
-      Id === spellId and the user re-clicks to drop), call dropConcentration(char.id)
-      instead of the inline clear. (See TASK 3 for the START/SWITCH path.)
-  (c) ConditionsPanel.tsx toggle (line 18): when the id being REMOVED is
-      'concentration', call the store dropConcentration(char.id) instead of just
-      filtering the condition — so dropping the concentration chip on the left panel
-      also removes the concentrating buff. (Non-'concentration' conditions keep the
-      existing toggle behavior.) ConditionsPanel must receive dropConcentration
-      (from the store via useAppStore, or as a prop from CharacterView).
-  (d) turnSlice.ts confirmNextTurn: in the dropConcentration branch, ALSO remove
-      the concentrating spell from activeBuffSpells (filter char.activeBuffSpells by
-      the old concentrationSpellId) and recompute AC — or call the shared teardown.
-
-VERIFY/STOP: after this task, grep for every place that sets concentrationSpellId
-  to null; each must also strip the concentrating spell from activeBuffSpells (or
-  go through dropConcentration). If one does not, fix it.
-Acceptance: dropping concentration from (a) the spell banner, (b) re-clicking the
-  spell, (c) the left-panel 'concentration' chip, and (d) Next Turn all remove the
-  Bless/Magic Weapon buff from the attack table and recompute AC.
-
-
-========================================================================
-TASK 3 — Starting/switching concentration tears down the previous buff
-========================================================================
-File: SpellsPanel.tsx setConcentration (line 107) / castSpell (line 122).
-When STARTING a new concentration spell while another is active, the previous
-concentration spell's buff must be removed from activeBuffSpells (today only the
-condition is reused and the old buff lingers).
-Implementation: in the START branch, first drop the existing concentration
-(reuse the TASK 1 teardown for the OLD concentrationSpellId), THEN set the new
-concentrationSpellId + 'concentration' condition, THEN add the new spell's buff
-(the existing castSpell buff-add at 136-141 still runs).
-VERIFY/STOP: if switching concentration already removes the old buff, STOP.
-Acceptance: casting Magic Weapon while concentrating on Bless removes the Bless
-  rider from the attack table and shows only Magic Weapon.
-
-
-========================================================================
-TASK 4 — Keep the buff chip and concentration in sync (bidirectional)
-========================================================================
-File: ConditionsPanel.tsx toggleBuff (line 29).
-When the buff being REMOVED equals char.concentrationSpellId, also drop
-concentration (clear concentrationSpellId + the 'concentration' condition), so
-removing the buff chip and dropping concentration are consistent both directions:
-  if (removing && id === char.concentrationSpellId) -> also clear concentration
-  (call dropConcentration, or fold the concentration clear into the same update).
-VERIFY/STOP: if removing a concentration buff chip already clears concentration,
-  STOP.
-Acceptance: removing the Bless buff chip also clears the 'concentration' condition
-  and concentrationSpellId (no orphaned concentration state), and vice-versa
-  (TASK 2c) dropping the concentration chip removes the Bless buff.
+AUTHORITATIVE MAPPINGS (supply these exactly; wire the effect in SECTION 3/4):
+  Longstrider   mobility self   speedBonus 10                         (already set)
+  jump          mobility self    (note only: jump distance tripled)
+  haste         mobility+defense self  speedMultiplier 2, acBonus 2   (VERIFY applied)
+  zephyr-strike mobility+damage self  speedBonus 30 (this turn) + turnResource
+                { onHitRider, oneShot, formula '1d8', damageType 'force' }; note: no OA
+                on the move (the one-shot rider is the ONLY damage source — no attackBuff)
+  expeditious-retreat mobility self  (Dash as bonus action; speedMultiplier n/a — note)
+  divine-favor  damage self    attackBuff bonusDmg '1d4' radiant       (already set)
+  magic-weapon  damage+accuracy weapon attackBuff toHit 1, bonusDmg '1' (per prior plan)
+  elemental-weapon damage weapon attackBuff toHit 1, bonusDmg '1d4' (chosen type)
+  holy-weapon   damage weapon  attackBuff bonusDmg '2d8' radiant, turnResource note
+  searing-smite   damage self  turnResource { onHitRider, oneShot, formula '1d6', damageType 'fire' }
+  thunderous-smite damage self turnResource { onHitRider, oneShot, formula '2d6', damageType 'thunder' }
+  wrathful-smite  damage self  turnResource { onHitRider, oneShot, formula '1d6', damageType 'psychic' }
+  branding-smite  damage self  turnResource { onHitRider, oneShot, formula '2d6', damageType 'radiant' }
+  (upcast +1dX per slot above 1st is a NOTE; the base formula/type above is authoritative.)
+  hex           damage enemy   attackBuff bonusDmg '1d6' necrotic, target enemy,
+                turnResource moveMark bonus
+  hunters-mark  damage enemy   attackBuff bonusDmg '1d6' (weapon type), target enemy,
+                turnResource moveMark bonus
+  bless         accuracy ally  attackBuff.toHitDice '1d4', saveBonusDice '1d4'
+                (self applies; up to 3 targets tracked)
+  shield-of-faith defense self acBonus 2
+  shield (spell) defense self  acBonus 5
+  mage-armor    defense self   setsBaseAC 13
+  barkskin      defense self   setsBaseAC 16 (min AC 16)
+  false-life    defense self   grantsTempHp
+  armor-of-agathys defense self grantsTempHp 5 (+ retaliate note)
+  heroism       healing self/ally  turnResource tempHp (spellcasting mod)/turn,
+                immune frightened (note)
+  aura-of-vitality healing ally turnResource heal '2d6' bonus, label "pick+track a
+                creature; heal 2d6 each turn"
+  For every OTHER buff in BUFF_CONDITION_SPELLS, classify by the RULES above.
 
 
 ========================================================================
-SECTION 5 — VERIFICATION
+SECTION 3 — DATA WIRING (fill in the missing effect fields)
+========================================================================
+For each AUTHORITATIVE MAPPING whose mechanical field is not set yet, set it on the
+spell entry (spellData.ts):
+  - Smites: add turnResource { kind:'onHitRider', oneShot:true, formula, damageType }
+    (values per the SECTION 2 mappings) so the next weapon hit adds that typed damage
+    once, then the buff ends.
+  - Zephyr Strike: speedBonus 30 (this turn) + turnResource { kind:'onHitRider',
+    oneShot:true, formula:'1d8', damageType:'force' }.
+  - Elemental Weapon / Holy Weapon: attackBuff bonusDmg (+ the weapon-target tag).
+  - Aura of Vitality: turnResource { kind:'heal', formula:'2d6', economy:'bonus',
+    label:'Heal a tracked creature 2d6 each turn' }.
+  - Heroism: turnResource { kind:'tempHp', formula:'<spellcasting mod>', label:'Temp
+    HP each turn' }.
+  - Haste: ensure speedMultiplier 2 and acBonus 2 are present.
+VERIFY/STOP: if a field is already set correctly, leave it.
+
+
+========================================================================
+SECTION 4 — EFFECT APPLICATION (wire computations + per-turn tracking)
+========================================================================
+
+  (a) DAMAGE buffs: attackBuff already renders as attack-table spell-buff rows. An
+      onHitRider (smites/zephyr) renders as an attack-table rider using its
+      { formula, damageType } as { bonusDmg, bonusDmgType } (same cell shape as
+      attackBuff); it applies to the NEXT hit. Add a "used this hit" one-shot control
+      (reuse the Booming-Blade end-of-turn pattern) so oneShot riders drop after one
+      hit. enemy-target riders (Hex/Hunter's Mark) apply to the character's attacks
+      and show the tracked enemy label.
+  (b) MOBILITY: computeSpeedFull must apply speedBonus + speedMultiplier from active
+      buffs (findings: Haste/Dash don't double). VERIFY speedMultiplier is folded in;
+      if not, fold it (product of active buff multipliers, combined with condition
+      multipliers, floor). DASH (an ACTION, not a buff): when the Dash action is used
+      this turn, show doubled movement (a turn-state 'dashed' flag -> displayed speed
+      x2 for the turn).
+  (c) DEFENSE: acBonus/setsBaseAC already in computeACFull (VERIFY acBonus summed);
+      grantsTempHp already applied on cast.
+  (d) ACCURACY: attackBuff.toHitDice -> To-Hit rider row; saveBonusDice -> save-row
+      rider note (per prior work). VERIFY present.
+  (e) HEALING / turnResource: add a per-turn tracker. For 'heal' (Aura of Vitality):
+      the buff row lets you pick+track a creature label and shows a "Heal 2d6" button
+      each turn (just tracks/rolls; does not edit another sheet). For 'tempHp'
+      (Heroism): apply temp HP = formula at the start of each of your turns (a Next-
+      Turn / per-turn apply). Reset/advance on Next Turn.
+  (f) FINDINGS fixes (must all pass):
+      - Fighting Spirit (Samurai feature, NOT a spell): on use, grant temp HP (5/10/15
+        by level) AND advantage on attacks this turn (set turnState.advantageNextAttack
+        or an equivalent "this turn" flag). Wire in the Fighting Spirit detail.
+      - Dash: see (b).
+      - Haste / Zephyr Strike / smites / Aura of Vitality: covered by (a),(b),(e) + SECTION 3.
+
+
+========================================================================
+SECTION 4.5 — BUFF INSTANCE STATE (where per-buff tracking lives)
+========================================================================
+activeBuffSpells stays `string[]` (the list of ACTIVE buff ids — do NOT change its
+shape; computeACFull / computeSpeedFull / ConditionsPanel / SpellsPanel all read it
+as string[]). Per-buff tracking that a string[] cannot hold goes in a NEW parallel
+map on the Character:
+
+  types.ts Character:  buffStates?: Record<string /* buff spell id */, BuffRuntime>
+  interface BuffRuntime {
+    trackedTargetLabel?: string   // free-text name for ally/enemy/weapon targets
+                                  //   (no party model — tracking only, not applied
+                                  //   to another sheet)
+    oneShotUsed?: boolean         // onHitRider consumed this activation
+    perTurnUsed?: boolean         // heal / tempHp / repeatAttack used THIS turn
+  }
+buffStates is OPTIONAL, so existing saves default to {} — NO migration, NO schema
+bump. Readers use `char.buffStates?.[id] ?? {}`.
+
+LIFECYCLE (implement all of it):
+  - Activate a buff (add id to activeBuffSpells): if the buff has a turnResource,
+    seed buffStates[id] = { } (or { trackedTargetLabel: '' } for ally/enemy/weapon).
+  - Remove a buff (toggleBuff off / Clear / concentration drop / oneShot consumed):
+    remove id from activeBuffSpells AND delete buffStates[id] (keep them in sync).
+  - Next Turn (turnSlice confirmNextTurn): for every active buff with a turnResource,
+    set buffStates[id].perTurnUsed = false so the per-turn control is usable again.
+  - onHitRider consumed: set buffStates[id].oneShotUsed = true, then DROP the buff
+    (remove from activeBuffSpells + delete buffStates[id]) — a one-shot rider ends
+    after the hit.
+All SECTION 5 per-buff controls read/write char.buffStates[id].
+
+
+========================================================================
+SECTION 5 — BUFF PANEL (modeled on SummonsPanel)
+========================================================================
+Create features/buffs/BuffPanel.tsx (+ module CSS), rendered in the left column
+near ConditionsPanel/Summons. Model it on SummonsPanel.tsx:
+  - HEADER: "Buffs (N)" + "+ Buff" (opens a category-grouped picker over
+    BUFF_CONDITION_SPELLS) + "Clear".
+  - GROUPING: group ACTIVE buffs (char.activeBuffSpells) by buffCategory (damage /
+    defense / mobility / accuracy / healing / utility), collapsible groups exactly
+    like groupByType (SummonsPanel line 16-25, 87-98).
+  - ROW per active buff: name + category/target chips + its effect summary
+    (e.g. "+1d4 radiant", "+10 ft", "AC +2", "2d6 heal/turn"); an × to remove
+    (reuse toggleBuff, which must also delete buffStates[id] per SECTION 4.5).
+    Selecting a row opens its detail, backed by char.buffStates[id] (SECTION 4.5):
+      * ally/enemy/weapon target -> a `trackedTargetLabel` text input.
+      * turnResource heal/tempHp/repeat -> a per-turn button that rolls/applies and
+        sets `perTurnUsed=true` (greyed until Next Turn resets it).
+      * onHitRider (smites/zephyr) -> a "used this hit" control that sets
+        `oneShotUsed=true` and drops the buff.
+  - The "+ Buff" picker groups the catalog by buffCategory too.
+This REPLACES/augments the ConditionsPanel "+ Buff" list (keep conditions in
+ConditionsPanel; move buff management into BuffPanel). Wire BuffPanel into the left
+column in CharacterView.
+VERIFY/STOP: if a BuffPanel already exists, STOP.
+
+
+========================================================================
+SECTION 6 — VERIFICATION
 ========================================================================
   - npm run typecheck : passes (acceptable: __tests__/* only).
   - npm run dev (Electron), manual:
-      1. Cast Bless (concentration): a Bless rider appears in the attack table;
-         'concentration' + Bless buff chips appear in the left panel.
-      2. Drop concentration via the left-panel 'concentration' chip -> the Bless
-         rider disappears from the attack table and the Bless buff chip is gone.
-      3. Repeat dropping via the spell banner "Drop" and via Next Turn -> same result.
-      4. Remove the Bless buff chip directly -> concentration also clears.
-      5. Cast Magic Weapon while concentrating on Bless -> only Magic Weapon remains.
-      6. A directly-added "+ Buff" (non-concentration, e.g. Mage Armor) is NOT
-         removed when you drop concentration for a different spell.
+      * Buff panel shows active buffs grouped by category, collapsible, with a
+        category-grouped "+ Buff" picker and Clear.
+      * Zephyr Strike -> +30 speed this turn + a one-shot 1d8 force rider that drops
+        after one hit; Haste -> speed doubled + AC +2; Longstrider -> +10 ft.
+      * A smite (e.g. Searing) -> next weapon hit adds 1d6 fire once, then the buff ends.
+      * Aura of Vitality -> pick+track a creature; a "Heal 2d6" per-turn control.
+      * Heroism -> temp HP applied each turn.
+      * Fighting Spirit -> temp HP + advantage on attacks this turn.
+      * Dash -> displayed movement doubles for the turn.
+      * findings.txt items are all resolved.
   - Unit tests (extend src/renderer/src/__tests__/):
-      dropConcentration removes concentrationSpellId, the 'concentration' condition,
-      and only the concentrating id from activeBuffSpells (other buffs remain);
-      AC recomputed.
+      computeSpeedFull applies speedBonus + speedMultiplier from active buffs;
+      classification of a sample of BUFF_CONDITION_SPELLS matches the rules;
+      an onHitRider oneShot buff sets oneShotUsed then is removed from both
+      activeBuffSpells and buffStates after one hit;
+      confirmNextTurn resets buffStates[id].perTurnUsed=false for active turnResource
+      buffs; removing a buff deletes its buffStates entry.
 
 
 ========================================================================

@@ -11,6 +11,7 @@ import { RestPanel } from '@/features/rest/RestPanel'
 import { VitalsPanel } from '@/features/vitals/VitalsPanel'
 import { AbilitiesPanel } from '@/features/abilities/AbilitiesPanel'
 import { ConditionsPanel } from '@/features/conditions/ConditionsPanel'
+import { BuffPanel } from '@/features/buffs/BuffPanel'
 import { SummonsPanel } from '@/features/summons/SummonsPanel'
 import { SummonDetailPanel } from '@/features/summons/SummonDetailPanel'
 import { FeaturesPanel } from '@/features/features-panel/FeaturesPanel'
@@ -218,6 +219,7 @@ export function CharacterView() {
         <aside className={`${styles.leftCol}${drawerOpen ? ` ${styles.leftColOpen}` : ''}`}>
           <VitalsPanel character={char} update={update} onTempHp={(amt) => setTempHp(char.id, amt)} onDelete={() => { deleteCharacter(char.id); exitCharacter() }} />
           <ConditionsPanel character={char} update={update} />
+          <BuffPanel character={char} update={update} />
           <SummonsPanel
             character={char}
             selectedSummonId={selectedSummonId}

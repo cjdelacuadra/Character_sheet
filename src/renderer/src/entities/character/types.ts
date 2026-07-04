@@ -28,6 +28,12 @@ export interface ActiveCondition {
   appliedAt?: number
 }
 
+export interface BuffRuntime {
+  trackedTargetLabel?: string
+  oneShotUsed?: boolean
+  perTurnUsed?: boolean
+}
+
 export interface Equipment {
   armorId: string | null
   /** @deprecated use shieldId instead */
@@ -104,6 +110,7 @@ export interface Character {
   spellSlots: SpellSlots
   concentrationSpellId: string | null
   activeBuffSpells?: string[]
+  buffStates?: Record<string, BuffRuntime>
 
   weapons: Weapon[]
   conditionIds: ActiveCondition[]

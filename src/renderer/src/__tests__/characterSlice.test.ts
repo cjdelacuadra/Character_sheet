@@ -37,6 +37,18 @@ describe('updateCharacter', () => {
     const after = store.getState().characters[char.id].updatedAt
     expect(after).not.toBe(before)
   })
+
+  it('seeds and deletes buffStates entries with active buff changes', () => {
+    const store = makeStore()
+    const char = makeChar()
+    store.getState().addCharacter(char)
+
+    store.getState().updateCharacter(char.id, { activeBuffSpells: ['aura-of-vitality'] })
+    expect(store.getState().characters[char.id].buffStates?.['aura-of-vitality']).toEqual({ trackedTargetLabel: '' })
+
+    store.getState().updateCharacter(char.id, { activeBuffSpells: [] })
+    expect(store.getState().characters[char.id].buffStates?.['aura-of-vitality']).toBeUndefined()
+  })
 })
 
 describe('dropConcentration', () => {

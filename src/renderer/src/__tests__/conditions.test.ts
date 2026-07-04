@@ -46,6 +46,10 @@ describe('condition modifiers', () => {
     expect(computeSpeedFull(makeChar({ speed: 30, conditionIds: [{ conditionId: 'restrained' }] }))).toBe(0)
   })
 
+  it('applies active buff speed bonuses and multipliers through computeSpeedFull', () => {
+    expect(computeSpeedFull(makeChar({ speed: 30, activeBuffSpells: ['longstrider', 'haste'] }))).toBe(80)
+  })
+
   it('ignores unknown legacy condition IDs', () => {
     const char = makeChar({ conditionIds: [{ conditionId: 'old-freetext' }] })
 

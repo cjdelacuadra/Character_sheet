@@ -171,11 +171,13 @@ export function computeConditionModifiers(char: Pick<Character, 'conditionIds'>)
   return acc
 }
 
-/** Base speed + equipment speed bonuses + active subclass buffs (Bladesong). */
-export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass' | 'conditionIds'>): number {
-  const base = char.speed + computeEquipmentStats(char).speedBonus
+/** Base speed + equipment speed bonuses + active subclass and spell buffs. */
+export function computeSpeedFull(char: Pick<Character, 'speed' | 'equipment' | 'isBladesinging' | 'subclass' | 'conditionIds'> & { activeBuffSpells?: string[] }): number {
+  const buffSpeedBonus = (char.activeBuffSpells ?? []).reduce((sum, id) => sum + (SPELL_BY_ID[id]?.speedBonus ?? 0), 0)
+  const buffSpeedMultiplier = (char.activeBuffSpells ?? []).reduce((product, id) => product * (SPELL_BY_ID[id]?.speedMultiplier ?? 1), 1)
+  const base = char.speed + computeEquipmentStats(char).speedBonus + buffSpeedBonus
   const bladesongBonus = char.isBladesinging && char.subclass === 'Bladesinging' ? 10 : 0
-  return Math.floor((base + bladesongBonus) * computeConditionModifiers(char).speedMultiplier)
+  return Math.floor((base + bladesongBonus) * buffSpeedMultiplier * computeConditionModifiers(char).speedMultiplier)
 }
 
 /** Computes skill check bonus. */

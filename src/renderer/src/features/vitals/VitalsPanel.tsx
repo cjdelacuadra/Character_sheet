@@ -6,6 +6,7 @@ import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeACFull, computeSpeedFull, computeDarkvision, computeInitiativeFull, applyHpDelta, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
+import { useAppStore } from '@/app/store'
 import { DeathSaveDetailPanel } from '@/features/detail-panel/DeathSaveDetailPanel'
 import styles from './VitalsPanel.module.css'
 
@@ -25,6 +26,8 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   const [fieldEdit, setFieldEdit] = useState<{ field: 'speed'; value: string } | null>(null)
   const [deathDialogOpen, setDeathDialogOpen] = useState(false)
   const [deathDetailOpen, setDeathDetailOpen] = useState(false)
+  const dashed = useAppStore(s => s.turnStates[char.id]?.dashed === true)
+  const displayedSpeed = computeSpeedFull(char) * (dashed ? 2 : 1)
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
@@ -101,7 +104,12 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
     if (delta < 0 && hp.temp > 0 && next.temp === 0) {
       const buffs = char.activeBuffSpells ?? []
       const remaining = buffs.filter(id => { const s = SPELL_BY_ID[id]; return !(s?.grantsTempHp || s?.tempHpBuff) })
-      if (remaining.length !== buffs.length) patch.activeBuffSpells = remaining
+      if (remaining.length !== buffs.length) {
+        patch.activeBuffSpells = remaining
+        patch.buffStates = Object.fromEntries(
+          Object.entries(char.buffStates ?? {}).filter(([id]) => remaining.includes(id)),
+        )
+      }
     }
     update(patch)
   }
@@ -164,7 +172,7 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
               onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit() }}
             />
           ) : (
-            <span className={styles.topStatVal}>{computeSpeedFull(char)} <span className={styles.statUnit}>ft</span></span>
+            <span className={styles.topStatVal}>{displayedSpeed} <span className={styles.statUnit}>ft</span></span>
           )}
           <span className={styles.topStatLabel}>Speed</span>
         </div>

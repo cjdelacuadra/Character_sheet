@@ -5,6 +5,7 @@ import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
+import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import type { Equipment } from '@/entities/character/types'
 import { combineDiceExpr, critDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -365,6 +366,24 @@ function buildAttackRows(
     })
   }
 
+  for (const spellId of char.activeBuffSpells ?? []) {
+    const spell = SPELL_BY_ID[spellId]
+    const resource = spell?.turnResource
+    const state = char.buffStates?.[spellId]
+    if (resource?.kind !== 'onHitRider' || !resource.formula || !resource.damageType || state?.oneShotUsed) continue
+    rows.push({
+      id: `turn-resource-${spellId}`,
+      name: spell.name,
+      toHit: null,
+      dmg: null,
+      dmgType: null,
+      bonusDmg: resource.formula,
+      bonusDmgType: resource.damageType,
+      group: 'both',
+      note: resource.label,
+    })
+  }
+
   // Active attack-buff spells toggled through + Buff.
   for (const spellId of char.activeBuffSpells ?? []) {
     const spell = SPELL_BY_ID[spellId]
@@ -400,6 +419,7 @@ function rowResource(row: AttackRow): string {
     const spell = SPELL_BY_ID[id.replace('spell-buff-', '')]
     return spell?.concentration ? 'Concentration' : 'Active Buff'
   }
+  if (id.startsWith('turn-resource-')) return 'One-shot'
   return '—'
 }
 
@@ -508,6 +528,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const markActionUsed = useAppStore(s => s.markActionUsed)
   const unmarkActionUsed = useAppStore(s => s.unmarkActionUsed)
   const setAttacked = useAppStore(s => s.setAttacked)
+  const setDashed = useAppStore(s => s.setDashed)
   const setAdvantageNextAttack = useAppStore(s => s.setAdvantageNextAttack)
   const setSpeedZero = useAppStore(s => s.setSpeedZero)
   const baseAttackAdvantage = computeAttackAdvantage(char)
@@ -591,6 +612,41 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
   }
 
+  function dropBuff(spellId: string) {
+    update(consumeOneShotBuff(char, spellId))
+  }
+
+  function consumeOneShotRows(rows: AttackRow[]) {
+    const spellIds = rows
+      .map(row => row.id.startsWith('turn-resource-') ? row.id.replace('turn-resource-', '') : null)
+      .filter((id): id is string => !!id)
+    if (spellIds.length === 0) return
+    const nextBuffs = (char.activeBuffSpells ?? []).filter(id => !spellIds.includes(id))
+    const nextStates = { ...(char.buffStates ?? {}) }
+    for (const id of spellIds) {
+      nextStates[id] = { ...(nextStates[id] ?? {}), oneShotUsed: true }
+      delete nextStates[id]
+    }
+    update({ activeBuffSpells: nextBuffs, buffStates: nextStates })
+  }
+
+  function renderOneShotUsedButton(row: AttackRow) {
+    if (!row.id.startsWith('turn-resource-')) return null
+    const spellId = row.id.replace('turn-resource-', '')
+    return (
+      <button
+        type="button"
+        className={styles.resourceChip}
+        onClick={event => {
+          event.stopPropagation()
+          dropBuff(spellId)
+        }}
+      >
+        Used this hit
+      </button>
+    )
+  }
+
   function spendAttack(rows: AttackRow[] = []) {
     if (attacksUsed >= attacksMax) return
     if (!boomingBladeActive) {
@@ -604,6 +660,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       setAttacked(char.id, true)
     }
     adjustAttackConsumption(rows, 'spend')
+    consumeOneShotRows(rows)
     useAttack(char.id)
   }
 
@@ -749,9 +806,11 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           if (used) {
             recoverEconomy(char.id, economy)
             unmarkActionUsed(char.id, action.name)
+            if (action.name === 'Dash') setDashed(char.id, false)
           } else {
             useEconomy(char.id, economy)
             markActionUsed(char.id, action.name)
+            if (action.name === 'Dash') setDashed(char.id, true)
           }
         }}
       >
@@ -2252,6 +2311,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {renderOneShotUsedButton(row)}
                           {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
@@ -2318,7 +2378,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   if (rid === 'normal')    return !versatileActive
                   if (rid === 'versatile') return  versatileActive
                   if (rid === 'booming-blade') return boomingBladeActive
-                  return rid.startsWith('maneuver-') || rid.startsWith('equip-bonus-') ||
+                  return rid.startsWith('maneuver-') || rid.startsWith('turn-resource-') || rid.startsWith('equip-bonus-') ||
                          rid.startsWith('spell-buff-') || (wActive[rid] ?? false)
                 }
                 const isRangedActive = (rid: string) => {
@@ -2326,7 +2386,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   if (row?.disabled) return false
                   if (rid === 'thrown') return true
                   if (rid === 'booming-blade') return boomingBladeActive
-                  return rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') ||
+                  return rid.startsWith('arcane-') || rid.startsWith('turn-resource-') || rid.startsWith('equip-bonus-') ||
                          rid.startsWith('spell-buff-') || rid.startsWith('maneuver-') ||
                          (wActive[rid] ?? false)
                 }
@@ -2334,7 +2394,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                   const row = rows.find(r => r.id === rid)
                   if (row?.disabled) return
                   if (rid === 'booming-blade') return
-                  if (rid === 'normal' || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
+                  if (rid === 'normal' || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-') || rid.startsWith('turn-resource-')) return
                   if (rid === 'versatile') {
                     setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false) } }))
                     return
@@ -2343,7 +2403,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 }
                 function toggleRanged(rid: string) {
                   if (rid === 'booming-blade') return
-                  if (rid === 'thrown' || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-')) return
+                  if (rid === 'thrown' || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('maneuver-') || rid.startsWith('turn-resource-')) return
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
                 }
 
@@ -2382,6 +2442,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 return rid.startsWith('maneuver-') ||
                   rid.startsWith('arcane-') ||
                   rid.startsWith('equip-bonus-') ||
+                  rid.startsWith('turn-resource-') ||
                   rid.startsWith('spell-buff-') ||
                   (wActive[rid] ?? false)
               }
@@ -2389,7 +2450,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 const row = rows.find(r => r.id === rid)
                 if (row?.disabled) return
                 if (rid === 'booming-blade') return
-                if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-')) return
+                if (rid.startsWith('maneuver-') || rid.startsWith('arcane-') || rid.startsWith('equip-bonus-') || rid.startsWith('spell-buff-') || rid.startsWith('turn-resource-')) return
                 if (rid === 'normal') return
                 if (rid === 'versatile') {
                   setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), versatile: !(wActive['versatile'] ?? false) } }))
@@ -2710,13 +2771,22 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             <div style={{ display: 'flex', gap: 4 }}>
               {left > 0 && (
                 <button className={styles.addBtn}
-                  onClick={() => update({ resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.min(total, used + 1) } } })}>
+                  onClick={() => {
+                    update({
+                      resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.min(total, used + 1) } },
+                      hitPoints: { ...char.hitPoints, temp: Math.max(char.hitPoints.temp, tempHp) },
+                    })
+                    setAdvantageNextAttack(char.id, 'adv')
+                  }}>
                   Use
                 </button>
               )}
               {used > 0 && (
                 <button className={styles.addBtn}
-                  onClick={() => update({ resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.max(0, used - 1) } } })}>
+                  onClick={() => {
+                    update({ resources: { ...char.resources, 'Fighting Spirit': { total, used: Math.max(0, used - 1) } } })
+                    setAdvantageNextAttack(char.id, 'none')
+                  }}>
                   Recover
                 </button>
               )}
@@ -2765,14 +2835,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               if (row?.disabled) return false
               if (rid === 'normal') return true
               if (rid === 'booming-blade') return boomingBladeActive
-              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
+              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-') || rid.startsWith('turn-resource-')) return true
               return wActive[rid] ?? false
             }
             function toggleActive(rid: string) {
               const row = rows.find(r => r.id === rid)
               if (row?.disabled) return
               if (rid === 'booming-blade') return
-              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
+              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-') || rid.startsWith('turn-resource-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
@@ -2801,6 +2871,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {renderOneShotUsedButton(row)}
                           {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
@@ -2864,14 +2935,14 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               if (row?.disabled) return false
               if (rid === 'normal') return true
               if (rid === 'booming-blade') return boomingBladeActive
-              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return true
+              if (rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-') || rid.startsWith('turn-resource-')) return true
               return wActive[rid] ?? false
             }
             function toggleActive(rid: string) {
               const row = rows.find(r => r.id === rid)
               if (row?.disabled) return
               if (rid === 'booming-blade') return
-              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-')) return
+              if (rid === 'normal' || rid.startsWith('spell-buff-') || rid.startsWith('equip-bonus-') || rid.startsWith('turn-resource-')) return
               setActiveRows(prev => ({ ...prev, [w.id]: { ...(prev[w.id] ?? {}), [rid]: !(prev[w.id]?.[rid] ?? false) } }))
             }
             const activeToHits = rows.filter(r => isActive(r.id) && r.toHit !== null).map(r => r.toHit as number)
@@ -2900,6 +2971,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td>{row.bonusDmg ?? '—'}</td><td>{row.bonusDmgType ?? '—'}</td>
                         <td>
                           <span className={styles.resourceChip}>{rowResource(row)}</span>
+                          {renderOneShotUsedButton(row)}
                           {row.id === 'Divine Smite' && renderDivineSmiteSlotPicker()}
                           {row.id === 'booming-blade' && <BoomingBladeTurnToggle charId={char.id} />}
                           {row.id === 'normal' && char.classId === 'Cleric' && char.level >= 8 && <DivineStrikeTurnToggle charId={char.id} subclass={char.subclass} level={char.level} />}
