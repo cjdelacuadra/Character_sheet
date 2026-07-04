@@ -4,7 +4,7 @@ import { useAppStore } from '@/app/store'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { computeACFull, mod } from '@/shared/data/charCalculations'
-import { rollDiceExpr } from '@/shared/lib/diceExpr'
+import { rollDiceExpr } from '@/domain/dice'
 import {
   BUFF_CONDITION_SPELLS,
   SPELL_BY_ID,
@@ -12,6 +12,7 @@ import {
   getBuffCategory,
   getBuffTarget,
 } from '@/shared/data/spellData'
+import { Panel, PanelEmptyNote, PanelGroup, useCollapsedGroups } from '@/ui/Panel'
 import { consumeOneShotBuff } from './buffRuntime'
 import styles from './BuffPanel.module.css'
 
@@ -60,8 +61,8 @@ function effectSummary(id: string): string {
 
 export function BuffPanel({ character: char, update }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const groups = useCollapsedGroups()
   const dropConcentration = useAppStore(s => s.dropConcentration)
 
   const activeIds = char.activeBuffSpells ?? []
@@ -73,15 +74,6 @@ export function BuffPanel({ character: char, update }: Props) {
     .filter((item): item is NonNullable<typeof item> => !!item)
   const activeGroups = groupByCategory(activeBuffs)
   const catalogGroups = groupByCategory(BUFF_CONDITION_SPELLS.map(spell => ({ id: spell.id, spell, category: getBuffCategory(spell) })))
-
-  function toggleGroup(category: string) {
-    setCollapsed(prev => {
-      const next = new Set(prev)
-      if (next.has(category)) next.delete(category)
-      else next.add(category)
-      return next
-    })
-  }
 
   function removeBuff(id: string) {
     if (id === char.concentrationSpellId) {
@@ -177,68 +169,65 @@ export function BuffPanel({ character: char, update }: Props) {
     )
   }
 
-  return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Buffs {activeIds.length > 0 && `(${activeIds.length})`}</span>
-        <div className={styles.headActions}>
-          <button className={styles.headBtn} onClick={() => setPickerOpen(v => !v)}>{pickerOpen ? 'Done' : '+ Buff'}</button>
-          {activeIds.length > 0 && <button className={styles.headBtn} onClick={clearBuffs}>Clear</button>}
-        </div>
-      </div>
+  const actions = [
+    { label: pickerOpen ? 'Done' : '+ Buff', onClick: () => setPickerOpen(v => !v) },
+    ...(activeIds.length > 0 ? [{ label: 'Clear', onClick: clearBuffs }] : []),
+  ]
 
+  return (
+    <Panel label="Buffs" count={activeIds.length} actions={actions}>
       {pickerOpen && (
         <div className={styles.picker}>
           {catalogGroups.map(([category, items]) => (
-            <div key={category} className={styles.group}>
-              <button className={styles.groupHeader} onClick={() => toggleGroup(`picker-${category}`)}>
-                <span className={styles.groupArrow}>{collapsed.has(`picker-${category}`) ? '>' : 'v'}</span>
-                <span className={styles.groupName}>{category}</span>
-                <span className={styles.groupCount}>{items.length}</span>
-              </button>
-              {!collapsed.has(`picker-${category}`) && items.map(({ id, spell }) => (
+            <PanelGroup
+              key={category}
+              name={category}
+              count={items.length}
+              collapsed={groups.isCollapsed(`picker-${category}`)}
+              onToggle={() => groups.toggle(`picker-${category}`)}
+            >
+              {items.map(({ id, spell }) => (
                 <button key={id} className={styles.pickRow} onClick={() => addBuff(id)} disabled={activeIds.includes(id)}>
                   <span>{spell.name}</span>
                   <span className={styles.rowMeta}>{effectSummary(id)}</span>
                 </button>
               ))}
-            </div>
+            </PanelGroup>
           ))}
         </div>
       )}
 
-      <div className={styles.list}>
-        {activeIds.length === 0 && <span className={styles.emptyNote}>No active buffs</span>}
-        {activeGroups.map(([category, items]) => (
-          <div key={category} className={styles.group}>
-            <button className={styles.groupHeader} onClick={() => toggleGroup(category)}>
-              <span className={styles.groupArrow}>{collapsed.has(category) ? '>' : 'v'}</span>
-              <span className={styles.groupName}>{category}</span>
-              <span className={styles.groupCount}>{items.length}</span>
-            </button>
-            {!collapsed.has(category) && items.map(({ id, spell }) => {
-              const selected = selectedId === id
-              const target = getBuffTarget(spell)
-              return (
-                <div key={id} className={`${styles.rowWrap} ${selected ? styles.rowSelected : ''}`}>
-                  <button className={styles.row} onClick={() => setSelectedId(selected ? null : id)}>
-                    <span className={styles.rowTop}>
-                      <span className={styles.rowName}>{spell.name}</span>
-                      <button className={styles.removeBtn} onClick={(event) => { event.stopPropagation(); removeBuff(id) }}>x</button>
-                    </span>
-                    <span className={styles.chips}>
-                      <span className={styles.chip}>{category}</span>
-                      <span className={styles.chip}>{target}</span>
-                    </span>
-                    <span className={styles.rowMeta}>{effectSummary(id)}</span>
-                  </button>
-                  {selected && renderDetail(id)}
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    </section>
+      {activeIds.length === 0 && <PanelEmptyNote>No active buffs</PanelEmptyNote>}
+      {activeGroups.map(([category, items]) => (
+        <PanelGroup
+          key={category}
+          name={category}
+          count={items.length}
+          collapsed={groups.isCollapsed(category)}
+          onToggle={() => groups.toggle(category)}
+        >
+          {items.map(({ id, spell }) => {
+            const selected = selectedId === id
+            const target = getBuffTarget(spell)
+            return (
+              <div key={id} className={`${styles.rowWrap} ${selected ? styles.rowSelected : ''}`}>
+                <button className={styles.row} onClick={() => setSelectedId(selected ? null : id)}>
+                  <span className={styles.rowTop}>
+                    <span className={styles.rowName}>{spell.name}</span>
+                    <button className={styles.removeBtn} onClick={(event) => { event.stopPropagation(); removeBuff(id) }}>x</button>
+                  </span>
+                  <span className={styles.chips}>
+                    <span className={styles.chip}>{category}</span>
+                    <span className={styles.chip}>{target}</span>
+                  </span>
+                  <span className={styles.rowMeta}>{effectSummary(id)}</span>
+                </button>
+                {selected && renderDetail(id)}
+              </div>
+            )
+          })}
+        </PanelGroup>
+      ))}
+    </Panel>
   )
 }
