@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { METAMAGIC_BY_ID, METAMAGIC_OPTIONS, metamagicCost, metamagicKnownCount } from '@/domain/data/metamagicData'
+import { CHANNEL_DIVINITY_OPTIONS, channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
+import {
+  arcaneWardMax, bardicInspirationDie, divineInterventionSucceeds,
+  portentDiceCount, songOfRestDie, wildShapeLimit,
+} from '@/domain/rules/casterFeatures'
 import {
   CREATE_SLOT_COST, canCreateSlot, canConvertSlot, convertSlotToPoints,
   createSlotFromPoints, sorceryPointsAvailable,
@@ -24,6 +29,76 @@ describe('metamagic catalog', () => {
     expect(metamagicKnownCount(3)).toBe(2)
     expect(metamagicKnownCount(10)).toBe(3)
     expect(metamagicKnownCount(17)).toBe(4)
+  })
+})
+
+describe('Channel Divinity catalog', () => {
+  it('every subclass option has a source, action type, and description', () => {
+    for (const opt of CHANNEL_DIVINITY_OPTIONS) {
+      expect(opt.id).toBeTruthy()
+      expect(opt.desc.length, opt.id).toBeGreaterThan(20)
+      expect(['action', 'bonus', 'reaction', 'special']).toContain(opt.action)
+    }
+  })
+
+  it('Life cleric gets Turn Undead + Preserve Life at level 2', () => {
+    const opts = channelDivinityOptionsFor('LifeDomain', 2).map(o => o.id)
+    expect(opts).toContain('turn-undead')
+    expect(opts).toContain('preserve-life')
+    expect(opts).not.toContain('radiance-of-the-dawn')
+  })
+
+  it('level-6 options unlock at 6 (Trickery Cloak of Shadows)', () => {
+    expect(channelDivinityOptionsFor('TrickeryDomain', 2).map(o => o.id)).not.toContain('cloak-of-shadows')
+    expect(channelDivinityOptionsFor('TrickeryDomain', 6).map(o => o.id)).toContain('cloak-of-shadows')
+  })
+
+  it('all 14 domains have at least one option beyond Turn Undead', () => {
+    for (const domain of ['LifeDomain', 'LightDomain', 'TrickeryDomain', 'KnowledgeDomain', 'NatureDomain', 'TempestDomain', 'WarDomain', 'DeathDomain', 'ArcanaDomain', 'ForgeDomain', 'GraveDomain', 'OrderDomain', 'PeaceDomain', 'TwilightDomain']) {
+      const own = channelDivinityOptionsFor(domain, 6).filter(o => o.source === domain)
+      expect(own.length, domain).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('trackable caster features', () => {
+  it('Portent dice: 2, then 3 at level 14', () => {
+    expect(portentDiceCount(2)).toBe(2)
+    expect(portentDiceCount(14)).toBe(3)
+  })
+
+  it('Song of Rest die progression d6→d12', () => {
+    expect(songOfRestDie(1)).toBeNull()
+    expect(songOfRestDie(2)).toBe('1d6')
+    expect(songOfRestDie(9)).toBe('1d8')
+    expect(songOfRestDie(13)).toBe('1d10')
+    expect(songOfRestDie(17)).toBe('1d12')
+  })
+
+  it('Bardic Inspiration die scaling', () => {
+    expect(bardicInspirationDie(1)).toBe('1d6')
+    expect(bardicInspirationDie(5)).toBe('1d8')
+    expect(bardicInspirationDie(10)).toBe('1d10')
+    expect(bardicInspirationDie(15)).toBe('1d12')
+  })
+
+  it('Arcane Ward max = 2×level + INT mod', () => {
+    expect(arcaneWardMax(6, 4)).toBe(16)
+  })
+
+  it('Wild Shape: Moon druids get CR 1 as a bonus action at 2, floor(level/3) from 6', () => {
+    expect(wildShapeLimit(1, false)).toBeNull()
+    expect(wildShapeLimit(2, false)).toEqual({ maxCR: 0.25, canSwim: false, canFly: false, economy: 'action' })
+    expect(wildShapeLimit(4, false)?.maxCR).toBe(0.5)
+    expect(wildShapeLimit(8, false)).toEqual({ maxCR: 1, canSwim: true, canFly: true, economy: 'action' })
+    expect(wildShapeLimit(2, true)).toEqual({ maxCR: 1, canSwim: false, canFly: false, economy: 'bonus' })
+    expect(wildShapeLimit(9, true)?.maxCR).toBe(3)
+  })
+
+  it('Divine Intervention: d100 ≤ level, automatic at 20', () => {
+    expect(divineInterventionSucceeds(10, 10)).toBe(true)
+    expect(divineInterventionSucceeds(10, 11)).toBe(false)
+    expect(divineInterventionSucceeds(20, 100)).toBe(true)
   })
 })
 
