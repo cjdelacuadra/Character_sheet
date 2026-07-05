@@ -109,8 +109,8 @@ function bresenhamLine(
   x0: number, y0: number, x1: number, y1: number,
 ): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = []
-  let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1
-  let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1
+  const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1
+  const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1
   let err = dx + dy
   let x = x0, y = y0
   while (true) {

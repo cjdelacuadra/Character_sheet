@@ -4,6 +4,8 @@ import type { RacialAction } from '@/shared/data/raceData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { resolveRacialFormula, resolveRacialMaxUses } from '@/shared/data/racialActions'
 import { useAppStore } from '@/app/store'
+import { Panel } from '@/ui/Panel'
+import { racialActionUsesOf } from '@/domain/character/compat'
 import styles from './RacialActionsPanel.module.css'
 
 interface Props {
@@ -16,7 +18,7 @@ const COST_LABEL: Record<RacialAction['cost'], string> = {
 }
 
 export function RacialActionsPanel({ character: char, update }: Props) {
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const raceDef = RACE_BY_ID[char.race]
@@ -25,11 +27,15 @@ export function RacialActionsPanel({ character: char, update }: Props) {
 
   function use(a: RacialAction) {
     const max = resolveRacialMaxUses(a.maxUses, char.level)
-    const used = char.racialActionUses?.[a.id] ?? 0
+    const used = racialActionUsesOf(char)[a.id] ?? 0
     if (a.recharge && used >= max) return
 
     const patch: Partial<Character> = {}
-    if (a.recharge) patch.racialActionUses = { ...(char.racialActionUses ?? {}), [a.id]: used + 1 }
+    if (a.recharge) {
+      const uses = { ...racialActionUsesOf(char), [a.id]: used + 1 }
+      patch.racialActionUses = uses
+      patch.featureState = { ...(char.featureState ?? {}), 'racial-actions': { ...(char.featureState?.['racial-actions'] ?? {}), uses } }
+    }
     if (a.grantsTempHp) {
       const amt = resolveRacialFormula(a.grantsTempHp, char)
       patch.hitPoints = { ...char.hitPoints, temp: Math.max(char.hitPoints.temp, amt) }
@@ -40,18 +46,14 @@ export function RacialActionsPanel({ character: char, update }: Props) {
       patch.hitPoints = { ...base, current: Math.min(char.hitPoints.max, base.current + amt) }
     }
     if (Object.keys(patch).length > 0) update(patch)
-    if (a.cost === 'action' || a.cost === 'bonus' || a.cost === 'reaction') useEconomy(char.id, a.cost)
+    if (a.cost === 'action' || a.cost === 'bonus' || a.cost === 'reaction') spendEconomy(char.id, a.cost)
   }
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Racial Actions</span>
-      </div>
-      <div className={styles.list}>
-        {actions.map(a => {
+    <Panel label="Racial Actions">
+      {actions.map(a => {
           const max = resolveRacialMaxUses(a.maxUses, char.level)
-          const used = char.racialActionUses?.[a.id] ?? 0
+          const used = racialActionUsesOf(char)[a.id] ?? 0
           const left = max - used
           const exhausted = !!a.recharge && left <= 0
           const isOpen = expanded === a.id
@@ -78,7 +80,6 @@ export function RacialActionsPanel({ character: char, update }: Props) {
             </div>
           )
         })}
-      </div>
-    </section>
+    </Panel>
   )
 }

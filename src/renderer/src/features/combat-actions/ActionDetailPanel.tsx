@@ -4,6 +4,10 @@ import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
+import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
+import { portentDiceCount, wildShapeLimit } from '@/domain/rules/casterFeatures'
+import { rollDie } from '@/domain/dice'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import type { Equipment } from '@/entities/character/types'
@@ -27,6 +31,15 @@ import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
 import { useAppStore } from '@/app/store'
 import { SpellsPanel } from '@/features/spells/SpellsPanel'
 import type { FeatureEntry } from '@/shared/data/classFeaturesData'
+import {
+  buildAttackRows, dmgSubtotals, criticalSubtotals, getAttackConsumption, rowResource,
+  formatToHitParts, formatToHitRider, spellSniperRange, fmtMod,
+  BASE_ATTACK_ROW_IDS, ATTACK_CONSUMPTION, type AttackRow,
+} from './attackRows'
+import { FeatureDetails } from './FeatureDetails'
+import { activeArcaneShotOf, activeManeuverOf, arcaneShotsKnownOf, fightingStyleOf, hasSpellSniper, maneuversKnownOf, wildShapeFormOf } from '@/domain/character/compat'
+import { computeEquipmentStats } from '@/shared/data/charCalculations'
+import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
 import styles from './ActionDetailPanel.module.css'
 
 const CAST_SPELL_NAMES = new Set(['Cast a Spell', 'Cast a Spell (Bonus)', 'Cast a Spell (Reaction)'])
@@ -37,391 +50,6 @@ const SUBCLASS_FEATURE_NAMES = new Set([
   'Monastic Tradition', 'Sacred Oath', 'Ranger Archetype',
   'Roguish Archetype', 'Sorcerous Origin',
 ])
-
-function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
-
-function spellSniperRange(spell: { id: string; range: string }, enabled?: boolean): string {
-  if (!enabled || !SPELL_ATTACK_IDS.has(spell.id)) return spell.range
-  const doubled = spell.range.replace(/(\d+)\s*ft/g, (_, n: string) => `${Number(n) * 2}ft`)
-  return `${doubled} · Spell Sniper: ignores 1/2 & 3/4 cover`
-}
-
-interface AttackRow {
-  id: string
-  name: string
-  toHit: number | null
-  toHitDice?: string | null
-  dmg: string | null
-  dmgType: string | null
-  bonusDmg: string | null
-  bonusDmgType: string | null
-  disabled?: boolean
-  group?: 'melee' | 'ranged' | 'both'
-  note?: string
-}
-
-function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolean): { expr: string; type: string }[] {
-  const byType = new Map<string, string[]>()
-  for (const row of rows) {
-    if (!isActive(row.id)) continue
-    if (row.dmg && row.dmg !== '—' && row.dmgType) {
-      byType.set(row.dmgType, [...(byType.get(row.dmgType) ?? []), row.dmg])
-    }
-    if (row.bonusDmg && row.bonusDmgType && row.bonusDmgType !== 'to hit') {
-      byType.set(row.bonusDmgType, [...(byType.get(row.bonusDmgType) ?? []), row.bonusDmg])
-    }
-  }
-  return Array.from(byType.entries()).map(([type, parts]) => ({
-    type,
-    expr: combineDiceExpr(parts.join('+')),
-  }))
-}
-
-export function formatToHitParts(toHit: number | null, diceParts: string[]): string {
-  const flat =
-    toHit !== null && toHit !== 0
-      ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
-      : null
-  const parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
-  return parts.join(' ') || '\u2014'
-}
-
-export function formatToHitRider(toHit: number | null, diceParts: string[]): string {
-  const flat =
-    toHit !== null && toHit !== 0
-      ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
-      : null
-  const parts = [...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
-  return parts.length ? parts.join(' ') : '—'
-}
-
-const BASE_ATTACK_ROW_IDS = new Set(['normal', 'versatile', 'thrown'])
-
-type AttackConsumption =
-  | { kind: 'economy'; slot: 'action' | 'bonus' | 'reaction'; attacksOverride?: number }
-  | { kind: 'resource'; resourceKey: string; cost: number }
-  | { kind: 'oncePerTurn'; resourceKey: string }
-  | { kind: 'spellSlot' }
-
-const ATTACK_CONSUMPTION: Record<string, AttackConsumption> = {
-  'booming-blade': { kind: 'economy', slot: 'action', attacksOverride: 1 },
-  'maneuver-*': { kind: 'resource', resourceKey: 'Superiority Dice', cost: 1 },
-  'arcane-*': { kind: 'resource', resourceKey: 'Arcane Shot', cost: 1 },
-  'Sneak Attack': { kind: 'oncePerTurn', resourceKey: 'Sneak Attack' },
-  'Divine Smite': { kind: 'spellSlot' },
-}
-
-function getAttackConsumption(rowId: string): AttackConsumption | undefined {
-  if (rowId.startsWith('maneuver-')) return ATTACK_CONSUMPTION['maneuver-*']
-  if (rowId.startsWith('arcane-')) return ATTACK_CONSUMPTION['arcane-*']
-  return ATTACK_CONSUMPTION[rowId]
-}
-
-function criticalSubtotals(
-  subtotals: { expr: string; type: string }[],
-  extras: { expr: string; type: string }[],
-): { expr: string; type: string }[] {
-  const byType = new Map<string, string[]>()
-  for (const subtotal of subtotals) {
-    byType.set(subtotal.type, [...(byType.get(subtotal.type) ?? []), critDiceExpr(subtotal.expr)])
-  }
-  for (const extra of extras) {
-    byType.set(extra.type, [...(byType.get(extra.type) ?? []), extra.expr])
-  }
-  return Array.from(byType.entries()).map(([type, parts]) => ({
-    type,
-    expr: combineDiceExpr(parts.join('+')),
-  }))
-}
-
-const GEAR_SLOTS: (keyof Equipment)[] = [
-  'armorId', 'shieldId',
-  'helmetId', 'necklaceId', 'capeId', 'legsId',
-  'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
-]
-
-function buildAttackRows(
-  char: Character,
-  w: Weapon,
-  opts?: { offHand?: boolean; hasTWF?: boolean; smiteSlotLevel?: number | null },
-): AttackRow[] {
-  const strMod = mod(effectiveAbilityScore(char, 'str'))
-  const dexMod = mod(effectiveAbilityScore(char, 'dex'))
-  const props = (w.properties ?? []).map(p => p.toLowerCase())
-  const isFinesse = props.includes('finesse')
-  const isTwoHanded = props.includes('two-handed')
-  const isMelee = w.rangeType !== 'Ranged'
-  const rawDmgMod = isFinesse ? Math.max(strMod, dexMod) : isMelee ? strMod : dexMod
-  const dmgMod = opts?.offHand ? (opts.hasTWF ? rawDmgMod : Math.min(0, rawDmgMod)) : rawDmgMod
-  const enchBonus = w.enchantmentBonus ?? 0
-  const duelingBonus = char.fightingStyle === 'dueling' && isMelee && !isTwoHanded && !opts?.offHand ? 2 : 0
-  const totalDmgMod = dmgMod + enchBonus + duelingBonus
-  const versatileProp = props.find(p => p.startsWith('versatile ('))
-  const versatileDie = versatileProp?.match(/versatile \((\d+d\d+)\)/)?.[1]
-  const canTwoHand = !char.weapons[1] && !char.equipment.shieldId
-
-  // Normal row always uses 1H damage
-  const diceParts = [
-    w.damage && w.damage !== '—' ? w.damage : null,
-    w.bonusDamageDie ?? null,
-  ].filter(Boolean).join('+')
-  const dmgDice   = diceParts ? combineDiceExpr(diceParts) : '—'
-  const flatBonus = totalDmgMod !== 0 ? totalDmgMod : null
-
-  const rows: AttackRow[] = [{
-    id: 'normal',
-    name: 'Normal',
-    toHit:        computeAttackBonus(char, w),
-    dmg:          dmgDice,
-    dmgType:      w.damageType ?? null,
-    bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
-    bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
-  }]
-
-  // Thrown row — for melee weapons with the Thrown property
-  const thrownPropStr = w.properties?.find(p => p.toLowerCase().includes('thrown'))
-  const throwRange = thrownPropStr?.match(/range (\d+\/\d+)/i)?.[1] ?? '?'
-  if (thrownPropStr && w.rangeType !== 'Ranged' && !opts?.offHand) {
-    rows.push({
-      id: 'thrown',
-      name: 'Normal',
-      toHit:        computeAttackBonus(char, w, { forceRanged: true }),
-      dmg:          dmgDice,
-      dmgType:      w.damageType ?? null,
-      bonusDmg:     flatBonus !== null ? String(flatBonus) : null,
-      bonusDmgType: flatBonus !== null ? (w.damageType ?? null) : null,
-      group:        'ranged',
-    })
-  }
-
-  // Versatile row — 2H grip option; disabled when off-hand is occupied
-  if (versatileDie && !opts?.offHand) {
-    const versatileDiceParts = [versatileDie, w.bonusDamageDie ?? null].filter(Boolean).join('+')
-    const versatileDmgMod = dmgMod + enchBonus  // no dueling bonus for 2H grip
-    const versatileFlatBonus = versatileDmgMod !== 0 ? versatileDmgMod : null
-    rows.push({
-      id: 'versatile',
-      name: 'Versatile',
-      toHit:        computeAttackBonus(char, w),
-      dmg:          combineDiceExpr(versatileDiceParts),
-      dmgType:      w.damageType ?? null,
-      bonusDmg:     versatileFlatBonus !== null ? String(versatileFlatBonus) : null,
-      bonusDmgType: versatileFlatBonus !== null ? (w.damageType ?? null) : null,
-      disabled:     !canTwoHand,
-    })
-  }
-
-  const SPECIAL_GROUP: Record<string, AttackRow['group']> = {
-    'Sharpshooter':    'ranged',
-    'GWM Power Attack':'melee',
-    'Divine Smite':    'melee',
-    'Reckless Attack': 'melee',
-    'Sneak Attack':    'both',
-  }
-  for (const sa of getWeaponSpecialAttacks(char, w)) {
-    let toHit: number | null = null
-    let bonusDmg: string | null = null
-    let bonusDmgType: string | null = null
-    if (sa.name === 'GWM Power Attack' || sa.name === 'Sharpshooter') {
-      toHit = -5; bonusDmg = '10'; bonusDmgType = w.damageType ?? null
-    } else if (sa.name === 'Divine Smite') {
-      const slotLevel = opts?.smiteSlotLevel ?? null
-      bonusDmg = slotLevel ? `${Math.min(2 + (slotLevel - 1), 5)}d8` : null
-      bonusDmgType = slotLevel ? 'radiant' : null
-      rows.push({
-        id: sa.name,
-        name: sa.name,
-        toHit,
-        dmg: null,
-        dmgType: null,
-        bonusDmg,
-        bonusDmgType,
-        disabled: slotLevel === null,
-        note: slotLevel
-          ? `${sa.note ?? ''} +1d8 vs fiends/undead (max 6d8).`.trim()
-          : 'No spell slots available.',
-        group: SPECIAL_GROUP[sa.name] ?? 'both',
-      })
-      continue
-    } else if (sa.dice) {
-      bonusDmg = sa.dice
-      bonusDmgType = sa.name === 'Sneak Attack' ? 'piercing'
-        : w.damageType ?? null
-    }
-    rows.push({ id: sa.name, name: sa.name, toHit, dmg: null, dmgType: null, bonusDmg, bonusDmgType, note: sa.note,
-      group: SPECIAL_GROUP[sa.name] ?? 'both' })
-  }
-
-  if (char.subclass === 'BattleMaster') {
-    const dieSize = char.level >= 10 ? '1d10' : '1d8'
-    const mId = char.activeManeuver ?? null
-    if (mId) {
-      const m = MANEUVER_BY_ID[mId]
-      if (m?.dmgType === 'weapon') {
-        rows.push({
-          id: `maneuver-${mId}`,
-          name: m.name,
-          toHit: null,
-          dmg: null,
-          dmgType: null,
-          bonusDmg: dieSize,
-          bonusDmgType: w.damageType ?? null,
-          group: 'both',
-        })
-      } else if (m?.dmgType === 'to hit') {
-        rows.push({
-          id: `maneuver-${mId}`,
-          name: m.name,
-          toHit: null,
-          toHitDice: dieSize,
-          dmg: null,
-          dmgType: null,
-          bonusDmg: null,
-          bonusDmgType: null,
-          group: 'both',
-        })
-      }
-    }
-  }
-
-  if (char.subclass === 'ArcaneArcher') {
-    const shotId = char.activeArcaneShot ?? null
-    if (shotId) {
-      const shot = ARCANE_SHOT_BY_ID[shotId]
-      if (shot) rows.push({
-        id: `arcane-${shotId}`,
-        name: shot.name,
-        toHit: null,
-        dmg: null,
-        dmgType: null,
-        bonusDmg: shot.dice,
-        bonusDmgType: shot.dmgType,
-        group: 'ranged',
-      })
-    }
-  }
-
-  // Equipment rows — one per equipped gear item that contributes to-hit and/or bonus damage
-  for (const slotKey of GEAR_SLOTS) {
-    const itemId = char.equipment[slotKey]
-    if (!itemId || typeof itemId !== 'string') continue
-    const stats = GEAR_BY_ID[itemId]?.stats
-    if (!stats) continue
-    const toHit = stats.toHitBonus ?? 0
-    let bonusDmg: string | null = null
-    let bonusDmgType: string | null = null
-    const bd = stats.bonusDamage
-    if (bd && (bd.appliesTo ?? 'all') !== (isMelee ? 'ranged' : 'melee')) {
-      const parts = [bd.dice, bd.flat ? String(bd.flat) : null].filter(Boolean).join('+')
-      if (parts) { bonusDmg = combineDiceExpr(parts); bonusDmgType = bd.dmgType }
-    }
-    if (toHit === 0 && !bonusDmg) continue
-    const toHitGroup: 'melee' | 'ranged' | 'both' =
-      toHit !== 0 ? (stats.toHitBonusAppliesTo ?? 'both') : 'both'
-    const dmgAppliesTo = stats.bonusDamage?.appliesTo ?? 'all'
-    const dmgGroup: 'melee' | 'ranged' | 'both' | null =
-      bonusDmg !== null
-        ? (dmgAppliesTo === 'melee' ? 'melee' : dmgAppliesTo === 'ranged' ? 'ranged' : 'both')
-        : null
-    const appliesMelee =
-      (toHit !== 0 && (toHitGroup === 'melee' || toHitGroup === 'both')) ||
-      (dmgGroup !== null && (dmgGroup === 'melee' || dmgGroup === 'both'))
-    const appliesRanged =
-      (toHit !== 0 && (toHitGroup === 'ranged' || toHitGroup === 'both')) ||
-      (dmgGroup !== null && (dmgGroup === 'ranged' || dmgGroup === 'both'))
-    const eGroup: AttackRow['group'] =
-      (appliesMelee && appliesRanged) ? 'both' :
-      appliesRanged ? 'ranged' : 'melee'
-    rows.push({
-      id: `equip-bonus-${slotKey}`,
-      name: GEAR_BY_ID[itemId]!.name,
-      toHit: toHit !== 0 ? toHit : null,
-      dmg: null,
-      dmgType: null,
-      bonusDmg,
-      bonusDmgType,
-      group: eGroup,
-    })
-  }
-
-  // Booming Blade: melee cantrip that adds thunder damage on hit at level 5+
-  if (isMelee && char.spellIds.includes('booming-blade') && char.level >= 5) {
-    const boomingDice = char.level >= 17 ? '3d8' : char.level >= 11 ? '2d8' : '1d8'
-    rows.push({ id: 'booming-blade', name: 'Booming Blade', toHit: null, dmg: null, dmgType: null, bonusDmg: boomingDice, bonusDmgType: 'thunder', group: 'melee' })
-  }
-
-  // Concentration attack-buff spells (e.g. Hex, Hunter's Mark, Divine Favor)
-  const concSpell = char.concentrationSpellId ? SPELL_BY_ID[char.concentrationSpellId] : null
-  if (concSpell?.attackBuff) {
-    const { toHit, toHitDice, bonusDmg, bonusDmgType } = concSpell.attackBuff
-    rows.push({
-      id: `spell-buff-${concSpell.id}`,
-      name: concSpell.name,
-      toHit: toHit ?? null,
-      toHitDice: toHitDice ?? null,
-      dmg: null, dmgType: null,
-      bonusDmg: bonusDmg ?? null,
-      bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
-      group: 'both',
-    })
-  }
-
-  for (const spellId of char.activeBuffSpells ?? []) {
-    const spell = SPELL_BY_ID[spellId]
-    const resource = spell?.turnResource
-    const state = char.buffStates?.[spellId]
-    if (resource?.kind !== 'onHitRider' || !resource.formula || !resource.damageType || state?.oneShotUsed) continue
-    rows.push({
-      id: `turn-resource-${spellId}`,
-      name: spell.name,
-      toHit: null,
-      dmg: null,
-      dmgType: null,
-      bonusDmg: resource.formula,
-      bonusDmgType: resource.damageType,
-      group: 'both',
-      note: resource.label,
-    })
-  }
-
-  // Active attack-buff spells toggled through + Buff.
-  for (const spellId of char.activeBuffSpells ?? []) {
-    const spell = SPELL_BY_ID[spellId]
-    if (!spell?.attackBuff || spellId === concSpell?.id) continue
-    const { toHit, toHitDice, bonusDmg, bonusDmgType } = spell.attackBuff
-    rows.push({
-      id: `spell-buff-${spellId}`,
-      name: spell.name,
-      toHit: toHit ?? null,
-      toHitDice: toHitDice ?? null,
-      dmg: null, dmgType: null,
-      bonusDmg: bonusDmg ?? null,
-      bonusDmgType: bonusDmgType === 'weapon' ? (w.damageType ?? null) : (bonusDmgType ?? null),
-      group: 'both',
-    })
-  }
-
-  return rows
-}
-
-function rowResource(row: AttackRow): string {
-  const id = row.id
-  if (id === 'normal' || id === 'versatile' || id === 'Reckless Attack') return '—'
-  if (id === 'Sneak Attack') return '1/turn'
-  if (id === 'Divine Smite') return 'Spell Slot'
-  if (id === 'GWM Power Attack' || id === 'Sharpshooter') return '—'
-  if (id === "Hunter's Mark") return 'Concentration'
-  if (id.startsWith('maneuver-')) return 'Sup. Die'
-  if (id.startsWith('arcane-')) return 'Arcane Shot'
-  if (id.startsWith('equip-bonus-')) return 'Equipment'
-  if (id === 'booming-blade') return 'Cantrip'
-  if (id.startsWith('spell-buff-')) {
-    const spell = SPELL_BY_ID[id.replace('spell-buff-', '')]
-    return spell?.concentration ? 'Concentration' : 'Active Buff'
-  }
-  if (id.startsWith('turn-resource-')) return 'One-shot'
-  return '—'
-}
 
 interface Props {
   character: Character
@@ -437,7 +65,7 @@ const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th
 
 function BoomingBladeTurnToggle({ charId }: { charId: string }) {
   const ts = useAppStore(s => s.turnStates[charId])
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
   const registerEndOfTurnSpell = useAppStore(s => s.registerEndOfTurnSpell)
   const unregisterEndOfTurnSpell = useAppStore(s => s.unregisterEndOfTurnSpell)
@@ -452,7 +80,7 @@ function BoomingBladeTurnToggle({ charId }: { charId: string }) {
           recoverEconomy(charId, consumption.slot)
         } else {
           registerEndOfTurnSpell(charId, 'booming-blade')
-          useEconomy(charId, consumption.slot)
+          spendEconomy(charId, consumption.slot)
         }
       }}
       title={armed ? 'Uncast Booming Blade and refund action' : 'Cast Booming Blade'}
@@ -508,7 +136,6 @@ function DivineStrikeTurnToggle({ charId, subclass, level }: { charId: string; s
 
 export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature, onSummon, onConcentrationBroken }: Props) {
   const [customWeapon, setCustomWeapon] = useState({ name: '', atkBonus: '0', damage: '', damageType: '' })
-  const [arcanePickedLevels, setArcanePickedLevels] = useState<number[]>([])
   const [spellDetailId, setSpellDetailId] = useState<string | null>(null)
   const [pendingStyle, setPendingStyle] = useState<string | null>(null)
   const [pendingSubclass, setPendingSubclass] = useState<string | null>(null)
@@ -521,10 +148,10 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
   const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
   const turnState = useAppStore(s => s.turnStates[char.id])
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
-  const useAttack = useAppStore(s => s.useAttack)
-  const recoverAttack = useAppStore(s => s.recoverAttack)
+  const spendTurnAttack = useAppStore(s => s.spendAttack)
+  const recoverTurnAttack = useAppStore(s => s.recoverAttack)
   const markActionUsed = useAppStore(s => s.markActionUsed)
   const unmarkActionUsed = useAppStore(s => s.unmarkActionUsed)
   const setAttacked = useAppStore(s => s.setAttacked)
@@ -653,7 +280,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       const before = Math.ceil(attacksUsed / perAction)
       const after = Math.ceil((attacksUsed + 1) / perAction)
       if (after > before) {
-        useEconomy(char.id, 'action')
+        spendEconomy(char.id, 'action')
         setAttacked(char.id, true)
       }
     } else {
@@ -661,7 +288,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     }
     adjustAttackConsumption(rows, 'spend')
     consumeOneShotRows(rows)
-    useAttack(char.id)
+    spendTurnAttack(char.id)
   }
 
   function recoverSpentAttack(rows: AttackRow[] = []) {
@@ -677,7 +304,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       setAttacked(char.id, false)
     }
     adjustAttackConsumption(rows, 'recover')
-    recoverAttack(char.id)
+    recoverTurnAttack(char.id)
   }
 
   function renderAttackControls(rows: AttackRow[] = [], extra?: ReactNode) {
@@ -808,7 +435,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             unmarkActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, false)
           } else {
-            useEconomy(char.id, economy)
+            spendEconomy(char.id, economy)
             markActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, true)
           }
@@ -838,1324 +465,18 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   const DAMAGE_PATTERN = /^\d+d\d+([+-]\d+)?$|^\d+$|^—$/
 
-  // ── Arcane Recovery (shared between action + feature) ────────────────────
-  const maxArcaneRecovery = Math.ceil(char.level / 2)
-  const totalArcanePickedLevels = arcanePickedLevels.reduce((s, l) => s + l, 0)
-  const arcaneRes = char.resources['Arcane Recovery']
-  const arcaneAlreadyUsed = arcaneRes ? arcaneRes.used >= arcaneRes.total : false
-  const arcaneRecoverableSlots = (Object.entries(char.spellSlots) as [string, { used: number; total: number }][])
-    .filter(([lvl, slot]) => Number(lvl) <= 5 && slot.used > 0)
-    .sort(([a], [b]) => Number(a) - Number(b))
+  // Arcane Recovery lives in ArcaneRecoveryDetail (shared with the feature path).
 
-  function toggleArcaneSlot(level: number, isPicked: boolean) {
-    if (isPicked) {
-      const idx = arcanePickedLevels.lastIndexOf(level)
-      setArcanePickedLevels(arcanePickedLevels.filter((_, i) => i !== idx))
-    } else if (totalArcanePickedLevels + level <= maxArcaneRecovery) {
-      setArcanePickedLevels([...arcanePickedLevels, level])
-    }
-  }
-
-  function applyArcaneRecovery() {
-    const newSlots = { ...char.spellSlots }
-    const levelCounts: Record<number, number> = {}
-    for (const l of arcanePickedLevels) levelCounts[l] = (levelCounts[l] ?? 0) + 1
-    for (const [lvl, count] of Object.entries(levelCounts)) {
-      const slot = newSlots[Number(lvl)]
-      if (slot) newSlots[Number(lvl)] = { ...slot, used: Math.max(0, slot.used - count) }
-    }
-    const newResources = { ...char.resources }
-    if (newResources['Arcane Recovery']) {
-      newResources['Arcane Recovery'] = { ...newResources['Arcane Recovery'], used: newResources['Arcane Recovery'].used + 1 }
-    }
-    update({ spellSlots: newSlots, resources: newResources })
-    setArcanePickedLevels([])
-  }
-
-  function renderArcaneRecovery(desc: string) {
-    return (
-      <>
-        <ResourcesPanel character={char} update={update} />
-        <div className={styles.detailPane}>
-          <div className={styles.detailHeader}>
-            <span className={styles.detailName}>Arcane Recovery</span>
-            <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
-            {renderActionUseButton()}
-          </div>
-          <p className={styles.detailFull}>{desc}</p>
-          {arcaneAlreadyUsed ? (
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              Already used today — recovers on long rest.
-            </p>
-          ) : (
-            <>
-              <div className={styles.detailResource}>
-                Recover slots: {totalArcanePickedLevels}/{maxArcaneRecovery} combined levels
-              </div>
-              {arcaneRecoverableSlots.length === 0 ? (
-                <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>No expended slots of 5th level or lower.</p>
-              ) : (
-                <div className={styles.arcaneSlotGrid}>
-                  {arcaneRecoverableSlots.map(([lvl, slot]) => {
-                    const level = Number(lvl)
-                    const alreadyPickedCount = arcanePickedLevels.filter(l => l === level).length
-                    return Array.from({ length: slot.used }).map((_, i) => {
-                      const isPicked = i < alreadyPickedCount
-                      const wouldExceed = !isPicked && totalArcanePickedLevels + level > maxArcaneRecovery
-                      return (
-                        <button
-                          key={`${lvl}-${i}`}
-                          className={`${styles.arcaneSlotBtn} ${isPicked ? styles.arcaneSlotBtnPicked : ''}`}
-                          disabled={wouldExceed}
-                          onClick={() => toggleArcaneSlot(level, isPicked)}
-                        >
-                          {ORDINAL[level] ?? `${level}th`}
-                        </button>
-                      )
-                    })
-                  })}
-                </div>
-              )}
-              <button
-                className={styles.armoryAddBtn}
-                disabled={arcanePickedLevels.length === 0}
-                onClick={applyArcaneRecovery}
-                style={{ marginTop: 8 }}
-              >
-                Recover Slots
-              </button>
-            </>
-          )}
-        </div>
-      </>
-    )
-  }
-
-  // FEATURE SELECTED — show feature detail in right panel
+  // FEATURE SELECTED — rich feature details (extracted component)
   if (selectedFeature && !selectedAction) {
-    const isAsi = selectedFeature.name === 'ASI'
-    const isSpellbook = selectedFeature.name === 'Spellbook'
-    const isFightingStyle = selectedFeature.name === 'Fighting Style'
-    const asiChoiceLabel = isAsi ? char.completedAsiChoices?.[selectedFeature.level] : undefined
-    const asiDone = isAsi ? (char.completedAsiLevels ?? []).includes(selectedFeature.level) : false
-
-    if (isFightingStyle) {
-      const classDef = CLASS_BY_ID[char.classId]
-      const hasPendingAsi = (classDef?.asiLevels ?? []).includes(char.level) &&
-        !(char.completedAsiLevels ?? []).includes(char.level)
-      const isLocked = (char.fightingStyleLocked ?? false) && !hasPendingAsi
-      const chosen = char.fightingStyle ? FIGHTING_STYLE_BY_ID[char.fightingStyle] : null
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Fighting Style</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            {isLocked ? (
-              <>
-                {chosen && (
-                  <>
-                    <p className={styles.detailFull}><strong>{chosen.name}</strong></p>
-                    <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{chosen.description}</p>
-                  </>
-                )}
-                <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
-                  Style locked — can retrain at next ASI level.
-                </p>
-              </>
-            ) : (
-              <>
-                {hasPendingAsi && chosen && (
-                  <p className={styles.detailFull} style={{ color: 'var(--accent)', fontSize: 11, marginBottom: 6 }}>
-                    Retraining available at this level.
-                  </p>
-                )}
-                {!chosen && !pendingStyle && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your fighting style:</p>
-                )}
-                <div className={styles.fightingStyleList}>
-                  {FIGHTING_STYLES.map(s => (
-                    <button
-                      key={s.id}
-                      className={`${styles.fightingStyleOption} ${(pendingStyle ?? char.fightingStyle) === s.id ? styles.fightingStyleOptionActive : ''}`}
-                      onClick={() => setPendingStyle(s.id)}
-                    >
-                      <span className={styles.fightingStyleName}>{s.name}</span>
-                      <span className={styles.fightingStyleDesc}>{s.description}</span>
-                    </button>
-                  ))}
-                </div>
-                {(pendingStyle || char.fightingStyle) && (
-                  <button
-                    className={styles.armoryAddBtn}
-                    style={{ marginTop: 8 }}
-                    onClick={() => {
-                      update({ fightingStyle: pendingStyle ?? char.fightingStyle ?? undefined, fightingStyleLocked: true })
-                      setPendingStyle(null)
-                    }}
-                  >
-                    Confirm Style
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    if (isSpellbook) {
-      return (
-        <>
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>{selectedFeature.name}</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-          </div>
-          <div className={styles.spellsWrapper}>
-            <SpellsPanel
-              character={char}
-              update={update}
-              onLearnSpell={(id) => update({ spellIds: [...new Set([...char.spellIds, id])] })}
-              onSummon={onSummon}
-              onConcentrationBroken={onConcentrationBroken}
-            />
-          </div>
-        </>
-      )
-    }
-
-    if (isAsi && asiChoiceLabel) {
-      const isFeat = asiChoiceLabel.startsWith('Feat: ')
-      if (isFeat) {
-        const raw = asiChoiceLabel.slice(6)
-        const featName = raw.replace(/\s*\([^)]*\)$/, '')
-        const abilitySuffix = raw.match(/\(([^)]+)\)$/)?.[1] ?? null
-        const featDef = FEATS.find(f => f.name === featName)
-        return (
-          <>
-            <ResourcesPanel character={char} update={update} />
-            <div className={styles.detailPane}>
-              <div className={styles.detailHeader}>
-                <span className={styles.detailName}>{selectedFeature.name}</span>
-                <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-                {renderActionUseButton()}
-              </div>
-              <p className={styles.detailFull}>
-                <strong>Feat — {featName}</strong>{abilitySuffix ? ` · ${abilitySuffix}` : ''}
-              </p>
-              {featDef && <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{featDef.description}</p>}
-            </div>
-          </>
-        )
-      }
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>{selectedFeature.name}</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}><strong>{asiChoiceLabel}</strong></p>
-          </div>
-        </>
-      )
-    }
-
-    const isSpellMastery = selectedFeature.name === 'Spell Mastery'
-    if (isSpellMastery) {
-      const level1Spells = char.spellIds.filter(id => SPELL_BY_ID[id]?.level === 1)
-      const level2Spells = char.spellIds.filter(id => SPELL_BY_ID[id]?.level === 2)
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Spell Mastery</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-            <div className={styles.masterySlotPicker}>
-              <span className={styles.masterySpellLabel}>1st-level mastered spell</span>
-              <div className={styles.masterySpellGrid}>
-                {level1Spells.map(id => (
-                  <button
-                    key={id}
-                    className={`${styles.masterySpellChip} ${char.masterySpells?.level1 === id ? styles.masterySpellChipActive : ''}`}
-                    onClick={() => update({ masterySpells: { ...char.masterySpells, level1: id } })}
-                  >
-                    {SPELL_BY_ID[id]?.name ?? id}
-                  </button>
-                ))}
-                {level1Spells.length === 0 && <span className={styles.masterySpellEmpty}>No 1st-level spells in spellbook.</span>}
-              </div>
-              <span className={styles.masterySpellLabel}>2nd-level mastered spell</span>
-              <div className={styles.masterySpellGrid}>
-                {level2Spells.map(id => (
-                  <button
-                    key={id}
-                    className={`${styles.masterySpellChip} ${char.masterySpells?.level2 === id ? styles.masterySpellChipActive : ''}`}
-                    onClick={() => update({ masterySpells: { ...char.masterySpells, level2: id } })}
-                  >
-                    {SPELL_BY_ID[id]?.name ?? id}
-                  </button>
-                ))}
-                {level2Spells.length === 0 && <span className={styles.masterySpellEmpty}>No 2nd-level spells in spellbook.</span>}
-              </div>
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    // ── Generic subclass picker (Arcane Tradition, Otherworldly Patron, Divine Domain, etc.) ──
-    const isSubclassPicker = SUBCLASS_FEATURE_NAMES.has(selectedFeature.name)
-    if (isSubclassPicker) {
-      const candidates = SUBCLASSES.filter(s => s.classId === char.classId)
-      const chosen = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
-      const isLocked = char.subclassLocked ?? false
-      const featureName = selectedFeature.name
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>{featureName}</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            {isLocked ? (
-              <>
-                {chosen && (
-                  <>
-                    <p className={styles.detailFull}><strong>{chosen.label}</strong></p>
-                    {chosen.description && <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{chosen.description}</p>}
-                  </>
-                )}
-                <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
-                  Subclass locked — this choice is permanent.
-                </p>
-              </>
-            ) : (
-              <>
-                {!chosen && !pendingSubclass && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your {featureName.toLowerCase()}:</p>
-                )}
-                <div className={styles.fightingStyleList}>
-                  {candidates.map(s => (
-                    <button
-                      key={s.id}
-                      className={`${styles.fightingStyleOption} ${(pendingSubclass ?? char.subclass) === s.id ? styles.fightingStyleOptionActive : ''}`}
-                      onClick={() => setPendingSubclass(s.id)}
-                    >
-                      <span className={styles.fightingStyleName}>{s.label}</span>
-                      {s.description && <span className={styles.fightingStyleDesc}>{s.description}</span>}
-                    </button>
-                  ))}
-                </div>
-                {(pendingSubclass || char.subclass) && (
-                  <button
-                    className={styles.armoryAddBtn}
-                    style={{ marginTop: 8 }}
-                    onClick={() => {
-                      update({ subclass: pendingSubclass ?? char.subclass ?? undefined, subclassLocked: true })
-                      setPendingSubclass(null)
-                    }}
-                  >
-                    Confirm {featureName}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    // ── Eldritch Invocations ──────────────────────────────────────────
-    const isEldritchInvocations = selectedFeature.name === 'Eldritch Invocations'
-    if (isEldritchInvocations) {
-      const known = char.warlockInvocations ?? []
-      const maxKnown = maxInvocations(char.level)
-      const eligible = INVOCATIONS.filter(inv =>
-        (inv.prerequisiteLevel ?? 2) <= char.level &&
-        (!inv.prerequisite || inv.prerequisite === 'Pact of the Blade' ? char.pactBoon === 'blade' :
-          inv.prerequisite === 'Pact of the Tome' ? char.pactBoon === 'tome' : true)
-      )
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Eldritch Invocations</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>{known.length} / {maxKnown} invocations known</div>
-            <div className={styles.fightingStyleList}>
-              {INVOCATIONS.map(inv => {
-                const isKnown = known.includes(inv.id)
-                const levelOk = (inv.prerequisiteLevel ?? 2) <= char.level
-                const prereqOk = !inv.prerequisite ||
-                  (inv.prerequisite === 'Pact of the Blade' && char.pactBoon === 'blade') ||
-                  (inv.prerequisite === 'Pact of the Tome' && char.pactBoon === 'tome')
-                const canAdd = !isKnown && known.length < maxKnown && levelOk && prereqOk
-                const isDisabled = !isKnown && !canAdd
-                return (
-                  <button
-                    key={inv.id}
-                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
-                    style={isDisabled ? { opacity: 0.4 } : undefined}
-                    disabled={isDisabled && !isKnown}
-                    onClick={() => {
-                      if (!levelOk || !prereqOk) return
-                      const updated = isKnown
-                        ? known.filter(id => id !== inv.id)
-                        : known.length < maxKnown ? [...known, inv.id] : known
-                      update({ warlockInvocations: updated })
-                    }}
-                  >
-                    <span className={styles.fightingStyleName}>
-                      {inv.name}
-                      {inv.prerequisite && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {inv.prerequisite}</span>}
-                      {(inv.prerequisiteLevel ?? 2) > 2 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · Level {inv.prerequisiteLevel}+</span>}
-                    </span>
-                    <span className={styles.fightingStyleDesc}>{inv.description}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    // ── Artificer Infusions ───────────────────────────────────────────
-    const isInfuseItem = selectedFeature.name === 'Infuse Item'
-    if (isInfuseItem) {
-      const known = char.artificerInfusions ?? []
-      const active = char.activeArtificerInfusions ?? []
-      const maxKnown = maxInfusionsKnown(char.level)
-      const maxActive = maxInfusionsActive(char.level)
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Infuse Item</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>
-              {known.length} / {maxKnown} infusions known · {active.length} / {maxActive} active
-            </div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-            <div className={styles.fightingStyleList}>
-              {INFUSIONS.map(inf => {
-                const isKnown = known.includes(inf.id)
-                const isActive = active.includes(inf.id)
-                const levelOk = (inf.prerequisiteLevel ?? 2) <= char.level
-                const canLearn = !isKnown && known.length < maxKnown && levelOk
-                const canActivate = isKnown && !isActive && active.length < maxActive
-                return (
-                  <div
-                    key={inf.id}
-                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
-                    style={!isKnown && !levelOk ? { opacity: 0.4 } : undefined}
-                  >
-                    <span className={styles.fightingStyleName}>
-                      {inf.name}
-                      {inf.appliesTo && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {inf.appliesTo}</span>}
-                      {(inf.prerequisiteLevel ?? 2) > 2 && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · Level {inf.prerequisiteLevel}+</span>}
-                    </span>
-                    <span className={styles.fightingStyleDesc}>{inf.description}</span>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      <button
-                        className={styles.detailChipBtn}
-                        disabled={!isKnown && !canLearn}
-                        onClick={() => {
-                          if (isKnown) {
-                            update({
-                              artificerInfusions: known.filter(id => id !== inf.id),
-                              activeArtificerInfusions: active.filter(id => id !== inf.id),
-                            })
-                          } else if (canLearn) {
-                            update({ artificerInfusions: [...known, inf.id] })
-                          }
-                        }}
-                      >
-                        {isKnown ? '− Forget' : '+ Learn'}
-                      </button>
-                      {isKnown && (
-                        <button
-                          className={styles.detailChipBtn}
-                          disabled={!isActive && !canActivate}
-                          onClick={() => {
-                            update({
-                              activeArtificerInfusions: isActive
-                                ? active.filter(id => id !== inf.id)
-                                : [...active, inf.id],
-                            })
-                          }}
-                        >
-                          {isActive ? '◉ Active' : '○ Activate'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    // ── Pact Boon ─────────────────────────────────────────────────────
-    const isRuneCarver = selectedFeature.name === 'Rune Carver' && char.subclass === 'RuneKnight'
-    if (isRuneCarver) {
-      const known = char.knownRunes ?? []
-      const active = char.activeRunes ?? []
-      const maxKnown = char.level >= 15 ? 5 : char.level >= 10 ? 4 : char.level >= 7 ? 3 : 2
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Rune Carver</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>
-              {known.length} / {maxKnown} runes known · {active.length} active
-            </div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-            <div className={styles.fightingStyleList}>
-              {runes.map(rune => {
-                const isKnown = known.includes(rune.id)
-                const isActive = active.includes(rune.id)
-                const resourceKey = `Rune:${rune.id}`
-                const resource = char.resources[resourceKey] ?? { used: 0, total: 1 }
-                const canLearn = !isKnown && known.length < maxKnown
-                const canActivate = isKnown && resource.used < resource.total
-                return (
-                  <div
-                    key={rune.id}
-                    className={`${styles.fightingStyleOption} ${isKnown ? styles.fightingStyleOptionActive : ''}`}
-                  >
-                    <span className={styles.fightingStyleName}>
-                      {rune.name}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {rune.activationType}</span>
-                    </span>
-                    <span className={styles.fightingStyleDesc}>Passive: {rune.passiveBonus}</span>
-                    <span className={styles.fightingStyleDesc}>Activate: {rune.activatedEffect}</span>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                      <button
-                        className={styles.detailChipBtn}
-                        disabled={!isKnown && !canLearn}
-                        onClick={() => {
-                          const resources = { ...char.resources }
-                          if (isKnown) {
-                            delete resources[resourceKey]
-                            update({
-                              knownRunes: known.filter(id => id !== rune.id),
-                              activeRunes: active.filter(id => id !== rune.id),
-                              resources,
-                            })
-                          } else if (canLearn) {
-                            resources[resourceKey] = resources[resourceKey] ?? { used: 0, total: 1 }
-                            update({ knownRunes: [...known, rune.id], resources })
-                          }
-                        }}
-                      >
-                        {isKnown ? '− Forget' : '+ Learn'}
-                      </button>
-                      {isKnown && (
-                        <button
-                          className={styles.detailChipBtn}
-                          disabled={!isActive && !canActivate}
-                          onClick={() => {
-                            if (isActive) {
-                              update({ activeRunes: active.filter(id => id !== rune.id) })
-                              return
-                            }
-                            if (!canActivate) return
-                            update({
-                              activeRunes: [...active, rune.id],
-                              resources: {
-                                ...char.resources,
-                                [resourceKey]: { total: resource.total, used: Math.min(resource.total, resource.used + 1) },
-                              },
-                            })
-                          }}
-                        >
-                          {isActive ? '◉ Active' : resource.used >= resource.total ? 'Used' : '○ Activate'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    const isPactBoon = selectedFeature.name === 'Pact Boon'
-    if (isPactBoon) {
-      const PACT_OPTIONS = [
-        { id: 'blade', name: 'Pact of the Blade', description: 'Use your action to create a pact weapon in your empty hand. You can choose its form. It counts as magical and you are proficient with it. Disappears if it is more than 5 ft from you for 1 minute.' },
-        { id: 'chain', name: 'Pact of the Chain', description: 'Learn Find Familiar. Your familiar can take one of the following forms: imp, pseudodragon, quasit, or sprite. It can attack as a reaction while you cast a spell.' },
-        { id: 'tome', name: 'Pact of the Tome', description: 'Your patron gives you a grimoire called a Book of Shadows. It contains 3 cantrips of your choice from any class. These count as warlock spells for you.' },
-      ]
-      const isLocked = char.pactBoonLocked ?? false
-      const chosen = char.pactBoon ? PACT_OPTIONS.find(p => p.id === char.pactBoon) : null
-
-      // Pact of the Blade: add weapon on confirm
-      const handleConfirmBlade = () => {
-        const PACT_WEAPON: Weapon = {
-          id: 'pact-weapon',
-          name: 'Pact Weapon',
-          atkBonus: 0,
-          damage: '1d8',
-          damageType: 'slashing',
-          rangeType: 'Melee',
-          properties: ['versatile (1d10)'],
-        }
-        update({
-          pactBoon: 'blade',
-          pactBoonLocked: true,
-          weapons: [...char.weapons, PACT_WEAPON],
-          hexWarriorWeaponId: 'pact-weapon',
-        })
-        setPendingBoon(null)
-      }
-
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Pact Boon</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            {isLocked ? (
-              <>
-                {chosen && (
-                  <>
-                    <p className={styles.detailFull}><strong>{chosen.name}</strong></p>
-                    <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>{chosen.description}</p>
-                  </>
-                )}
-                {chosen?.id === 'blade' && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
-                    Your Pact Weapon appears in your weapons list and uses CHA for attacks/damage (Hex Warrior).
-                  </p>
-                )}
-                {chosen?.id === 'tome' && char.tomeCantrips && char.tomeCantrips.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Cantrips Known:</p>
-                    {char.tomeCantrips.map(cid => {
-                      const spell = SPELL_BY_ID[cid]
-                      return <p key={cid} className={styles.detailFull} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{spell?.name || cid}</p>
-                    })}
-                  </div>
-                )}
-                {chosen?.id === 'chain' && char.chainFamiliarType && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
-                    Familiar: <strong>{char.chainFamiliarType}</strong>
-                  </p>
-                )}
-                <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
-                  Pact Boon locked — this choice is permanent.
-                </p>
-              </>
-            ) : (
-              <>
-                {!chosen && !pendingBoon && (
-                  <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>Choose your Pact Boon:</p>
-                )}
-                <div className={styles.fightingStyleList}>
-                  {PACT_OPTIONS.map(p => (
-                    <button
-                      key={p.id}
-                      className={`${styles.fightingStyleOption} ${(pendingBoon ?? char.pactBoon) === p.id ? styles.fightingStyleOptionActive : ''}`}
-                      onClick={() => setPendingBoon(p.id)}
-                    >
-                      <span className={styles.fightingStyleName}>{p.name}</span>
-                      <span className={styles.fightingStyleDesc}>{p.description}</span>
-                    </button>
-                  ))}
-                </div>
-                {(pendingBoon || char.pactBoon) && (
-                  <button
-                    className={styles.armoryAddBtn}
-                    style={{ marginTop: 8 }}
-                    onClick={() => {
-                      const boonId = pendingBoon ?? char.pactBoon
-                      if (boonId === 'blade') {
-                        handleConfirmBlade()
-                      } else if (boonId === 'tome') {
-                        update({ pactBoon: 'tome', pactBoonLocked: true, tomeCantrips: [] })
-                        setPendingBoon(null)
-                      } else if (boonId === 'chain') {
-                        update({ pactBoon: 'chain', pactBoonLocked: true })
-                        setPendingBoon(null)
-                      }
-                    }}
-                  >
-                    Confirm Pact Boon
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    // ── Channel Divinity ──────────────────────────────────────────────
-    const isChannelDivinity = selectedFeature.name === 'Channel Divinity (1/rest)'
-    if (isChannelDivinity) {
-      const domainAbility = char.subclass ? SUBCLASS_BY_ID[char.subclass]?.channelDivinityDesc : null
-      const cdRes = char.resources['Channel Divinity']
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Channel Divinity</span>
-              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Short Rest</span>
-              {renderActionUseButton()}
-            </div>
-            {cdRes && (
-              <div className={styles.detailResource}>
-                {cdRes.total - cdRes.used} / {cdRes.total} uses remaining
-              </div>
-            )}
-            {domainAbility && (
-              <>
-                <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 4 }}>Domain Ability</p>
-                <p className={styles.detailFull}>{domainAbility}</p>
-              </>
-            )}
-            <p className={styles.detailFull} style={{ fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Turn Undead</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
-              Each undead that can see or hear you within 30 ft must make a WIS save (DC 8 + Prof + WIS). On a failed save, the creature is turned for 1 minute.
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Rage ──────────────────────────────────────────────────────────
-    const isWildMagicSurge = selectedFeature.name === 'Wild Magic Surge' && char.subclass === 'WildMagicSorcerer'
-    if (isWildMagicSurge) {
-      const result = wildMagicRoll
-        ? WILD_MAGIC_SURGE_TABLE.find(row => row.min <= wildMagicRoll && wildMagicRoll <= row.max)
-        : null
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Wild Magic Surge</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>d100</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-            <button
-              className={styles.armoryAddBtn}
-              style={{ marginTop: 8 }}
-              onClick={() => setWildMagicRoll(Math.floor(Math.random() * 100) + 1)}
-            >
-              Roll d100
-            </button>
-            {result && (
-              <div className={styles.detailResource} style={{ marginTop: 10 }}>
-                Roll {wildMagicRoll}: {result.effect}
-              </div>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    const isTidesOfChaos = selectedFeature.name === 'Tides of Chaos' && char.subclass === 'WildMagicSorcerer'
-    if (isTidesOfChaos) {
-      const res = char.resources['Tides of Chaos'] ?? { used: 0, total: 1 }
-      const remaining = Math.max(0, res.total - res.used)
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Tides of Chaos</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Long Rest</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>{remaining} / {res.total} uses remaining</div>
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-            <button
-              className={styles.armoryAddBtn}
-              style={{ marginTop: 8 }}
-              disabled={remaining <= 0}
-              onClick={() => update({
-                resources: {
-                  ...char.resources,
-                  'Tides of Chaos': { total: res.total, used: Math.min(res.total, res.used + 1) },
-                },
-              })}
-            >
-              Use Tides of Chaos
-            </button>
-          </div>
-        </>
-      )
-    }
-
-    const isPsionicPower = selectedFeature.name === 'Psionic Power' && char.subclass === 'PsiWarrior'
-    if (isPsionicPower) {
-      const res = char.resources['Psionic Energy']
-      const total = res?.total ?? char.proficiencyBonus * 2
-      const used = res?.used ?? 0
-      const remaining = Math.max(0, total - used)
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Psionic Power</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Subclass</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>{remaining} / {total} Psionic Energy dice remaining</div>
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>{selectedFeature.desc}</p>
-            <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
-              {psiWarriorAbilities.map(ability => {
-                const locked = char.level < ability.unlockLevel
-                const canSpend = ability.diceCost > 0 && !locked && remaining >= ability.diceCost
-                return (
-                  <div key={ability.id} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                      <strong style={{ fontSize: 12 }}>{ability.name}</strong>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        L{ability.unlockLevel} · {ability.diceCost === 0 ? 'No cost' : `${ability.diceCost} die`}
-                      </span>
-                    </div>
-                    <p className={styles.detailFull} style={{ marginTop: 4, color: locked ? 'var(--text-muted)' : undefined }}>
-                      {ability.description}
-                    </p>
-                    {ability.diceCost > 0 && (
-                      <button
-                        className={styles.armoryAddBtn}
-                        style={{ marginTop: 6 }}
-                        disabled={!canSpend}
-                        onClick={() => {
-                          if (!canSpend) return
-                          update({
-                            resources: {
-                              ...char.resources,
-                              'Psionic Energy': { total, used: Math.min(total, used + ability.diceCost) },
-                            },
-                          })
-                        }}
-                      >
-                        Spend Psionic Energy
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    const isRage = selectedFeature.name === 'Rage'
-    if (isRage) {
-      const rageRes = char.resources['Rage']
-      const canRage = rageRes ? rageRes.used < rageRes.total : false
-      const wildSurgeResult = barbarianWildSurgeRoll
-        ? wildSurgeTable.find(row => row.roll === barbarianWildSurgeRoll)
-        : null
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Rage</span>
-              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
-              {renderActionUseButton()}
-            </div>
-            {char.subclass === 'WildMagicBarbarian' && (
-              <div style={{ marginTop: 8 }}>
-                <button
-                  className={styles.detailChipBtn}
-                  onClick={() => setBarbarianWildSurgeRoll(Math.floor(Math.random() * 8) + 1)}
-                >
-                  Wild Surge (roll d8)
-                </button>
-                {wildSurgeResult && (
-                  <div className={styles.detailResource} style={{ marginTop: 8 }}>
-                    Roll {wildSurgeResult.roll}: {wildSurgeResult.name} - {wildSurgeResult.description}
-                  </div>
-                )}
-              </div>
-            )}
-            {char.isRaging ? (
-              <div className={styles.detailResource} style={{ color: 'var(--danger, #ef4444)' }}>Currently Raging</div>
-            ) : (
-              rageRes && <div className={styles.detailResource}>{rageRes.total - rageRes.used} / {rageRes.total} rages remaining</div>
-            )}
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>While raging:</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +2 damage on STR-based weapon attacks</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on STR checks and STR saving throws</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Resistance to bludgeoning, piercing, and slashing damage</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Rage ends if you don't attack or take damage since your last turn, or you fall unconscious.</p>
-            {char.isRaging ? (
-              <button
-                className={styles.armoryAddBtn}
-                style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
-                onClick={() => update({ isRaging: false })}
-              >
-                End Rage
-              </button>
-            ) : (
-              <button
-                className={styles.armoryAddBtn}
-                style={{ marginTop: 8 }}
-                disabled={!canRage}
-                onClick={() => {
-                  if (!canRage) return
-                  const newResources = { ...char.resources }
-                  if (newResources['Rage']) newResources['Rage'] = { ...newResources['Rage'], used: newResources['Rage'].used + 1 }
-                  if (char.subclass === 'WildMagicBarbarian') setBarbarianWildSurgeRoll(Math.floor(Math.random() * 8) + 1)
-                  update({ isRaging: true, resources: newResources })
-                }}
-              >
-                Begin Raging
-              </button>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    // ── Bladesong ─────────────────────────────────────────────────────
-    const isBladesongFeature = selectedFeature.name === 'Bladesong'
-    if (isBladesongFeature) {
-      const bsRes = char.resources['Bladesong']
-      const total = 2
-      const used = bsRes?.used ?? 0
-      const canActivate = used < total
-      const hasShield = !!(char.equipment.shieldId || char.equipment.hasShield)
-      const hasTwoHanded = char.weapons.some(w => w.twoHanded)
-      const armorId = char.equipment.armorId
-      const armorDef = armorId ? GEAR_BY_ID[armorId] : null
-      const isMedHeavy = armorDef?.type === 'medium' || armorDef?.type === 'heavy'
-      const blocked = hasShield || hasTwoHanded || isMedHeavy
-      const intMod = mod(char.abilityScores.int)
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Bladesong</span>
-              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
-              {renderActionUseButton()}
-            </div>
-            {char.isBladesinging ? (
-              <div className={styles.detailResource} style={{ color: 'var(--accent)' }}>Bladesong Active</div>
-            ) : (
-              <div className={styles.detailResource}>{total - used} / {total} uses · Long rest recharge</div>
-            )}
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>While active (1 minute):</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +{Math.max(1, intMod)} to AC (INT modifier, min +1)</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +10 ft movement speed</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• Advantage on Acrobatics checks</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>• +{Math.max(1, intMod)} to Constitution saves (concentration)</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>Requires: light or no armor, no shield, no two-handed weapon. Ends if you don armor or a shield, wield a two-handed weapon, or are incapacitated.</p>
-            {blocked && !char.isBladesinging && (
-              <p className={styles.detailFull} style={{ color: 'var(--danger, #ef4444)', fontSize: 11, marginTop: 4 }}>
-                {isMedHeavy ? 'Remove medium/heavy armor first.' : hasShield ? 'Unequip shield first.' : 'Unequip two-handed weapon first.'}
-              </p>
-            )}
-            {char.isBladesinging ? (
-              <button
-                className={styles.armoryAddBtn}
-                style={{ marginTop: 8, background: 'var(--danger, #ef4444)' }}
-                onClick={() => update({ isBladesinging: false })}
-              >
-                End Bladesong
-              </button>
-            ) : (
-              <button
-                className={styles.armoryAddBtn}
-                style={{ marginTop: 8 }}
-                disabled={!canActivate || blocked}
-                onClick={() => {
-                  if (!canActivate || blocked) return
-                  const newResources = { ...char.resources }
-                  newResources['Bladesong'] = { total, used: used + 1 }
-                  update({ isBladesinging: true, resources: newResources })
-                }}
-              >
-                Activate Bladesong
-              </button>
-            )}
-          </div>
-        </>
-      )
-    }
-
-    // ── Unarmored Defense ─────────────────────────────────────────────
-    const isUnarmoredDefense = selectedFeature.name === 'Unarmored Defense'
-    if (isUnarmoredDefense) {
-      const dexMod = Math.floor((char.abilityScores.dex - 10) / 2)
-      const conMod = Math.floor((char.abilityScores.con - 10) / 2)
-      const wisMod = Math.floor((char.abilityScores.wis - 10) / 2)
-      const formula = char.classId === 'Barbarian'
-        ? `10 + DEX (${dexMod >= 0 ? '+' : ''}${dexMod}) + CON (${conMod >= 0 ? '+' : ''}${conMod}) = ${10 + dexMod + conMod}`
-        : `10 + DEX (${dexMod >= 0 ? '+' : ''}${dexMod}) + WIS (${wisMod >= 0 ? '+' : ''}${wisMod}) = ${10 + dexMod + wisMod}`
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Unarmored Defense</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>Current AC: {char.armorClass}</div>
-            <p className={styles.detailFull}>Formula: {formula}</p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-              Only applies when not wearing armor. A shield is still allowed.
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Wild Shape ────────────────────────────────────────────────────
-    const isWildShape = selectedFeature.name === 'Wild Shape'
-    if (isWildShape) {
-      const wsRes = char.resources['Wild Shape']
-      const isMoon = char.subclass === 'CircleOfTheMoon'
-      const crCap = char.level >= 8 ? 1 : char.level >= 4 ? 0.5 : 0.25
-      const crLimit = char.level >= 8 ? 'CR 1' : char.level >= 4 ? 'CR 1/2' : 'CR 1/4'
-      const moonCr = char.level >= 9 ? 'CR ' + Math.floor(char.level / 3) : char.level >= 6 ? 'CR 2' : 'CR 1'
-      const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= crCap)
-      const selectedBeast = eligibleBeasts.find(beast => beast.id === selectedWildShapeBeastId) ?? eligibleBeasts[0]
-      const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !char.wildShapeForm
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Wild Shape</span>
-              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action · SR</span>
-              {renderActionUseButton()}
-            </div>
-            {wsRes && (
-              <div className={styles.detailResource}>{wsRes.total - wsRes.used} / {wsRes.total} uses remaining</div>
-            )}
-            {char.wildShapeForm && (
-              <div className={styles.detailResource}>
-                Current form: {char.wildShapeForm.name} · {char.wildShapeForm.hp.current}/{char.wildShapeForm.hp.max} HP
-              </div>
-            )}
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>
-              CR limit: <strong>{isMoon ? moonCr : crLimit}</strong>
-              {isMoon && <span style={{ color: 'var(--accent)', marginLeft: 6, fontSize: 11 }}>Circle of the Moon</span>}
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
-              {char.level < 4 ? '• No fly or swim speed' : char.level < 8 ? '• No fly speed' : '• Fly and swim speeds allowed'}
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-              You retain your personality, memories, and mental ability scores. You revert when reduced to 0 HP, you choose to, or the duration ends (hours = ½ druid level).
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-              Modeling: Wild Shape uses an inline form object on the character, so beast HP can absorb damage before overflow reaches druid HP.
-            </p>
-            {char.concentrationSpellId && (
-              <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-                Concentration persists on the druid while shaped.
-              </p>
-            )}
-            <select
-              className={styles.armoryInput}
-              style={{ marginTop: 10 }}
-              value={selectedBeast?.id ?? ''}
-              onChange={e => setSelectedWildShapeBeastId(e.target.value)}
-            >
-              {eligibleBeasts.map(beast => (
-                <option key={beast.id} value={beast.id}>
-                  {beast.name} · CR {beast.cr} · HP {beast.hp} · AC {beast.ac}
-                </option>
-              ))}
-            </select>
-            {selectedBeast && (
-              <div className={styles.detailResource} style={{ marginTop: 8 }}>
-                {selectedBeast.speed} · {selectedBeast.attack}
-                {selectedBeast.speed.includes('fly') && char.level < 8 ? ' · flying speed restricted before L8' : ''}
-                {selectedBeast.speed.includes('swim') && char.level < 4 ? ' · swimming speed restricted before L4' : ''}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <button
-                className={styles.armoryAddBtn}
-                disabled={!canShape}
-                onClick={() => {
-                  if (!canShape || !selectedBeast || !wsRes) return
-                  update({
-                    resources: {
-                      ...char.resources,
-                      'Wild Shape': { total: wsRes.total, used: Math.min(wsRes.total, wsRes.used + 1) },
-                    },
-                    wildShapeForm: {
-                      name: selectedBeast.name,
-                      hp: { current: selectedBeast.hp, max: selectedBeast.hp },
-                      ac: selectedBeast.ac,
-                      cr: selectedBeast.cr,
-                      speed: selectedBeast.speed,
-                    },
-                  })
-                }}
-              >
-                Enter Wild Shape
-              </button>
-              {char.wildShapeForm && (
-                <button
-                  className={styles.detailChipBtn}
-                  onClick={() => update({ wildShapeForm: undefined })}
-                >
-                  Leave Form
-                </button>
-              )}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    // ── Martial Arts ──────────────────────────────────────────────────
-    const isMartialArts = selectedFeature.name === 'Martial Arts'
-    if (isMartialArts) {
-      const die = char.level >= 17 ? 'd10' : char.level >= 11 ? 'd8' : char.level >= 5 ? 'd6' : 'd4'
-      const dexMod = Math.floor((char.abilityScores.dex - 10) / 2)
-      const strMod = Math.floor((char.abilityScores.str - 10) / 2)
-      const atkMod = Math.max(strMod, dexMod) + char.proficiencyBonus
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Martial Arts</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>Unarmed die: <strong>{die}</strong> · Attack: {atkMod >= 0 ? '+' : ''}{atkMod}</div>
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>
-              You can use DEX instead of STR for unarmed strikes and monk weapons. Your unarmed strikes use the {die} damage die.
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-              Die scales: d4 (1–4) → d6 (5–10) → d8 (11–16) → d10 (17–20)
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Ki abilities (Flurry, Patient Defense, Step of the Wind) ─────
-    const isKiAbility = ['Flurry of Blows', 'Patient Defense', 'Step of the Wind'].includes(selectedFeature.name)
-    if (isKiAbility) {
-      const kiRes = char.resources['Ki']
-      const desc: Record<string, string> = {
-        'Flurry of Blows': 'Immediately after you take the Attack action on your turn, make two unarmed strikes as a bonus action.',
-        'Patient Defense': 'Take the Dodge action as a bonus action. Until the start of your next turn, attack rolls against you have disadvantage, and you make DEX saves with advantage.',
-        'Step of the Wind': 'Take the Disengage or Dash action as a bonus action. Your jump distance is also doubled for the turn.',
-      }
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>{selectedFeature.name}</span>
-              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus · 1 Ki</span>
-              {renderActionUseButton()}
-            </div>
-            {kiRes && (
-              <div className={styles.detailResource}>{kiRes.total - kiRes.used} / {kiRes.total} Ki remaining</div>
-            )}
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>{desc[selectedFeature.name]}</p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Bardic Inspiration ────────────────────────────────────────────
-    const isBardicInspiration = selectedFeature.name === 'Bardic Inspiration'
-    if (isBardicInspiration) {
-      const die = char.level >= 15 ? 'd12' : char.level >= 10 ? 'd10' : char.level >= 5 ? 'd8' : 'd6'
-      const biRes = char.resources['Bardic Inspiration']
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Bardic Inspiration</span>
-              <span className={`${styles.detailBadge} ${styles.badgeBonusAction}`}>Bonus</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>
-              Inspiration die: <strong>{die}</strong>
-              {biRes && ` · ${biRes.total - biRes.used} / ${biRes.total} uses`}
-            </div>
-            <p className={styles.detailFull} style={{ marginTop: 6 }}>
-              Choose one creature other than yourself within 60 ft that can hear you. That creature gains one Bardic Inspiration die ({die}).
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
-              The creature can add the die to one ability check, attack roll, or saving throw within the next 10 minutes. Only one die at a time.
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>
-              Die scales: d6 (1–4) → d8 (5–9) → d10 (10–14) → d12 (15+)
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Reckless Attack ───────────────────────────────────────────────
-    const isRecklessAttack = selectedFeature.name === 'Reckless Attack'
-    if (isRecklessAttack) {
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Reckless Attack</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}>
-              When you make your first attack on your turn, you can choose to attack recklessly. Doing so gives you advantage on melee weapon attack rolls using Strength this turn.
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>
-              Until the start of your next turn, attack rolls against you also have advantage.
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Danger Sense ─────────────────────────────────────────────────
-    const isDangerSense = selectedFeature.name === 'Danger Sense'
-    if (isDangerSense) {
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Danger Sense</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Passive</span>
-              {renderActionUseButton()}
-            </div>
-            <p className={styles.detailFull}>
-              You have advantage on Dexterity saving throws against effects that you can see, such as traps and spells.
-            </p>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginTop: 4 }}>
-              Does not apply if you are blinded, deafened, or incapacitated.
-            </p>
-          </div>
-        </>
-      )
-    }
-
-    // ── Expertise ─────────────────────────────────────────────────────
-    const isExpertise = selectedFeature.name === 'Expertise'
-    if (isExpertise) {
-      const maxExpertise = char.classId === 'Rogue'
-        ? (char.level >= 6 ? 4 : 2)
-        : char.classId === 'Bard'
-        ? (char.level >= 10 ? 4 : 2)
-        : 2
-      const currentExpertCount = Object.values(char.skillProficiencies).filter(v => v === 'expert').length
-      const proficientSkills = SKILLS.filter(s => char.skillProficiencies[s.key])
-      return (
-        <>
-          <ResourcesPanel character={char} update={update} />
-          <div className={styles.detailPane}>
-            <div className={styles.detailHeader}>
-              <span className={styles.detailName}>Expertise</span>
-              <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-              {renderActionUseButton()}
-            </div>
-            <div className={styles.detailResource}>{currentExpertCount} / {maxExpertise} expertise slots used</div>
-            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
-              Click a proficient skill to upgrade it to expertise (double proficiency). Click an expert skill to revert.
-            </p>
-            <div className={styles.masterySpellGrid}>
-              {proficientSkills.map(s => {
-                const state = char.skillProficiencies[s.key]
-                const isExpert = state === 'expert'
-                const canUpgrade = !isExpert && currentExpertCount < maxExpertise
-                return (
-                  <button
-                    key={s.key}
-                    className={`${styles.masterySpellChip} ${isExpert ? styles.masterySpellChipActive : ''}`}
-                    disabled={!isExpert && !canUpgrade}
-                    style={!isExpert && !canUpgrade ? { opacity: 0.4 } : undefined}
-                    onClick={() => {
-                      const newProfs = { ...char.skillProficiencies }
-                      newProfs[s.key] = isExpert ? 'proficient' : 'expert'
-                      update({ skillProficiencies: newProfs })
-                    }}
-                  >
-                    {s.label}{isExpert ? ' ★' : ''}
-                  </button>
-                )
-              })}
-              {proficientSkills.length === 0 && (
-                <span className={styles.masterySpellEmpty}>No proficient skills yet.</span>
-              )}
-            </div>
-          </div>
-        </>
-      )
-    }
-
-    const isArcaneRecovery = selectedFeature.name === 'Arcane Recovery'
-    if (isArcaneRecovery) return renderArcaneRecovery(selectedFeature.desc)
-
     return (
-      <>
-        <ResourcesPanel character={char} update={update} />
-        <div className={styles.detailPane}>
-          <div className={styles.detailHeader}>
-            <span className={styles.detailName}>{selectedFeature.name}</span>
-            <span className={`${styles.detailBadge} ${styles.badgeFree}`}>Level {selectedFeature.level}</span>
-            {renderActionUseButton()}
-          </div>
-          {isAsi && asiDone ? (
-            <p className={styles.detailFull}>✓ Completed</p>
-          ) : (
-            <p className={styles.detailFull}>{selectedFeature.desc}</p>
-          )}
-        </div>
-      </>
+      <FeatureDetails
+        character={char}
+        update={update}
+        feature={selectedFeature}
+        onSummon={onSummon}
+        onConcentrationBroken={onConcentrationBroken}
+      />
     )
   }
 
@@ -2203,6 +524,94 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   // ATTACK — show description + weapons table + attack breakdown
   if (selectedAction === 'Attack') {
+    // Wild Shape: attacks are the beast's, not the wielded weapons — rendered
+    // in the same table format as weapons. Equipment 'all'-scope damage
+    // riders still apply and appear as rider rows.
+    const shapedForm = wildShapeFormOf(char)
+    const shapedAttacks = shapedForm?.attacks ?? []
+    if (shapedForm && shapedAttacks.length > 0) {
+      const equipStats = computeEquipmentStats(char)
+      const equipRiders = equipStats.bonusDamage.filter(b => b.appliesTo === 'all')
+      return (
+        <div className={styles.attackWrapper}>
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Attack — {shapedForm.name} (Wild Shape)</span>
+              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action</span>
+            </div>
+            {shapedForm.multiattack && (
+              <div className={styles.detailResource}>Multiattack: {shapedForm.multiattack}</div>
+            )}
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+              Weapon attacks are unavailable while shaped — leave the form to use your weapons.
+            </p>
+            {renderAttackControls()}
+          </div>
+          {shapedAttacks.map(atk => {
+            const rows: AttackRow[] = [
+              { id: 'normal', name: 'Normal', toHit: atk.toHit, dmg: atk.dmg, dmgType: atk.dmgType, bonusDmg: null, bonusDmgType: null, note: atk.note },
+              ...equipRiders.map((r, i) => ({
+                id: `equip-bonus-${i}`,
+                name: r.names.join(', '),
+                toHit: null,
+                dmg: null,
+                dmgType: null,
+                bonusDmg: [...r.dice, r.flat ? String(r.flat) : null].filter(Boolean).join('+') || null,
+                bonusDmgType: r.dmgType,
+              })),
+            ]
+            const subtotals = dmgSubtotals(rows, () => true)
+            const critTotals = criticalSubtotals(subtotals, [])
+            return (
+              <div key={atk.name} className={styles.attackBreakdownSection}>
+                <div className={styles.attackBreakdownHead}>
+                  <span>{shapedForm.name} — {atk.name} {renderMartialAdvLabel()}</span>
+                  {renderAttackControls(rows)}
+                </div>
+                <table className={styles.attackBreakdownTable}>
+                  <thead>
+                    <tr>
+                      <th>Attack</th><th>To Hit</th><th>Crit mod</th><th>DMG</th>
+                      <th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr key={row.id} className={`${styles.attackBreakdownRow} ${styles.attackBreakdownRowActive}`}>
+                        <td title={row.note}>{row.name}{row.note && <span className={styles.diceNote}> note</span>}</td>
+                        <td>{row.id === 'normal' ? formatToHitParts(row.toHit, []) : formatToHitRider(row.toHit, [])}</td>
+                        <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>—</td>
+                        <td>{row.dmg ?? '—'}</td>
+                        <td>{row.dmgType ?? '—'}</td>
+                        <td>{row.bonusDmg ?? '—'}</td>
+                        <td>{row.bonusDmgType ?? '—'}</td>
+                        <td><span className={styles.resourceChip}>{row.id === 'normal' ? '—' : 'Equipment'}</span></td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownTotalRow}>
+                      <td>Total</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatToHitParts(atk.toHit, [])}</td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <span style={{ padding: '4px 10px', backgroundColor: '#d4af37', color: '#1a1a1a', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', border: '1px solid #8b7c3a', display: 'inline-block' }}>
+                          Crit 20+
+                        </span>
+                      </td>
+                      <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                    </tr>
+                    <tr className={styles.attackBreakdownCriticalRow}>
+                      <td>critical</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td colSpan={5}>{critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
     return (
       <div className={styles.attackWrapper}>
         <div className={styles.detailPane}>
@@ -2497,16 +906,19 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
               )
             })()}
-            {char.subclass === 'BattleMaster' && (() => {
-              const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
-              const dieSize = char.level >= 10 ? '1d10' : '1d8'
-              const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: totalDice }
+            {(char.subclass === 'BattleMaster' || char.feats.includes('martialAdept') || maneuversKnownOf(char).length > 0) && (() => {
+              const isBattleMaster = char.subclass === 'BattleMaster'
+              const fallbackTotal = isBattleMaster ? (char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4) : 1
+              const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: fallbackTotal }
+              const totalDice = superiorityDice.total
+              const dieSize = isBattleMaster ? (char.level >= 10 ? '1d10' : '1d8') : '1d6'
               const usedDice = superiorityDice.used
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))
-              const known = maneuversKnown(char.level)
-              const chosen = char.chosenManeuvers ?? []
-              const active = char.activeManeuver ?? null
+              const classKnownCount = char.subclass === 'BattleMaster' ? maneuversKnown(char.level) : 0
+              const known = classKnownCount + (char.feats.includes('martialAdept') ? 2 : 0)
+              const chosen = maneuversKnownOf(char)
+              const active = activeManeuverOf(char)
               return (
                 <div className={styles.specialAttackList}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2578,8 +990,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const usedShots = arcaneResource?.used ?? 0
               const leftShots = Math.max(0, totalShots - usedShots)
               const known = arcaneShotsKnown(char.level)
-              const learned = char.arcaneShots ?? []
-              const activeShot = char.activeArcaneShot ?? null
+              const learned = arcaneShotsKnownOf(char)
+              const activeShot = activeArcaneShotOf(char)
               return (
                 <div className={styles.specialAttackList}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2662,7 +1074,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
                 <div style={{ padding: '8px 14px', display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 11 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Casting Time</span><span>{spell.castingTime}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spellSniperRange(spell, char.spellSniperDoubleRange)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Range</span><span>{spellSniperRange(spell, hasSpellSniper(char))}</span>
                   <span style={{ color: 'var(--text-muted)' }}>Spell Attack</span><span>{fmtMod(computeSpellAttackBonus(char))} to hit</span>
                 </div>
                 <p style={{ padding: '0 14px 14px', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>{spell.description}</p>
@@ -2679,12 +1091,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <button className={styles.modalClose} onClick={() => setManeuverPickerOpen(false)}>×</button>
               </div>
               <div className={styles.armoryList}>
-                {MANEUVERS.filter(m => !(char.chosenManeuvers ?? []).includes(m.id)).map(m => (
+                {MANEUVERS.filter(m => !maneuversKnownOf(char).includes(m.id)).map(m => (
                   <button
                     key={m.id}
                     className={styles.armoryEntry}
                     onClick={() => {
-                      update({ chosenManeuvers: [...(char.chosenManeuvers ?? []), m.id] })
+                      update({ chosenManeuvers: [...maneuversKnownOf(char), m.id] })
                       setManeuverPickerOpen(false)
                     }}
                   >
@@ -2705,12 +1117,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 <button className={styles.modalClose} onClick={() => setArcanePickerOpen(false)}>×</button>
               </div>
               <div className={styles.armoryList}>
-                {ARCANE_SHOTS.filter(s => !(char.arcaneShots ?? []).includes(s.id)).map(s => (
+                {ARCANE_SHOTS.filter(s => !arcaneShotsKnownOf(char).includes(s.id)).map(s => (
                   <button
                     key={s.id}
                     className={styles.armoryEntry}
                     onClick={() => {
-                      update({ arcaneShots: [...(char.arcaneShots ?? []), s.id] })
+                      update({ arcaneShots: [...arcaneShotsKnownOf(char), s.id] })
                       setArcanePickerOpen(false)
                     }}
                   >
@@ -2739,9 +1151,30 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     )
   }
 
+  // Actions whose rich interactive detail lives in FeatureDetails (also
+  // reachable from the Features panel) — route there so the action list
+  // offers the same pickers instead of a plain text pane.
+  const FEATURE_ROUTED_ACTIONS: Record<string, string> = {
+    'Wild Shape': 'Wild Shape',
+    'Channel Divinity': 'Channel Divinity (1/rest)',
+    'Turn Undead': 'Channel Divinity (1/rest)',
+    'Metamagic': 'Metamagic',
+  }
+  if (FEATURE_ROUTED_ACTIONS[selectedAction]) {
+    return (
+      <FeatureDetails
+        character={char}
+        update={update}
+        feature={{ level: selectedActionDef.requiresLevel ?? 2, name: FEATURE_ROUTED_ACTIONS[selectedAction], desc: selectedActionDef.full }}
+        onSummon={onSummon}
+        onConcentrationBroken={onConcentrationBroken}
+      />
+    )
+  }
+
   // ARCANE RECOVERY — slot picker
   if (selectedAction === 'Arcane Recovery') {
-    return renderArcaneRecovery(selectedActionDef.full)
+    return <ArcaneRecoveryDetail character={char} update={update} desc={selectedActionDef.full} useButton={renderActionUseButton()} />
   }
 
   // FIGHTING SPIRIT — Samurai usage tracker
@@ -2901,7 +1334,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       w.rangeType !== 'Ranged' &&
       (w.properties ?? []).some(p => p.toLowerCase() === 'light')
     )
-    const hasTWF = char.fightingStyle === 'two-weapon-fighting'
+    const hasTWF = fightingStyleOf(char) === 'two-weapon-fighting'
     const strMod = mod(char.abilityScores.str)
     const dexMod = mod(char.abilityScores.dex)
     return (
@@ -3085,7 +1518,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
           onClick={() => {
             setAdvantageNextAttack(char.id, 'adv')
             setSpeedZero(char.id, true)
-            useEconomy(char.id, 'bonus')
+            spendEconomy(char.id, 'bonus')
           }}
         >
           Use Steady Aim

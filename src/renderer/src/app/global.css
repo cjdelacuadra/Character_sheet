@@ -120,7 +120,7 @@ body {
   flex-direction: column;
 }
 
-/* â”€â”€ Touch targets â€” all tappable elements on tablet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Touch targets — all tappable elements on tablet ─────────────────── */
 @media (max-width: 1099px) {
   button,
   [role="button"],

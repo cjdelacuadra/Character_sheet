@@ -3,6 +3,8 @@ import type { Character } from '@/entities/character/types'
 import { computeACFull } from '@/shared/data/charCalculations'
 import { CONDITIONS, CONDITION_BY_ID } from '@/shared/data/conditionsData'
 import { useAppStore } from '@/app/store'
+import { Panel } from '@/ui/Panel'
+import { isRaging } from '@/domain/character/compat'
 import styles from './ConditionsPanel.module.css'
 
 interface Props {
@@ -27,16 +29,7 @@ export function ConditionsPanel({ character: char, update }: Props) {
   }
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Conditions</span>
-        <span style={{ display: 'flex', gap: 6 }}>
-          <button className={styles.addBtn} onClick={() => setOpen(v => !v)}>
-            {open ? 'Done' : '+ Add'}
-          </button>
-        </span>
-      </div>
-
+    <Panel label="Conditions" actions={[{ label: open ? 'Done' : '+ Add', onClick: () => setOpen(v => !v) }]}>
       {open && (
         <div className={styles.conditionPicker}>
           {CONDITIONS.map(name => {
@@ -60,12 +53,12 @@ export function ConditionsPanel({ character: char, update }: Props) {
       )}
 
       <div className={styles.condTags}>
-        {char.isRaging && (
+        {isRaging(char) && (
           <div className={`${styles.condTag} ${styles.condTagRage}`} title="Rage is active">
             raging - +{char.level >= 16 ? 4 : char.level >= 9 ? 3 : 2} dmg - resistance: B/P/S - adv STR
           </div>
         )}
-        {char.conditionIds.length === 0 && !open && !char.isRaging && (
+        {char.conditionIds.length === 0 && !open && !isRaging(char) && (
           <span className={styles.emptyNote}>None</span>
         )}
         {char.conditionIds.map(c => {
@@ -96,6 +89,6 @@ export function ConditionsPanel({ character: char, update }: Props) {
           )
         })}
       </div>
-    </section>
+    </Panel>
   )
 }

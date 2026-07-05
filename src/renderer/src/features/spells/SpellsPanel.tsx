@@ -7,6 +7,8 @@ import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, computePreparedSpellCount, computeSpellDamage, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
+import { hasSpellSniper, landTerrainOf, masterySpellsOf } from '@/domain/character/compat'
+import { METAMAGIC_BY_ID, metamagicApplies, metamagicCost } from '@/domain/data/metamagicData'
 import type { EconomyType } from '@/app/store/turnSlice'
 import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
@@ -44,12 +46,13 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [search, setSearch] = useState('')
   const [schoolFilter, setSchoolFilter] = useState('')
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
+  const [armedMetamagic, setArmedMetamagic] = useState<string[]>([])
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
   const [learnShowAllLevels, setLearnShowAllLevels] = useState(false)
   const [selectedSlotLevel, setSelectedSlotLevel] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<null | 'prepared' | 'known' | 'spellbook'>(null)
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const dropConcentration = useAppStore(s => s.dropConcentration)
   const registerEndOfTurnBuff = useAppStore(s => s.registerEndOfTurnBuff)
   const classDef = CLASS_BY_ID[char.classId]
@@ -93,7 +96,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       .map(([lvl]) => Number(lvl))
   )
 
-  function useSlot(level: number) {
+  function spendSlot(level: number) {
     const slot = char.spellSlots[level]
     if (!slot || slot.used >= slot.total) return
     update({ spellSlots: { ...char.spellSlots, [level]: { ...slot, used: slot.used + 1 } } })
@@ -125,7 +128,21 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   // and create any summon the spell defines.
   function castSpell(spell: typeof SPELLS[number], castLevel: number) {
     const previousConcentrationId = spell.concentration ? char.concentrationSpellId : null
-    if (castLevel > 0) useSlot(castLevel)
+    // Metamagic armed on this cast: sorcery points are spent NOW, not when
+    // the option was toggled. Twinned costs the slot level (min 1).
+    if (armedMetamagic.length > 0) {
+      const spRes = char.resources['Sorcery Points']
+      if (spRes) {
+        const costLevel = Math.max(castLevel, spell.level, 1)
+        const totalCost = armedMetamagic.reduce((sum, id) => {
+          const opt = METAMAGIC_BY_ID[id]
+          return opt ? sum + metamagicCost(opt, costLevel) : sum
+        }, 0)
+        update({ resources: { ...char.resources, 'Sorcery Points': { ...spRes, used: Math.min(spRes.total, spRes.used + totalCost) } } })
+      }
+      setArmedMetamagic([])
+    }
+    if (castLevel > 0) spendSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
     // Self-effect: temporary HP (e.g. False Life). Temp HP doesn't stack — keep the higher value.
@@ -147,13 +164,14 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       if (shortDuration) registerEndOfTurnBuff(char.id, spell.id)
     }
     const econ = castingTimeToEconomy(spell.castingTime)
-    if (econ) useEconomy(char.id, econ)
+    if (econ) spendEconomy(char.id, econ)
     setExpandedSpell(null)
   }
 
   function toggleExpand(id: string) {
     setExpandedSpell(prev => prev === id ? null : id)
     setSelectedSlotLevel(null)
+    setArmedMetamagic([])
   }
 
   function togglePrepare(id: string) {
@@ -253,7 +271,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       <>
         <dl className={styles.spellExpandMeta}>
           <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
-          <dt>Range</dt><dd>{spellSniperRange(spell, char.spellSniperDoubleRange)}</dd>
+          <dt>Range</dt><dd>{spellSniperRange(spell, hasSpellSniper(char))}</dd>
           <dt>Components</dt><dd>{spell.components}</dd>
           <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
           {spell.saveAbility && (<><dt>Save DC</dt><dd>{spellSaveDC} {spell.saveAbility.toUpperCase()}</dd></>)}
@@ -308,12 +326,54 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             })}
           </ul>
         )}
-        {(spell.id === char.masterySpells?.level1 || spell.id === char.masterySpells?.level2) && (
+        {(() => {
+          // Metamagic: arm options here; the points are spent when you CAST.
+          // Only options that can legally affect this spell are offered.
+          const eligible = (char.featureState?.['metamagic']?.known ?? [])
+            .map(id => METAMAGIC_BY_ID[id])
+            .filter((o): o is NonNullable<typeof o> => !!o && metamagicApplies(o, spell))
+          const spRes = char.resources['Sorcery Points']
+          if (eligible.length === 0 || !spRes) return null
+          const spRemaining = spRes.total - spRes.used
+          const costLevel = Math.max(spell.level === 0 ? 0 : (activeSlotLevel || spell.level), spell.level, 1)
+          const armedCost = armedMetamagic.reduce((sum, id) => {
+            const opt = METAMAGIC_BY_ID[id]
+            return opt ? sum + metamagicCost(opt, costLevel) : sum
+          }, 0)
+          return (
+            <div className={styles.spellExpandActions} style={{ flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                Metamagic · {spRemaining}/{spRes.total} SP{armedCost > 0 ? ` · spending ${armedCost} on cast` : ''}
+              </span>
+              {eligible.map(opt => {
+                const cost = metamagicCost(opt, costLevel)
+                const armed = armedMetamagic.includes(opt.id)
+                const cantAfford = !armed && spRemaining < armedCost + cost
+                return (
+                  <button
+                    key={opt.id}
+                    className={styles.spellExpandCastBtn}
+                    style={{
+                      fontSize: 10, padding: '2px 8px',
+                      ...(armed ? { background: 'var(--accent)', color: 'var(--text-on-accent)', borderColor: 'var(--accent)' } : {}),
+                    }}
+                    disabled={cantAfford}
+                    title={cantAfford ? 'Not enough sorcery points' : opt.desc}
+                    onClick={() => setArmedMetamagic(prev => armed ? prev.filter(x => x !== opt.id) : [...prev, opt.id])}
+                  >
+                    {opt.name.replace(' Spell', '')} {armed ? '✓' : ''} −{cost}pt
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })()}
+        {(spell.id === masterySpellsOf(char).level1 || spell.id === masterySpellsOf(char).level2) && (
           <button
             className={styles.spellExpandCastBtn}
             onClick={() => {
               const econ = castingTimeToEconomy(spell.castingTime)
-              if (econ) useEconomy(char.id, econ)
+              if (econ) spendEconomy(char.id, econ)
               setExpandedSpell(null)
             }}
           >
@@ -471,8 +531,9 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     }
   }
   // Circle of the Land Druid: terrain-keyed circle spells (PHB).
-  if (char.subclass === 'CircleOfTheLand' && char.circleOfLandTerrain) {
-    const terrainTable = LAND_CIRCLE_SPELLS[char.circleOfLandTerrain]
+  const landTerrain = landTerrainOf(char) as keyof typeof LAND_CIRCLE_SPELLS | undefined
+  if (char.subclass === 'CircleOfTheLand' && landTerrain) {
+    const terrainTable = LAND_CIRCLE_SPELLS[landTerrain]
     for (const [lvlStr, ids] of Object.entries(terrainTable)) {
       if (Number(lvlStr) <= char.level) subclassGrantedIds.push(...(ids ?? []))
     }
@@ -540,7 +601,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                         <button
                           key={i}
                           className={`${styles.slotPip} ${i < remaining ? styles.pipFull : styles.pipEmpty}`}
-                          onClick={() => i < remaining ? useSlot(Number(lvl)) : recoverSlot(Number(lvl))}
+                          onClick={() => i < remaining ? spendSlot(Number(lvl)) : recoverSlot(Number(lvl))}
                           title={i < remaining ? 'Use slot' : 'Recover slot'}
                         />
                       ))}
@@ -609,7 +670,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                             onClick={() => {
                               if (used < 1) {
                                 const econ = castingTimeToEconomy(spell.castingTime)
-                                if (econ) useEconomy(char.id, econ)
+                                if (econ) spendEconomy(char.id, econ)
                               }
                               update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
                               setExpandedSpell(null)
@@ -678,13 +739,13 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                           onClick={() => {
                             if (used < 1) {
                               const econ = castingTimeToEconomy(spell.castingTime)
-                              if (econ) useEconomy(char.id, econ)
+                              if (econ) spendEconomy(char.id, econ)
                             }
                             update({ resources: { ...char.resources, [resourceKey]: { used: used < 1 ? 1 : 0, total: 1 } } })
                             setExpandedSpell(null)
                           }}
                         >
-                          {used < 1 ? 'Cast (1/long rest)' : 'Already used Â· click to recover'}
+                          {used < 1 ? 'Cast (1/long rest)' : 'Already used · click to recover'}
                         </button>
                       </div>
                     </div>

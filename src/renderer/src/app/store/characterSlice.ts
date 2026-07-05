@@ -12,7 +12,9 @@ import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { getResourceDefaults } from '@/shared/data/resourceDefaults'
-import { migrateCharacter } from '@/domain/migrations'
+import { applyRestToResources } from '@/domain/rules/resources'
+import { racialActionUsesOf } from '@/domain/character/compat'
+import { migrateCharacterV14 } from '@/domain/character/migrations'
 import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
@@ -80,7 +82,82 @@ export interface CharacterSlice {
   addCustomItem: (def: GearEquipmentItem) => void
 }
 
-export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => ({
+
+/**
+ * Transition shim: any patch that writes a legacy one-off class field is
+ * mirrored into featureState, so bridge accessors (featureState-first) see
+ * every write regardless of which generation the writer targeted. Removed at
+ * cutover together with the legacy fields themselves.
+ */
+function mirrorLegacyPatch(char: Character, patch: Partial<Character>): Partial<Character> {
+  type FS = NonNullable<Character['featureState']>[string]
+  const entries: Array<[string, FS]> = []
+  const has = (k: keyof Character) => Object.prototype.hasOwnProperty.call(patch, k)
+
+  if (has('isRaging')) entries.push(['rage', { on: patch.isRaging === true }])
+  if (has('isBladesinging')) entries.push(['bladesong', { on: patch.isBladesinging === true }])
+  if (has('fightingStyle') || has('fightingStyleLocked')) entries.push(['fighting-style', {
+    ...(has('fightingStyle') ? { choice: patch.fightingStyle } : {}),
+    ...(has('fightingStyleLocked') ? { locked: patch.fightingStyleLocked } : {}),
+  }])
+  if (has('masterySpells')) entries.push(['spell-mastery', { data: patch.masterySpells ? { ...patch.masterySpells } : {} }])
+  if (has('warlockInvocations')) entries.push(['invocations', { known: patch.warlockInvocations }])
+  if (has('artificerInfusions') || has('activeArtificerInfusions')) entries.push(['infusions', {
+    ...(has('artificerInfusions') ? { known: patch.artificerInfusions } : {}),
+    ...(has('activeArtificerInfusions') ? { active: patch.activeArtificerInfusions } : {}),
+  }])
+  if (has('knownRunes') || has('activeRunes')) entries.push(['runes', {
+    ...(has('knownRunes') ? { known: patch.knownRunes } : {}),
+    ...(has('activeRunes') ? { active: patch.activeRunes } : {}),
+  }])
+  if (has('pactBoon') || has('pactBoonLocked')) entries.push(['pact-boon', {
+    ...(has('pactBoon') ? { choice: patch.pactBoon } : {}),
+    ...(has('pactBoonLocked') ? { locked: patch.pactBoonLocked } : {}),
+  }])
+  if (has('tomeCantrips')) entries.push(['pact-of-the-tome', { known: patch.tomeCantrips }])
+  if (has('chainFamiliarType')) entries.push(['pact-of-the-chain', { choice: patch.chainFamiliarType }])
+  if (has('hexWarriorWeaponId')) entries.push(['hex-warrior', { choice: patch.hexWarriorWeaponId }])
+  if (has('chosenTotem')) entries.push(['totem-spirit', { choice: patch.chosenTotem }])
+  if (has('circleOfLandTerrain')) entries.push(['circle-of-the-land', { choice: patch.circleOfLandTerrain }])
+  if (has('chosenManeuvers') || has('activeManeuver') || has('selectedManeuver')) entries.push(['maneuvers', {
+    ...(has('chosenManeuvers') ? { known: patch.chosenManeuvers ?? [] } : {}),
+    ...(has('activeManeuver') ? { active: patch.activeManeuver ? [patch.activeManeuver] : [] } : {}),
+  }])
+  if (has('arcaneShots') || has('activeArcaneShot')) entries.push(['arcane-shots', {
+    ...(has('arcaneShots') ? { known: patch.arcaneShots } : {}),
+    ...(has('activeArcaneShot') ? { active: patch.activeArcaneShot ? [patch.activeArcaneShot] : [] } : {}),
+  }])
+  if (has('racialActionUses')) entries.push(['racial-actions', { uses: patch.racialActionUses ?? {} }])
+  if (has('wildShapeForm')) entries.push(['wild-shape', { data: patch.wildShapeForm ? { form: patch.wildShapeForm } : {} }])
+
+  if (entries.length === 0) return patch
+  let featureState = { ...(patch.featureState ?? char.featureState ?? {}) }
+  for (const [key, fsPatch] of entries) {
+    featureState = { ...featureState, [key]: { ...featureState[key], ...fsPatch } }
+  }
+  return { ...patch, featureState }
+}
+
+export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], [], CharacterSlice> = (set, get) => {
+  /**
+   * The one write path for character changes: applies the recipe, stamps
+   * updatedAt, persists, and updates the map — replacing the clone-save-return
+   * boilerplate previously repeated in every action. A recipe returning null
+   * aborts (no save, no update).
+   */
+  function mutateCharacter(id: string, recipe: (char: Character) => Partial<Character> | null): void {
+    set((state) => {
+      const char = state.characters[id]
+      if (!char) return state
+      const patch = recipe(char)
+      if (patch === null) return state
+      const updated: Character = { ...char, ...mirrorLegacyPatch(char, patch), updatedAt: new Date().toISOString() }
+      ipcService.save(id, updated)
+      return { characters: { ...state.characters, [id]: updated } }
+    })
+  }
+
+  return ({
   activeCharacterId: null,
   characters: {},
   customItems: {},
@@ -121,7 +198,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         }
         nextPatch = { ...patch, buffStates }
       }
-      const updated: Character = { ...current, ...nextPatch, updatedAt: new Date().toISOString() }
+      const updated: Character = { ...current, ...mirrorLegacyPatch(current, nextPatch), updatedAt: new Date().toISOString() }
       ipcService.save(id, updated)
       return { characters: { ...state.characters, [id]: updated } }
     })
@@ -193,10 +270,18 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         return !!spell && spell.level === 1 && ['fey-touched', 'shadow-touched', 'magicInitiate', 'artificer-initiate'].includes(featId)
       })
     const featFreeCastIds = [...new Set([...freeCastSpellIds, ...chosenFreeCastIds])]
-    if (featFreeCastIds.length) {
+    if (featFreeCastIds.length || def.grantsResources) {
       const resources = { ...char.resources }
       for (const spellId of featFreeCastIds) {
         resources[`Feat:${spellId}`] = resources[`Feat:${spellId}`] ?? { used: 0, total: 1 }
+      }
+      // Feat-granted pools (Lucky, Metamagic Adept): add to an existing pool
+      // or create it, so the resource shows up with pips immediately.
+      for (const [resName, amount] of Object.entries(def.grantsResources ?? {})) {
+        const existing = resources[resName]
+        resources[resName] = existing
+          ? { ...existing, total: existing.total + amount }
+          : { used: 0, total: amount }
       }
       patch.resources = resources
     }
@@ -243,6 +328,18 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = false
     if (featId === 'mountedCombatant') patch.mountedCombatantFlags = false
 
+    if (def?.grantsResources) {
+      const resources = { ...char.resources }
+      for (const [resName, amount] of Object.entries(def.grantsResources)) {
+        const existing = resources[resName]
+        if (!existing) continue
+        const nextTotal = existing.total - amount
+        if (nextTotal <= 0) delete resources[resName]
+        else resources[resName] = { used: Math.min(existing.used, nextTotal), total: nextTotal }
+      }
+      patch.resources = resources
+    }
+
     get().updateCharacter(id, patch)
   },
 
@@ -269,7 +366,10 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         charIds.map(async (id) => {
           const data = await ipcService.load(id)
           if (data == null) return [id, null] as const
-          return [id, migrateCharacter(data)] as const
+          // THE FLIP: saves load as v14 — legacy one-off fields are folded into
+          // featureState. The store's Character type stays the transitional
+          // superset until cutover, hence the cast.
+          return [id, migrateCharacterV14(data) as unknown as Character] as const
         })
       )
       const characters = Object.fromEntries(
@@ -291,41 +391,14 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
   },
 
   shortRest: (id, hdRolled) => {
-    set((state) => {
-      const char = state.characters[id]
-      if (!char) return state
-      const cls = CLASS_BY_ID[char.classId]
+    mutateCharacter(id, (char) => {
       const availableHD = char.level - char.hitDiceUsed
-      if (availableHD <= 0) return state
+      if (availableHD <= 0) return null
 
       const healed = Math.max(0, hdRolled + mod(char.abilityScores.con))
-      const newCurrentHp = Math.min(char.hitPoints.max, char.hitPoints.current + healed)
-      const newHdUsed = Math.min(char.level, char.hitDiceUsed + 1)
-
-      const newResources = { ...char.resources }
-      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
-      for (const [name, def] of Object.entries(defaults)) {
-        if (!newResources[name]) newResources[name] = def
-        else newResources[name] = { ...newResources[name], total: def.total }
-      }
-      for (const resDef of cls?.resources ?? []) {
-        if (resDef.recoverOn === 'short' && newResources[resDef.name]) {
-          newResources[resDef.name] = { ...newResources[resDef.name], used: 0 }
-        }
-      }
-      if (char.subclass === 'BattleMaster' && newResources['Superiority Dice']) {
-        newResources['Superiority Dice'] = { ...newResources['Superiority Dice'], used: 0 }
-      }
-      if (char.subclass === 'PsiWarrior' && newResources['Psionic Energy']) {
-        const res = newResources['Psionic Energy']
-        newResources['Psionic Energy'] = { ...res, used: Math.max(0, res.used - 1) }
-      }
-      for (const key of Object.keys(newResources)) {
-        if (key.startsWith('Rune:')) newResources[key] = { ...newResources[key], used: 0 }
-      }
 
       // Recharge short-rest racial actions (e.g. Breath Weapon, Shift, Fey Step, Hidden Step).
-      const newRacialUses = { ...(char.racialActionUses ?? {}) }
+      const newRacialUses = { ...racialActionUsesOf(char) }
       for (const a of RACE_BY_ID[char.race]?.racialActions ?? []) {
         if (a.recharge === 'short') delete newRacialUses[a.id]
       }
@@ -337,49 +410,35 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         )
       }
 
-      const updated: Character = {
-        ...char,
-        updatedAt: new Date().toISOString(),
-        hitPoints: { ...char.hitPoints, current: newCurrentHp },
-        hitDiceUsed: newHdUsed,
-        resources: newResources,
+      return {
+        hitPoints: { ...char.hitPoints, current: Math.min(char.hitPoints.max, char.hitPoints.current + healed) },
+        hitDiceUsed: Math.min(char.level, char.hitDiceUsed + 1),
+        resources: applyRestToResources(char, 'short'),
         spellSlots: newSlots,
         racialActionUses: newRacialUses,
+        featureState: {
+          ...(char.featureState ?? {}),
+          'racial-actions': { ...(char.featureState?.['racial-actions'] ?? {}), uses: newRacialUses },
+        },
       }
-      ipcService.save(id, updated)
-      get().initTurnState?.(id)
-      return { characters: { ...state.characters, [id]: updated } }
     })
+    get().initTurnState?.(id)
   },
 
   longRest: (id) => {
-    set((state) => {
-      const char = state.characters[id]
-      if (!char) return state
+    mutateCharacter(id, (char) => {
       const recoverHD = Math.max(1, Math.floor(char.level / 2))
-      const newHp = { ...char.hitPoints, current: char.hitPoints.max, temp: 0 }
-      const newSlots = Object.fromEntries(
-        Object.entries(char.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
-      )
-      const defaults = getResourceDefaults(char.classId, char.level, char.abilityScores, char.subclass)
-      const newResources: Record<string, { used: number; total: number }> = {}
-      for (const key of Object.keys(char.resources)) {
-        newResources[key] = { ...char.resources[key], used: 0 }
-      }
-      for (const [key, val] of Object.entries(defaults)) {
-        if (!newResources[key]) newResources[key] = val
-      }
       const nextConditionIds = char.conditionIds.filter(c => c.conditionId === 'exhaustion')
       const nextActiveBuffSpells = (char.activeBuffSpells ?? []).filter(id => id !== char.concentrationSpellId)
       const nextBuffStates = removeBuffState(char, char.concentrationSpellId ? [char.concentrationSpellId] : [])
 
-      const updated: Character = {
-        ...char,
-        updatedAt: new Date().toISOString(),
-        hitPoints: newHp,
+      return {
+        hitPoints: { ...char.hitPoints, current: char.hitPoints.max, temp: 0 },
         hitDiceUsed: Math.max(0, char.hitDiceUsed - recoverHD),
-        spellSlots: newSlots,
-        resources: newResources,
+        spellSlots: Object.fromEntries(
+          Object.entries(char.spellSlots).map(([k, v]) => [k, { ...v, used: 0 }])
+        ),
+        resources: applyRestToResources(char, 'long'),
         deathSaves: { successes: 0, failures: 0 },
         concentrationSpellId: null,
         conditionIds: nextConditionIds,
@@ -390,11 +449,15 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         isRaging: false,
         isBladesinging: false,
         racialActionUses: {},
+        featureState: {
+          ...(char.featureState ?? {}),
+          rage: { ...(char.featureState?.['rage'] ?? {}), on: false },
+          bladesong: { ...(char.featureState?.['bladesong'] ?? {}), on: false },
+          'racial-actions': { ...(char.featureState?.['racial-actions'] ?? {}), uses: {} },
+        },
       }
-      ipcService.save(id, updated)
-      get().initTurnState?.(id)
-      return { characters: { ...state.characters, [id]: updated } }
     })
+    get().initTurnState?.(id)
   },
 
   levelUp: (id, asiChoice, newSpellIds) => {
@@ -832,4 +895,5 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       return { characters: { ...state.characters, [charId]: updated } }
     })
   },
-})
+  })
+}

@@ -28,7 +28,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
   const classDef = CLASS_BY_ID[char.classId]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : null
   const subclassLabel = subclassDef?.classId === char.classId ? subclassDef.label : null
-  const useEconomy = useAppStore(s => s.useEconomy)
+  const spendEconomy = useAppStore(s => s.spendEconomy)
   const grantEconomy = useAppStore(s => s.grantEconomy)
   const setAttacked = useAppStore(s => s.setAttacked)
   const setDisengaged = useAppStore(s => s.setDisengaged)
@@ -104,7 +104,7 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     return chips
   }
 
-  function useResource(key: string, total: number, actionType?: ActionDef['type']) {
+  function spendResource(key: string, total: number, actionType?: ActionDef['type']) {
     const res = char.resources[key] ?? { used: 0, total }
     if (res.used >= res.total) return
     const effect = RESOURCE_EFFECTS.find(entry => entry.resourceKey === key)
@@ -121,12 +121,12 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
       return
     }
     if (effect?.economy) {
-      useEconomy(char.id, effect.economy)
+      spendEconomy(char.id, effect.economy)
       return
     }
     if (actionType) {
       const econ = actionTypeToEconomy(actionType)
-      if (econ) useEconomy(char.id, econ)
+      if (econ) spendEconomy(char.id, econ)
     }
   }
 
@@ -155,49 +155,28 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
     if (isActionPrereqBlocked(action) || isActionDepleted(action)) return
     if (action.name === 'Disengage') {
       setDisengaged(char.id, true)
-      useEconomy(char.id, 'action')
+      spendEconomy(char.id, 'action')
     }
     onSelectAction(action.name)
   }
 
   return (
     <>
-      <ResourcesPanel character={char} update={update} />
+      <ResourcesPanel
+        character={char}
+        update={update}
+        resolveDetail={(name) => {
+          const action = actionGroups.flatMap(g => g.items).find(a => a.resourceKey === name)
+          return action ? () => onSelectAction(action.name) : null
+        }}
+      />
       {actionGroups.map(({ type, label, items }) => {
-        const chips = getGroupChips(items)
         return (
           <section key={type} className={styles.section}>
             <div className={styles.sectionHead}>
               <span className={`${styles.sectionLabel} ${labelClass(type)}`}>{label}</span>
               <span className={styles.actionTypeCount}>{items.length}</span>
             </div>
-            {chips.length > 0 && (
-              <div className={styles.chipGroup}>
-                {subclassLabel && <span className={styles.subclassNote}>{subclassLabel}</span>}
-                {chips.map(({ key, resDef, total, used }) => {
-                  const remaining = total - used
-                  return (
-                    <div key={key} className={styles.resourceChip}>
-                      <span className={styles.chipName}>{key}</span>
-                      <div className={styles.chipPips}>
-                        {Array.from({ length: Math.min(total, 10) }).map((_, i) => (
-                          <button
-                            key={i}
-                            className={`${styles.chipPip} ${i < remaining ? styles.chipPipFull : styles.chipPipEmpty}`}
-                            onClick={() => i < remaining ? useResource(key, total, type) : recoverResource(key, total)}
-                            title={i < remaining ? 'Use' : 'Recover'}
-                          />
-                        ))}
-                        {total > 10 && <span className={styles.chipCount}>{remaining}/{total}</span>}
-                      </div>
-                      <span className={styles.chipRecovery}>
-                        {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
             <div className={styles.actionList}>
               {items.map(action => {
                 const depleted = isActionDepleted(action)

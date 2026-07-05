@@ -20,7 +20,6 @@ import { ActionListPanel } from '@/features/combat-actions/ActionListPanel'
 import { ActionDetailPanel } from '@/features/combat-actions/ActionDetailPanel'
 import { TurnHeader } from '@/features/combat-actions/TurnHeader'
 import { NextTurnChecklist } from '@/features/combat-actions/NextTurnChecklist'
-import { FeatureDetailPanel } from '@/features/detail-panel/FeatureDetailPanel'
 import { SkillSaveDetailPanel } from '@/features/detail-panel/SkillSaveDetailPanel'
 import { EquipmentLayout } from '@/features/character-header/EquipmentLayout'
 import { ShopPanel } from '@/features/shop/ShopPanel'
@@ -33,30 +32,47 @@ import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 
 import styles from './CharacterView.module.css'
 
+/** The single occupant of the right column (level-up/spell flows overlay it). */
+type RightPane =
+  | { kind: 'nextTurn' }
+  | { kind: 'equip'; shopOpen: boolean }
+  | { kind: 'action'; name: string }
+  | { kind: 'feature'; entry: FeatureEntry }
+  | { kind: 'skillSave'; detail: { type: 'save' | 'skill'; key: string } }
+  | { kind: 'summon'; id: string }
+  | null
+
 export function CharacterView() {
   const { characters, activeCharacterId, exitCharacter, deleteCharacter, updateCharacter, addFeat, removeFeat, shortRest, longRest, levelUp, applyPendingAsi, setTempHp, summonFromTemplate, removeSummon, updateSummonState, newSummonTurn, clearAllSummons } = useAppStore()
 
   const [restOpen, setRestOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [equipOpen, setEquipOpen] = useState(false)
-  const [shopOpen, setShopOpen] = useState(false)
+  // The right column shows exactly one pane at a time. One discriminated
+  // union replaces the six mutually-clearing selection states the previous
+  // version juggled (each onSelect had to null out five others).
+  const [pane, setPane] = useState<RightPane>(null)
   const [sharedFilter, setSharedFilter] = useState<ShopItemKind | null>(null)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
   const [diceOpen, setDiceOpen] = useState(false)
-  const [selectedAction, setSelectedAction] = useState<string | null>(null)
-  const [selectedFeature, setSelectedFeature] = useState<FeatureEntry | null>(null)
-  const [selectedDetail, setSelectedDetail] = useState<{ type: 'save' | 'skill'; key: string } | null>(null)
-  const [selectedSummonId, setSelectedSummonId] = useState<string | null>(null)
   const [pendingAsiQueue, setPendingAsiQueue] = useState<number[]>([])
   const [targetNewLevel, setTargetNewLevel] = useState<number>(0)
   const [spellOnlyOpen, setSpellOnlyOpen] = useState(false)
   const [spellValidationDeficit, setSpellValidationDeficit] = useState<{ spells: number; cantrips: number } | null>(null)
   const [newSpellTierNotice, setNewSpellTierNotice] = useState<string | null>(null)
-  const [nextTurnOpen, setNextTurnOpen] = useState(false)
   // ASI levels the character passed (e.g. created at level 7) but never got to choose. Drives a catch-up prompt.
   const [asiCatchUpQueue, setAsiCatchUpQueue] = useState<number[]>([])
   // Prepared casters (Cleric/Druid/Paladin/Artificer) who can prepare more spells than they have.
   const [prepareStepOpen, setPrepareStepOpen] = useState(false)
+
+  // Derived views of the pane — names match the previous individual states so
+  // the render conditions below read the same.
+  const nextTurnOpen = pane?.kind === 'nextTurn'
+  const equipOpen = pane?.kind === 'equip'
+  const shopOpen = pane?.kind === 'equip' && pane.shopOpen
+  const selectedAction = pane?.kind === 'action' ? pane.name : null
+  const selectedFeature = pane?.kind === 'feature' ? pane.entry : null
+  const selectedDetail = pane?.kind === 'skillSave' ? pane.detail : null
+  const selectedSummonId = pane?.kind === 'summon' ? pane.id : null
 
   // Validate known-spell count when selecting a character (handles post-update migrations)
   useEffect(() => {
@@ -183,7 +199,7 @@ export function CharacterView() {
         }}
         onRestToggle={() => setRestOpen(v => !v)}
         onBack={exitCharacter}
-        onEquipToggle={() => { setEquipOpen(p => !p); setSelectedAction(null); setShopOpen(false); setSelectedSummonId(null) }}
+        onEquipToggle={() => setPane(equipOpen ? null : { kind: 'equip', shopOpen: false })}
         equipOpen={equipOpen}
       />
 
@@ -223,18 +239,15 @@ export function CharacterView() {
           <SummonsPanel
             character={char}
             selectedSummonId={selectedSummonId}
-            onSelectSummon={(id) => {
-              setSelectedSummonId(id)
-              if (id) { setSelectedAction(null); setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false) }
-            }}
+            onSelectSummon={(id) => setPane(id ? { kind: 'summon', id } : null)}
             onSummon={(templateId, count, source) => summonFromTemplate(char.id, templateId, count, source)}
-            onClearAll={() => { clearAllSummons(char.id); setSelectedSummonId(null) }}
+            onClearAll={() => { clearAllSummons(char.id); setPane(p => p?.kind === 'summon' ? null : p) }}
           />
           <AbilitiesPanel
             character={char}
             update={update}
             selectedDetail={selectedDetail}
-            onSelectDetail={(d) => { setSelectedDetail(d); if (d) { setSelectedAction(null); setSelectedFeature(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
+            onSelectDetail={(d) => setPane(d ? { kind: 'skillSave', detail: d } : null)}
           />
           <RacialActionsPanel character={char} update={update} />
           <FeaturesPanel
@@ -243,7 +256,7 @@ export function CharacterView() {
             addFeat={(featId, opts) => addFeat(char.id, featId, opts)}
             removeFeat={(featId) => removeFeat(char.id, featId)}
             selectedFeature={selectedFeature}
-            onSelectFeature={(f) => { setSelectedFeature(f); setSelectedAction(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) }}
+            onSelectFeature={(f) => setPane(f ? { kind: 'feature', entry: f } : null)}
           />
         </aside>
 
@@ -251,13 +264,13 @@ export function CharacterView() {
           <TurnHeader
             charId={char.id}
             nextTurnOpen={nextTurnOpen}
-            onToggleNextTurn={() => setNextTurnOpen(v => !v)}
+            onToggleNextTurn={() => setPane(nextTurnOpen ? null : { kind: 'nextTurn' })}
           />
           <div className={styles.centerScroll}>
             <ActionListPanel
               character={char}
               selectedAction={selectedAction}
-              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null); setNextTurnOpen(false) } }}
+              onSelectAction={(name) => setPane(name ? { kind: 'action', name } : null)}
               update={update}
             />
           </div>
@@ -267,7 +280,7 @@ export function CharacterView() {
           {nextTurnOpen && (
             <NextTurnChecklist
               character={char}
-              onClose={() => setNextTurnOpen(false)}
+              onClose={() => setPane(null)}
             />
           )}
           {!nextTurnOpen && levelUpOpen && (
@@ -346,45 +359,42 @@ export function CharacterView() {
             <>
               <EquipmentLayout
                 character={char}
-                onOpenShop={() => setShopOpen(true)}
-                onCloseShop={() => setShopOpen(false)}
+                onOpenShop={() => setPane({ kind: 'equip', shopOpen: true })}
+                onCloseShop={() => setPane({ kind: 'equip', shopOpen: false })}
                 isShopOpen={shopOpen}
-                onInventorySelectItem={(id) => { if (id) setShopOpen(false) }}
+                onInventorySelectItem={(id) => { if (id) setPane({ kind: 'equip', shopOpen: false }) }}
                 onFilterChange={setSharedFilter}
               />
               {shopOpen && (
                 <ShopPanel
                   character={char}
-                  onClose={() => setShopOpen(false)}
+                  onClose={() => setPane({ kind: 'equip', shopOpen: false })}
                   filterKind={sharedFilter}
                 />
               )}
             </>
           )}
-          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && selectedAction !== null && (
+          {/* Feature selections render through ActionDetailPanel's rich feature
+              details (Wild Shape, Channel Divinity, invocation/infusion/rune
+              pickers, toggles…). These were unreachable dead UI before: the old
+              guard required an action, while the feature region required no
+              action — every feature click fell back to a plain-text panel. */}
+          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && (selectedAction !== null || selectedFeature !== null) && (
             <ActionDetailPanel
               character={char}
               update={update}
               selectedAction={selectedAction}
-              onSelectAction={(name) => { setSelectedAction(name); if (name) { setSelectedFeature(null); setSelectedDetail(null); setEquipOpen(false); setShopOpen(false); setSelectedSummonId(null) } }}
+              onSelectAction={(name) => setPane(name ? { kind: 'action', name } : null)}
               selectedFeature={selectedFeature}
               onSummon={(templateId, count, source) => summonFromTemplate(char.id, templateId, count, source)}
               onConcentrationBroken={() => clearAllSummons(char.id, { concentrationOnly: true })}
-            />
-          )}
-          {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && selectedFeature && (
-            <FeatureDetailPanel
-              character={char}
-              feature={selectedFeature}
-              update={update}
-              onClose={() => setSelectedFeature(null)}
             />
           )}
           {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && selectedDetail && (
             <SkillSaveDetailPanel
               character={char}
               detail={selectedDetail}
-              onClose={() => setSelectedDetail(null)}
+              onClose={() => setPane(null)}
             />
           )}
           {!nextTurnOpen && !levelUpOpen && !spellOnlyOpen && !shopOpen && !equipOpen && !selectedAction && !selectedFeature && !selectedDetail && selectedSummonId && (() => {
@@ -393,9 +403,9 @@ export function CharacterView() {
               <SummonDetailPanel
                 summon={summon}
                 onUpdate={(patch) => updateSummonState(char.id, summon.id, patch)}
-                onRemove={() => { removeSummon(char.id, summon.id); setSelectedSummonId(null) }}
+                onRemove={() => { removeSummon(char.id, summon.id); setPane(null) }}
                 onNewTurn={() => newSummonTurn(char.id, summon.id)}
-                onClose={() => setSelectedSummonId(null)}
+                onClose={() => setPane(null)}
               />
             ) : null
           })()}

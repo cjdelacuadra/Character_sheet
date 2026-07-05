@@ -34,6 +34,22 @@ export interface BuffRuntime {
   perTurnUsed?: boolean
 }
 
+/**
+ * Generic per-feature choice/runtime state, keyed by feature id (the v14
+ * schema's replacement for one-off class fields). Optional on v13 so new
+ * features (metamagic, portent…) can adopt it before the full flip; the
+ * v13→v14 migration preserves existing entries.
+ */
+export interface FeatureState {
+  known?: string[]
+  active?: string[]
+  choice?: string
+  on?: boolean
+  locked?: boolean
+  uses?: Record<string, number>
+  data?: Record<string, unknown>
+}
+
 export interface Equipment {
   armorId: string | null
   /** @deprecated use shieldId instead */
@@ -111,6 +127,8 @@ export interface Character {
   concentrationSpellId: string | null
   activeBuffSpells?: string[]
   buffStates?: Record<string, BuffRuntime>
+  /** v14-style feature state, adopted incrementally (see FeatureState). */
+  featureState?: Record<string, FeatureState>
 
   weapons: Weapon[]
   conditionIds: ActiveCondition[]
@@ -169,6 +187,6 @@ export interface Character {
   racialActionUses?: Record<string, number>
   /** Circle of the Land Druid's chosen terrain at level 3 (Circle Spells). */
   circleOfLandTerrain?: 'arctic' | 'coast' | 'desert' | 'forest' | 'grassland' | 'mountain' | 'swamp' | 'underdark'
-  wildShapeForm?: { name: string; hp: { current: number; max: number }; ac: number; cr: number; speed: string }
+  wildShapeForm?: { name: string; hp: { current: number; max: number }; ac: number; cr: number; speed: string; attack?: string; attacks?: { name: string; toHit: number; dmg: string; dmgType: string; note?: string }[]; multiattack?: string }
   notes: string
 }

@@ -3,6 +3,7 @@ import type { Character } from '@/entities/character/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { GEAR_BY_ID, armorAndShields } from '@/shared/data/equipment/gear'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { wildShapeFormOf } from '@/domain/character/compat'
 import { computeACFull, computeSpeedFull, computeDarkvision, computeInitiativeFull, applyHpDelta, mod } from '@/shared/data/charCalculations'
 import { computeSpellSaveDC, computeSpellAttackBonus } from '@/domain/rules'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -31,8 +32,13 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
 
   const hp = char.hitPoints
   const hpPct = hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
-  const wildShapeHpPct = char.wildShapeForm && char.wildShapeForm.hp.max > 0
-    ? Math.max(0, Math.min(100, (char.wildShapeForm.hp.current / char.wildShapeForm.hp.max) * 100))
+  const wildShapeForm = wildShapeFormOf(char)
+  const patchWildShapeForm = (form: Character['wildShapeForm']) => update({
+    wildShapeForm: form,
+    featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: form ? { form } : {} } },
+  })
+  const wildShapeHpPct = wildShapeForm && wildShapeForm.hp.max > 0
+    ? Math.max(0, Math.min(100, (wildShapeForm.hp.current / wildShapeForm.hp.max) * 100))
     : 0
   const eq = char.equipment
   const classDef = CLASS_BY_ID[char.classId]
@@ -79,19 +85,33 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   }
 
   function applyHp(delta: number) {
-    if (delta < 0 && char.wildShapeForm) {
-      const damage = Math.abs(delta)
-      const form = char.wildShapeForm
-      const remainingFormHp = form.hp.current - damage
-      if (remainingFormHp > 0) {
-        update({ wildShapeForm: { ...form, hp: { ...form.hp, current: remainingFormHp } } })
+    // Wild Shape (RAW): healing received while shaped heals the beast form;
+    // damage is absorbed by temp HP first, then the form, and only overflow
+    // reaches the druid (breaking the form).
+    if (delta > 0 && wildShapeForm) {
+      patchWildShapeForm({ ...wildShapeForm, hp: { ...wildShapeForm.hp, current: Math.min(wildShapeForm.hp.max, wildShapeForm.hp.current + delta) } })
+      return
+    }
+    if (delta < 0 && wildShapeForm) {
+      let damage = Math.abs(delta)
+      const tempAbsorb = Math.min(hp.temp, damage)
+      damage -= tempAbsorb
+      const formAbsorb = Math.min(wildShapeForm.hp.current, damage)
+      damage -= formAbsorb
+      if (damage <= 0) {
+        const nextFormHp = wildShapeForm.hp.current - formAbsorb
+        update({
+          hitPoints: { ...hp, temp: hp.temp - tempAbsorb },
+          wildShapeForm: { ...wildShapeForm, hp: { ...wildShapeForm.hp, current: nextFormHp } },
+          featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: { form: { ...wildShapeForm, hp: { ...wildShapeForm.hp, current: nextFormHp } } } } },
+        })
         return
       }
-      const overflow = Math.abs(Math.min(0, remainingFormHp))
-      const next = applyHpDelta(hp, -overflow)
+      // Form breaks; the excess hits the druid directly (temp already spent).
       update({
+        hitPoints: { ...hp, temp: 0, current: Math.max(0, hp.current - damage) },
         wildShapeForm: undefined,
-        hitPoints: { ...hp, current: next.current, temp: next.temp },
+        featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: {} } },
       })
       return
     }
@@ -145,8 +165,8 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
           onClick={() => setArmorOpen(v => !v)}
           title="Click to manage armor"
         >
-          <span className={styles.topStatVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
-          <span className={styles.topStatLabel}>Armor Class</span>
+          <span className={styles.topStatVal}>{wildShapeForm ? wildShapeForm.ac : char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
+          <span className={styles.topStatLabel}>Armor Class{wildShapeForm ? ' (form)' : ''}</span>
         </div>
         <div className={styles.topStatBox} title="Derived from DEX + feats/class">
           <span className={styles.topStatVal}>{fmtMod(computeInitiativeFull(char))}</span>
@@ -172,9 +192,9 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
               onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit() }}
             />
           ) : (
-            <span className={styles.topStatVal}>{displayedSpeed} <span className={styles.statUnit}>ft</span></span>
+            <span className={styles.topStatVal}>{wildShapeForm ? wildShapeForm.speed.replace(/ ?ft.*/, '') : displayedSpeed} <span className={styles.statUnit}>ft</span></span>
           )}
-          <span className={styles.topStatLabel}>Speed</span>
+          <span className={styles.topStatLabel}>Speed{wildShapeForm ? ' (form)' : ''}</span>
         </div>
       </div>
 
@@ -203,22 +223,22 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
         {computeDarkvision(char) > 0 && <span className={styles.secondaryStat}><strong>{computeDarkvision(char)}</strong> Darkvision ft</span>}
       </div>
 
-      {char.wildShapeForm && (
+      {wildShapeForm && (
         <>
           <div className={styles.hpRow} style={{ gridTemplateColumns: '1fr auto' }}>
             <div className={styles.hpCurrentSection}>
               <span className={styles.hpMaxLabel}>
-                Wild Shape: {char.wildShapeForm.name} · AC {char.wildShapeForm.ac} · CR {char.wildShapeForm.cr} · {char.wildShapeForm.speed}
+                Wild Shape: {wildShapeForm.name} · AC {wildShapeForm.ac} · CR {wildShapeForm.cr} · {wildShapeForm.speed}
               </span>
               <span className={styles.hpCurrent}>
-                {char.wildShapeForm.hp.current}
+                {wildShapeForm.hp.current}
               </span>
             </div>
             <div className={styles.hpTempSection}>
               <span className={styles.hpSectionLabel}>Beast HP</span>
               <button
                 className={`${styles.tempHpChip} ${styles.tempHpActive}`}
-                onClick={() => update({ wildShapeForm: undefined })}
+                onClick={() => patchWildShapeForm(undefined)}
                 title="Leave Wild Shape"
               >
                 Leave

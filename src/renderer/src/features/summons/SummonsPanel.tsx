@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Character } from '@/entities/character/types'
 import type { ActiveSummon } from '@/entities/summon/types'
+import { Panel, PanelEmptyNote, PanelGroup, PanelRow, useCollapsedGroups } from '@/ui/Panel'
 import { SummonCatalogModal } from './SummonCatalogModal'
 import { SummonSprite } from './SummonSprite'
 import styles from './SummonsPanel.module.css'
@@ -25,30 +26,21 @@ function groupByType(items: ActiveSummon[]): [string, ActiveSummon[]][] {
 }
 
 export function SummonsPanel({ character: char, selectedSummonId, onSelectSummon, onSummon, onClearAll }: Props) {
-  // todo: groups colaplse state should be lifted to parent to survive modal open/close (defaults to all collapsed when opening app)
   const [modal, setModal] = useState<'pick' | 'manage' | null>(null)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const collapsedGroups = useCollapsedGroups()
 
   const summons = char.activeSummons
   const groups = groupByType(summons)
   const multipleGroups = groups.length > 1
 
-  function toggleGroup(type: string) {
-    setCollapsed(prev => {
-      const next = new Set(prev)
-      if (next.has(type)) next.delete(type)
-      else next.add(type)
-      return next
-    })
-  }
-
   function renderSummon(s: ActiveSummon) {
     const hpPct = s.hp.max > 0 ? Math.max(0, Math.min(100, (s.hp.current / s.hp.max) * 100)) : 0
     const dead = s.hp.current <= 0
     return (
-      <button
+      <PanelRow
         key={s.id}
-        className={`${styles.row} ${selectedSummonId === s.id ? styles.rowSelected : ''} ${dead ? styles.rowDead : ''}`}
+        selected={selectedSummonId === s.id}
+        dim={dead}
         onClick={() => onSelectSummon(selectedSummonId === s.id ? null : s.id)}
       >
         <div className={styles.rowTop}>
@@ -65,38 +57,31 @@ export function SummonsPanel({ character: char, selectedSummonId, onSelectSummon
           />
         </div>
         <span className={styles.rowHpText}>{s.hp.current}/{s.hp.max}{s.hp.temp > 0 ? ` (+${s.hp.temp})` : ''}</span>
-      </button>
+      </PanelRow>
     )
   }
 
-  return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Summons {summons.length > 0 && `(${summons.length})`}</span>
-        <div className={styles.headActions}>
-          <button className={styles.headBtn} onClick={() => setModal('pick')}>+ Summon</button>
-          <button className={styles.headBtn} onClick={() => setModal('manage')}>Catalog</button>
-          {summons.length > 0 && (
-            <button className={styles.headBtn} onClick={onClearAll} title="Dismiss all summons">Clear</button>
-          )}
-        </div>
-      </div>
+  const actions = [
+    { label: '+ Summon', onClick: () => setModal('pick') },
+    { label: 'Catalog', onClick: () => setModal('manage') },
+    ...(summons.length > 0 ? [{ label: 'Clear', onClick: onClearAll, title: 'Dismiss all summons' }] : []),
+  ]
 
-      <div className={styles.list}>
-        {summons.length === 0 && <span className={styles.emptyNote}>No active summons</span>}
-        {groups.map(([type, items]) => (
-          <div key={type} className={styles.group}>
-            {multipleGroups && (
-              <button className={styles.groupHeader} onClick={() => toggleGroup(type)}>
-                <span className={styles.groupArrow}>{collapsed.has(type) ? '▶' : '▼'}</span>
-                <span className={styles.groupName}>{type}</span>
-                <span className={styles.groupCount}>{items.length}</span>
-              </button>
-            )}
-            {!collapsed.has(type) && items.map(renderSummon)}
-          </div>
-        ))}
-      </div>
+  return (
+    <Panel label="Summons" count={summons.length} actions={actions}>
+      {summons.length === 0 && <PanelEmptyNote>No active summons</PanelEmptyNote>}
+      {groups.map(([type, items]) => (
+        <PanelGroup
+          key={type}
+          name={type}
+          count={items.length}
+          collapsed={collapsedGroups.isCollapsed(type)}
+          onToggle={() => collapsedGroups.toggle(type)}
+          showHeader={multipleGroups}
+        >
+          {items.map(renderSummon)}
+        </PanelGroup>
+      ))}
 
       {modal && (
         <SummonCatalogModal
@@ -105,6 +90,6 @@ export function SummonsPanel({ character: char, selectedSummonId, onSelectSummon
           onClose={() => setModal(null)}
         />
       )}
-    </section>
+    </Panel>
   )
 }

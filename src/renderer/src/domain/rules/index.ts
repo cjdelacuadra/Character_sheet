@@ -7,6 +7,7 @@ import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeUpcastDice, type SpellEntry } from '@/shared/data/spellData'
+import { fightingStyleOf, hasCrusherCrit, hasPiercerCrit, hexWarriorWeaponIdOf, invocationsOf, isRaging, wildShapeFormOf } from '@/domain/character/compat'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function computeAttackAdvantage(character: Character): AttackAdvantage {
   }
 
   const martialAdvSources = [...advSources]
-  if (character.isRaging === true) martialAdvSources.push('Advantage: Reckless/Rage')
+  if (isRaging(character)) martialAdvSources.push('Advantage: Reckless/Rage')
 
   function resolve(categoryAdvSources: string[]): AdvState {
     if (categoryAdvSources.length > 0 && disSources.length > 0) return 'none'
@@ -114,6 +115,14 @@ export function computeSpellDamage(
     baseDice = '—'
   }
 
+  // Agonizing Blast (Eldritch Invocation): add CHA mod to each Eldritch
+  // Blast beam. Keyed on the known-invocation list, not the class — any
+  // character granted the invocation gets the damage.
+  if (spell.id === 'eldritch-blast' && invocationsOf(character).includes('agonizingBlast')) {
+    const chaMod = mod(effectiveAbilityScore(character, 'cha'))
+    if (chaMod !== 0) baseDice = combineDiceExpr(`${baseDice} + ${chaMod}`)
+  }
+
   const dmgType = spell.damageType ?? ''
   const riders = computeEquipmentStats(character).bonusDamage.filter(b => b.appliesTo === 'all')
   const sameType = riders.filter(b => b.dmgType === dmgType)
@@ -126,7 +135,7 @@ export function computeSpellDamage(
 
   const hitParts: { expr: string; type: string }[] = []
   let hitFormula = dmgType ? `${combined} ${dmgType}` : combined
-  if (dmgType && combined !== 'â€”') hitParts.push({ expr: combined, type: dmgType })
+  if (dmgType && combined !== '—') hitParts.push({ expr: combined, type: dmgType })
   for (const rider of otherType) {
     const parts = [...rider.dice, rider.flat ? String(rider.flat) : null].filter(Boolean) as string[]
     if (!parts.length) continue
@@ -181,12 +190,12 @@ export function computeAttackBonus(character: Character, weapon: Weapon, opts?: 
   // thrown weapons count as ranged for archery, but still use STR for ability mod
   const isRangedForArchery = isActuallyRanged || opts?.forceRanged === true
   // Hexblade Hex Warrior: bonded weapon uses CHA for attack rolls
-  const isHexWarriorWeapon = !!character.hexWarriorWeaponId && character.hexWarriorWeaponId === weapon.id
+  const isHexWarriorWeapon = hexWarriorWeaponIdOf(character) === weapon.id
   const abilityMod = isHexWarriorWeapon
     ? Math.max(strMod, dexMod, chaMod)
     : isFinesse ? Math.max(strMod, dexMod) : isActuallyRanged ? dexMod : strMod
   const proficient = isProficientWithWeapon(character, weapon)
-  const hasArchery = character.fightingStyle === 'archery' || character.feats.includes('archery')
+  const hasArchery = fightingStyleOf(character) === 'archery' || character.feats.includes('archery')
   const archeryBonus = hasArchery && isRangedForArchery ? 2 : 0
   // Equipment to-hit bonuses are surfaced on their own attack-table rows, not folded in here.
   return abilityMod + (proficient ? character.proficiencyBonus : 0) + (weapon.atkBonus ?? 0) + (weapon.enchantmentBonus ?? 0) + (weapon.toHitFlat ?? 0) + archeryBonus
@@ -207,7 +216,7 @@ export function computeWeaponDamage(character: Character, weapon: Weapon): strin
   const isFinesse = props.some(p => p === 'finesse')
   const isRanged = weapon.rangeType === 'Ranged'
   // Hexblade Hex Warrior: bonded weapon uses CHA for damage rolls
-  const isHexWarriorWeapon = !!character.hexWarriorWeaponId && character.hexWarriorWeaponId === weapon.id
+  const isHexWarriorWeapon = hexWarriorWeaponIdOf(character) === weapon.id
   const dmgMod = isHexWarriorWeapon
     ? Math.max(strMod, dexMod, chaMod)
     : isFinesse ? Math.max(strMod, dexMod) : isRanged ? dexMod : strMod
@@ -381,7 +390,7 @@ const CAST_A_SPELL: ActionDef = {
 }
 
 function makeOffHandAction(character: Character): ActionDef {
-  const hasTWF = character.fightingStyle === 'two-weapon-fighting'
+  const hasTWF = fightingStyleOf(character) === 'two-weapon-fighting'
   return {
     name: 'Off-Hand Attack',
     type: 'Bonus Action',
@@ -427,7 +436,7 @@ export function critExtraDice(
   const weaponDie = weapon.damage
   const normalizedType = weaponDamageType.toLowerCase()
 
-  if (character.piercerCritExtraDie === true && normalizedType === 'piercing') {
+  if (hasPiercerCrit(character) && normalizedType === 'piercing') {
     extras.push({ expr: weaponDie, type: 'piercing' })
   }
 
@@ -477,7 +486,10 @@ export function getAvailableActions(character: Character): ActionDef[] {
     return true
   })
   const subclassCasts = character.subclass ? !!SUBCLASS_BY_ID[character.subclass]?.spellcastingAbility : false
-  const spellAction = (CLASS_BY_ID[character.classId]?.isSpellcaster || subclassCasts)
+  // RAW: you can't cast spells while in Wild Shape until Beast Spells
+  // (druid 18) — the Cast a Spell actions disappear while a form is active.
+  const shapedNoCasting = !!wildShapeFormOf(character) && character.level < 18
+  const spellAction = (CLASS_BY_ID[character.classId]?.isSpellcaster || subclassCasts) && !shapedNoCasting
     ? [CAST_A_SPELL, CAST_BONUS_SPELL, CAST_REACTION_SPELL]
     : []
 
@@ -771,10 +783,10 @@ export function getWeaponSpecialAttacks(character: Character, weapon: Weapon): S
   if (feats.includes('sharpshooter') && isRanged) {
     attacks.push({ name: 'Sharpshooter', note: '−5 to hit / +10 damage' })
   }
-  if (character.piercerCritExtraDie && (weapon.damageType ?? '').toLowerCase() === 'piercing') {
+  if (hasPiercerCrit(character) && (weapon.damageType ?? '').toLowerCase() === 'piercing') {
     attacks.push({ name: 'Piercer Critical', note: 'On a piercing critical hit, roll one additional weapon damage die.' })
   }
-  if (character.crusherCritAdvantage && (weapon.damageType ?? '').toLowerCase() === 'bludgeoning') {
+  if (hasCrusherCrit(character) && (weapon.damageType ?? '').toLowerCase() === 'bludgeoning') {
     attacks.push({ name: 'Crusher Critical', note: 'On a bludgeoning critical hit, attacks against the target have advantage until your next turn.' })
   }
   if (classId === 'Ranger' && spellIds.includes('hunter-s-mark')) {

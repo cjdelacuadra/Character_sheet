@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- preload runs as CJS */
 const { contextBridge, ipcRenderer } = require('electron/renderer')
 
 contextBridge.exposeInMainWorld('characterStore', {

@@ -8,6 +8,8 @@ import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
 import { SPELLS } from '@/shared/data/spellData'
 import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
+import { Panel } from '@/ui/Panel'
+import { fightingStyleOf, isBladesinging, isRaging } from '@/domain/character/compat'
 import styles from './FeaturesPanel.module.css'
 
 type SourcedFeature = FeatureEntry & { source: 'class' | 'race' | 'custom' | 'feat'; customIndex?: number; featId?: string }
@@ -109,14 +111,15 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
 
   // ── Class features ──────────────────────────────────────────────────────
   const baseFeatures = getClassFeatures(char.classId, char.level)
-  const fsData = char.fightingStyle ? FIGHTING_STYLE_DATA[char.fightingStyle] : null
+  const styleId = fightingStyleOf(char)
+  const fsData = styleId ? FIGHTING_STYLE_DATA[styleId] : null
   const fsEntry: FeatureEntry | null = fsData
     ? { level: 1, name: `Fighting Style: ${fsData.label}`, desc: fsData.desc }
     : null
   const classFeatures: SourcedFeature[] = (fsEntry ? [fsEntry, ...baseFeatures] : [...baseFeatures])
     .map(f => ({ ...f, source: 'class' as const }))
 
-  if (char.isRaging) {
+  if (isRaging(char)) {
     const rageDmgBonus = char.level >= 16 ? 4 : char.level >= 9 ? 3 : 2
     classFeatures.unshift({
       level: 1, source: 'class',
@@ -230,18 +233,13 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
     .filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase()))
 
   return (
-    <section className={styles.section}>
-      <div className={styles.sectionHead}>
-        <span className={styles.sectionLabel}>Features</span>
-        <span className={styles.addActions}>
-          <button className={styles.addBtn} onClick={() => { setFeatOpen(v => !v); setAddOpen(false) }}>
-            {featOpen ? 'Cancel' : '+ Add Feat'}
-          </button>
-          <button className={styles.addBtn} onClick={() => { setAddOpen(v => !v); setFeatOpen(false) }}>
-            {addOpen ? 'Cancel' : '+ Add Feature'}
-          </button>
-        </span>
-      </div>
+    <Panel
+      label="Features"
+      actions={[
+        { label: featOpen ? 'Cancel' : '+ Add Feat', onClick: () => { setFeatOpen(v => !v); setAddOpen(false) } },
+        { label: addOpen ? 'Cancel' : '+ Add Feature', onClick: () => { setAddOpen(v => !v); setFeatOpen(false) } },
+      ]}
+    >
       {featOpen && (
         <div className={styles.addForm}>
           <input
@@ -407,10 +405,10 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
                     {SUBCLASS_FEATURE_NAMES.has(f.name) && char.subclass && (
                       <span className={styles.featureSub}>{SUBCLASS_BY_ID[char.subclass]?.label}</span>
                     )}
-                    {f.name === 'Rage' && char.isRaging && (
+                    {f.name === 'Rage' && isRaging(char) && (
                       <span className={styles.featureSubRaging}>Raging</span>
                     )}
-                    {f.name === 'Bladesong' && char.isBladesinging && (
+                    {f.name === 'Bladesong' && isBladesinging(char) && (
                       <span className={styles.featureSubRaging}>Singing</span>
                     )}
                   </span>
@@ -440,6 +438,6 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
           })}
         </div>
       )}
-    </section>
+    </Panel>
   )
 }

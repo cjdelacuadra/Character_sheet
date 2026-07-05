@@ -3,7 +3,7 @@ import { createStore } from 'zustand/vanilla'
 import type { StateCreator } from 'zustand'
 import { createTurnSlice, type TurnSlice } from '@/app/store/turnSlice'
 import type { CharacterSlice } from '@/app/store/characterSlice'
-import { formatToHitParts as panelFormatToHitParts, formatToHitRider } from '@/features/combat-actions/ActionDetailPanel'
+import { formatToHitParts as panelFormatToHitParts, formatToHitRider } from '@/features/combat-actions/attackRows'
 import { makeChar } from './helpers'
 
 function makeStore() {
@@ -150,13 +150,13 @@ describe('markActionUsed / unmarkActionUsed', () => {
   })
 })
 
-describe('useAttack / recoverAttack', () => {
+describe('spendAttack / recoverAttack', () => {
   it('increments and decrements attacksUsed', () => {
     const store = makeStore()
     const char = makeChar()
     store.setState({ characters: { [char.id]: char } })
-    store.getState().useAttack(char.id)
-    store.getState().useAttack(char.id)
+    store.getState().spendAttack(char.id)
+    store.getState().spendAttack(char.id)
     expect(store.getState().turnStates[char.id]?.attacksUsed).toBe(2)
     store.getState().recoverAttack(char.id)
     expect(store.getState().turnStates[char.id]?.attacksUsed).toBe(1)
