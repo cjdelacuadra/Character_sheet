@@ -160,6 +160,7 @@ export const FEATS: FeatDef[] = [
     id: 'martialAdept',
     name: 'Martial Adept',
     description: 'Learn two maneuvers from the Battle Master archetype. Gain one superiority die (d6) that recharges on a short or long rest.',
+    grantsResources: { 'Superiority Dice': 1 },
   },
   {
     id: 'mediumArmorMaster',

@@ -35,7 +35,7 @@ import type { FeatureEntry } from '@/shared/data/classFeaturesData'
 import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
 import {
   activeInfusionsOf, activeRunesOf, chainFamiliarOf, fightingStyleLocked, fightingStyleOf,
-  infusionsKnownOf, invocationsOf, isBladesinging, isRaging, masterySpellsOf,
+  infusionsKnownOf, invocationsOf, isBladesinging, isRaging, maneuversKnownOf, masterySpellsOf,
   pactBoonLockedOf, pactBoonOf, runesKnownOf, tomeCantripsOf, wildShapeFormOf,
 } from '@/domain/character/compat'
 import styles from './ActionDetailPanel.module.css'
@@ -69,7 +69,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
 
   const isAsi = selectedFeature.name === 'ASI'
   const isSpellbook = selectedFeature.name === 'Spellbook'
-  const isFightingStyle = selectedFeature.name === 'Fighting Style'
+  const isFightingStyle = selectedFeature.name === 'Fighting Style' || selectedFeature.name === 'Fighting Initiate'
   const asiChoiceLabel = isAsi ? char.completedAsiChoices?.[selectedFeature.level] : undefined
   const asiDone = isAsi ? (char.completedAsiLevels ?? []).includes(selectedFeature.level) : false
 
@@ -714,6 +714,57 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                 </div>
                 {mechLine && <p className={styles.detailFull} style={{ fontWeight: 600, marginBottom: 2 }}>{mechLine}</p>}
                 <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>{opt.desc}</p>
+              </div>
+            )
+          })}
+        </div>
+      </>
+    )
+  }
+
+  // ── Martial Adept (feat): pick 2 Battle Master maneuvers ──────────
+  const isMartialAdept = selectedFeature.name === 'Martial Adept'
+  if (isMartialAdept) {
+    const classKnownCount = char.subclass === 'BattleMaster' ? maneuversKnown(char.level) : 0
+    const limit = classKnownCount + 2
+    const known = maneuversKnownOf(char)
+    const supRes = char.resources['Superiority Dice']
+    const toggleManeuver = (id: string) => {
+      const next = known.includes(id)
+        ? known.filter(x => x !== id)
+        : known.length < limit ? [...known, id] : known
+      update({ chosenManeuvers: next })
+    }
+    return (
+      <>
+        <ResourcesPanel character={char} update={update} />
+        <div className={styles.detailPane}>
+          <div className={styles.detailHeader}>
+            <span className={styles.detailName}>Martial Adept</span>
+            <span className={`${styles.detailBadge} ${styles.badgeFree}`}>{known.length}/{limit} maneuvers</span>
+          </div>
+          {supRes && (
+            <div className={styles.detailResource}>{supRes.total - supRes.used} / {supRes.total} superiority dice (d6)</div>
+          )}
+          <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>
+            Chosen maneuvers appear as rider rows on the attack table and spend Superiority Dice.
+          </p>
+          {MANEUVERS.map(m => {
+            const isKnown = known.includes(m.id)
+            return (
+              <div key={m.id} style={{ marginTop: 8 }}>
+                <div className={styles.detailHeader}>
+                  <span className={styles.detailName} style={{ fontSize: 12 }}>{m.name}</span>
+                  <button
+                    type="button"
+                    className={styles.actionUseBtn}
+                    disabled={!isKnown && known.length >= limit}
+                    onClick={() => toggleManeuver(m.id)}
+                  >
+                    {isKnown ? 'Forget' : 'Learn'}
+                  </button>
+                </div>
+                <p className={styles.detailFull} style={{ color: 'var(--text-muted)' }}>{m.desc}</p>
               </div>
             )
           })}

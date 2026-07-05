@@ -564,9 +564,9 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             const critTotals = criticalSubtotals(subtotals, [])
             return (
               <div key={atk.name} className={styles.attackBreakdownSection}>
-                <div className={styles.detailHeader} style={{ padding: '6px 10px' }}>
-                  <span className={styles.detailName}>{atk.name}</span>
-                  {atk.note && <span className={styles.detailBadge} title={atk.note}>note</span>}
+                <div className={styles.attackBreakdownHead}>
+                  <span>{shapedForm.name} — {atk.name} {renderMartialAdvLabel()}</span>
+                  {renderAttackControls(rows)}
                 </div>
                 <table className={styles.attackBreakdownTable}>
                   <thead>
@@ -580,7 +580,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                       <tr key={row.id} className={`${styles.attackBreakdownRow} ${styles.attackBreakdownRowActive}`}>
                         <td title={row.note}>{row.name}{row.note && <span className={styles.diceNote}> note</span>}</td>
                         <td>{row.id === 'normal' ? formatToHitParts(row.toHit, []) : formatToHitRider(row.toHit, [])}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>—</td>
+                        <td style={{ fontSize: '11px', color: 'var(--text-muted)' }}>—</td>
                         <td>{row.dmg ?? '—'}</td>
                         <td>{row.dmgType ?? '—'}</td>
                         <td>{row.bonusDmg ?? '—'}</td>
@@ -588,17 +588,21 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                         <td><span className={styles.resourceChip}>{row.id === 'normal' ? '—' : 'Equipment'}</span></td>
                       </tr>
                     ))}
-                    <tr className={styles.attackBreakdownRow} style={{ fontWeight: 600 }}>
+                    <tr className={styles.attackBreakdownTotalRow}>
                       <td>Total</td>
-                      <td>{formatToHitParts(atk.toHit, [])}</td>
-                      <td style={{ color: 'var(--text-muted)' }}>Crit 20+</td>
-                      <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ')}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatToHitParts(atk.toHit, [])}</td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <span style={{ padding: '4px 10px', backgroundColor: '#d4af37', color: '#1a1a1a', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', border: '1px solid #8b7c3a', display: 'inline-block' }}>
+                          Crit 20+
+                        </span>
+                      </td>
+                      <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
-                    <tr className={styles.attackBreakdownRow} style={{ opacity: 0.85 }}>
+                    <tr className={styles.attackBreakdownCriticalRow}>
                       <td>critical</td>
                       <td>—</td>
                       <td>—</td>
-                      <td colSpan={5}>{critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ')}</td>
+                      <td colSpan={5}>{critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ') || '—'}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -909,7 +913,8 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const usedDice = superiorityDice.used
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))
-              const known = maneuversKnown(char.level)
+              const classKnownCount = char.subclass === 'BattleMaster' ? maneuversKnown(char.level) : 0
+              const known = classKnownCount + (char.feats.includes('martialAdept') ? 2 : 0)
               const chosen = maneuversKnownOf(char)
               const active = activeManeuverOf(char)
               return (
