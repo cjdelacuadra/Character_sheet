@@ -85,20 +85,33 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
   }
 
   function applyHp(delta: number) {
+    // Wild Shape (RAW): healing received while shaped heals the beast form;
+    // damage is absorbed by temp HP first, then the form, and only overflow
+    // reaches the druid (breaking the form).
+    if (delta > 0 && wildShapeForm) {
+      patchWildShapeForm({ ...wildShapeForm, hp: { ...wildShapeForm.hp, current: Math.min(wildShapeForm.hp.max, wildShapeForm.hp.current + delta) } })
+      return
+    }
     if (delta < 0 && wildShapeForm) {
-      const damage = Math.abs(delta)
-      const form = wildShapeForm
-      const remainingFormHp = form.hp.current - damage
-      if (remainingFormHp > 0) {
-        patchWildShapeForm({ ...form, hp: { ...form.hp, current: remainingFormHp } })
+      let damage = Math.abs(delta)
+      const tempAbsorb = Math.min(hp.temp, damage)
+      damage -= tempAbsorb
+      const formAbsorb = Math.min(wildShapeForm.hp.current, damage)
+      damage -= formAbsorb
+      if (damage <= 0) {
+        const nextFormHp = wildShapeForm.hp.current - formAbsorb
+        update({
+          hitPoints: { ...hp, temp: hp.temp - tempAbsorb },
+          wildShapeForm: { ...wildShapeForm, hp: { ...wildShapeForm.hp, current: nextFormHp } },
+          featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: { form: { ...wildShapeForm, hp: { ...wildShapeForm.hp, current: nextFormHp } } } } },
+        })
         return
       }
-      const overflow = Math.abs(Math.min(0, remainingFormHp))
-      const next = applyHpDelta(hp, -overflow)
+      // Form breaks; the excess hits the druid directly (temp already spent).
       update({
+        hitPoints: { ...hp, temp: 0, current: Math.max(0, hp.current - damage) },
         wildShapeForm: undefined,
         featureState: { ...(char.featureState ?? {}), 'wild-shape': { ...(char.featureState?.['wild-shape'] ?? {}), data: {} } },
-        hitPoints: { ...hp, current: next.current, temp: next.temp },
       })
       return
     }
@@ -152,8 +165,8 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
           onClick={() => setArmorOpen(v => !v)}
           title="Click to manage armor"
         >
-          <span className={styles.topStatVal}>{char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
-          <span className={styles.topStatLabel}>Armor Class</span>
+          <span className={styles.topStatVal}>{wildShapeForm ? wildShapeForm.ac : char.armorClass}{armorStrWarning ? ' ⚠' : ''}</span>
+          <span className={styles.topStatLabel}>Armor Class{wildShapeForm ? ' (form)' : ''}</span>
         </div>
         <div className={styles.topStatBox} title="Derived from DEX + feats/class">
           <span className={styles.topStatVal}>{fmtMod(computeInitiativeFull(char))}</span>
@@ -179,9 +192,9 @@ export function VitalsPanel({ character: char, update, onTempHp, onDelete }: Pro
               onKeyDown={e => { if (e.key === 'Enter') commitFieldEdit() }}
             />
           ) : (
-            <span className={styles.topStatVal}>{displayedSpeed} <span className={styles.statUnit}>ft</span></span>
+            <span className={styles.topStatVal}>{wildShapeForm ? wildShapeForm.speed.replace(/ ?ft.*/, '') : displayedSpeed} <span className={styles.statUnit}>ft</span></span>
           )}
-          <span className={styles.topStatLabel}>Speed</span>
+          <span className={styles.topStatLabel}>Speed{wildShapeForm ? ' (form)' : ''}</span>
         </div>
       </div>
 

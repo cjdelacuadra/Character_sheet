@@ -27,3 +27,7 @@
 .fomBtn { padding: 2px 6px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface-3); color: var(--text); cursor: pointer; }
 .fomBtn:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
 .fomBtn:disabled { opacity: .4; cursor: default; }
+
+/* Resource name that opens its action/feature detail */
+.resourceNameBtn { background: none; border: none; padding: 0; font: inherit; font-size: 11px; color: var(--text); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resourceNameBtn:hover { color: var(--accent); text-decoration: underline; }

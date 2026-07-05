@@ -162,42 +162,21 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
 
   return (
     <>
-      <ResourcesPanel character={char} update={update} />
+      <ResourcesPanel
+        character={char}
+        update={update}
+        resolveDetail={(name) => {
+          const action = actionGroups.flatMap(g => g.items).find(a => a.resourceKey === name)
+          return action ? () => onSelectAction(action.name) : null
+        }}
+      />
       {actionGroups.map(({ type, label, items }) => {
-        const chips = getGroupChips(items)
         return (
           <section key={type} className={styles.section}>
             <div className={styles.sectionHead}>
               <span className={`${styles.sectionLabel} ${labelClass(type)}`}>{label}</span>
               <span className={styles.actionTypeCount}>{items.length}</span>
             </div>
-            {chips.length > 0 && (
-              <div className={styles.chipGroup}>
-                {subclassLabel && <span className={styles.subclassNote}>{subclassLabel}</span>}
-                {chips.map(({ key, resDef, total, used }) => {
-                  const remaining = total - used
-                  return (
-                    <div key={key} className={styles.resourceChip}>
-                      <span className={styles.chipName}>{key}</span>
-                      <div className={styles.chipPips}>
-                        {Array.from({ length: Math.min(total, 10) }).map((_, i) => (
-                          <button
-                            key={i}
-                            className={`${styles.chipPip} ${i < remaining ? styles.chipPipFull : styles.chipPipEmpty}`}
-                            onClick={() => i < remaining ? spendResource(key, total, type) : recoverResource(key, total)}
-                            title={i < remaining ? 'Use' : 'Recover'}
-                          />
-                        ))}
-                        {total > 10 && <span className={styles.chipCount}>{remaining}/{total}</span>}
-                      </div>
-                      <span className={styles.chipRecovery}>
-                        {resDef.recoverOn === 'short' ? 'SR' : resDef.recoverOn === 'long' ? 'LR' : '—'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
             <div className={styles.actionList}>
               {items.map(action => {
                 const depleted = isActionDepleted(action)

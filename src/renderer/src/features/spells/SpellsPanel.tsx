@@ -8,7 +8,7 @@ import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, co
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import { hasSpellSniper, landTerrainOf, masterySpellsOf } from '@/domain/character/compat'
-import { METAMAGIC_BY_ID, metamagicCost } from '@/domain/data/metamagicData'
+import { METAMAGIC_BY_ID, metamagicApplies, metamagicCost } from '@/domain/data/metamagicData'
 import type { EconomyType } from '@/app/store/turnSlice'
 import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
@@ -46,6 +46,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const [search, setSearch] = useState('')
   const [schoolFilter, setSchoolFilter] = useState('')
   const [expandedSpell, setExpandedSpell] = useState<string | null>(null)
+  const [armedMetamagic, setArmedMetamagic] = useState<string[]>([])
   const [learnOpen, setLearnOpen] = useState(false)
   const [learnSearch, setLearnSearch] = useState('')
   const [learnShowAllLevels, setLearnShowAllLevels] = useState(false)
@@ -127,6 +128,20 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   // and create any summon the spell defines.
   function castSpell(spell: typeof SPELLS[number], castLevel: number) {
     const previousConcentrationId = spell.concentration ? char.concentrationSpellId : null
+    // Metamagic armed on this cast: sorcery points are spent NOW, not when
+    // the option was toggled. Twinned costs the slot level (min 1).
+    if (armedMetamagic.length > 0) {
+      const spRes = char.resources['Sorcery Points']
+      if (spRes) {
+        const costLevel = Math.max(castLevel, spell.level, 1)
+        const totalCost = armedMetamagic.reduce((sum, id) => {
+          const opt = METAMAGIC_BY_ID[id]
+          return opt ? sum + metamagicCost(opt, costLevel) : sum
+        }, 0)
+        update({ resources: { ...char.resources, 'Sorcery Points': { ...spRes, used: Math.min(spRes.total, spRes.used + totalCost) } } })
+      }
+      setArmedMetamagic([])
+    }
     if (castLevel > 0) spendSlot(castLevel)
     if (spell.concentration) setConcentration(spell.id)
     if (spell.summons) onSummon?.(spell.summons.templateId, spell.summons.count, { spellId: spell.id })
@@ -156,6 +171,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   function toggleExpand(id: string) {
     setExpandedSpell(prev => prev === id ? null : id)
     setSelectedSlotLevel(null)
+    setArmedMetamagic([])
   }
 
   function togglePrepare(id: string) {
@@ -311,29 +327,41 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
           </ul>
         )}
         {(() => {
-          // Metamagic at cast time: known options spend from the Sorcery
-          // Points pool, costed against this spell's level (Twinned scales).
-          const metamagicKnown = (char.featureState?.['metamagic']?.known ?? [])
+          // Metamagic: arm options here; the points are spent when you CAST.
+          // Only options that can legally affect this spell are offered.
+          const eligible = (char.featureState?.['metamagic']?.known ?? [])
             .map(id => METAMAGIC_BY_ID[id])
-            .filter((o): o is NonNullable<typeof o> => !!o)
+            .filter((o): o is NonNullable<typeof o> => !!o && metamagicApplies(o, spell))
           const spRes = char.resources['Sorcery Points']
-          if (metamagicKnown.length === 0 || !spRes) return null
+          if (eligible.length === 0 || !spRes) return null
           const spRemaining = spRes.total - spRes.used
+          const costLevel = Math.max(spell.level === 0 ? 0 : (activeSlotLevel || spell.level), spell.level, 1)
+          const armedCost = armedMetamagic.reduce((sum, id) => {
+            const opt = METAMAGIC_BY_ID[id]
+            return opt ? sum + metamagicCost(opt, costLevel) : sum
+          }, 0)
           return (
             <div className={styles.spellExpandActions} style={{ flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Metamagic · {spRemaining}/{spRes.total} SP</span>
-              {metamagicKnown.map(opt => {
-                const cost = metamagicCost(opt, spell.level)
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                Metamagic · {spRemaining}/{spRes.total} SP{armedCost > 0 ? ` · spending ${armedCost} on cast` : ''}
+              </span>
+              {eligible.map(opt => {
+                const cost = metamagicCost(opt, costLevel)
+                const armed = armedMetamagic.includes(opt.id)
+                const cantAfford = !armed && spRemaining < armedCost + cost
                 return (
                   <button
                     key={opt.id}
                     className={styles.spellExpandCastBtn}
-                    style={{ fontSize: 10, padding: '2px 8px' }}
-                    disabled={spRemaining < cost}
-                    title={spRemaining < cost ? 'Not enough sorcery points' : opt.desc}
-                    onClick={() => update({ resources: { ...char.resources, 'Sorcery Points': { ...spRes, used: spRes.used + cost } } })}
+                    style={{
+                      fontSize: 10, padding: '2px 8px',
+                      ...(armed ? { background: 'var(--accent)', color: 'var(--text-on-accent)', borderColor: 'var(--accent)' } : {}),
+                    }}
+                    disabled={cantAfford}
+                    title={cantAfford ? 'Not enough sorcery points' : opt.desc}
+                    onClick={() => setArmedMetamagic(prev => armed ? prev.filter(x => x !== opt.id) : [...prev, opt.id])}
                   >
-                    {opt.name.replace(' Spell', '')} −{cost}pt
+                    {opt.name.replace(' Spell', '')} {armed ? '✓' : ''} −{cost}pt
                   </button>
                 )
               })}

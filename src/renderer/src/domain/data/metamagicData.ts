@@ -44,3 +44,41 @@ export function metamagicKnownCount(level: number): number {
 export function metamagicCost(option: MetamagicOption, spellLevel: number): number {
   return option.costsSpellLevel ? Math.max(1, spellLevel) : option.cost
 }
+
+/** Minimal spell surface the eligibility rules need. */
+export interface MetamagicSpellView {
+  level: number
+  range: string
+  duration: string
+  castingTime: string
+  components: string
+  attackType?: string
+  damageType?: string
+  damageFormula?: string
+  scalingDice?: unknown
+  aoeShape?: string
+  multiTargetScaling?: unknown
+}
+
+/**
+ * RAW eligibility per option — e.g. Extended needs a duration of 1 minute+
+ * (Magic Missile is instantaneous, so no), Twinned needs a single-target
+ * spell that does not target only the caster.
+ */
+export function metamagicApplies(option: MetamagicOption, spell: MetamagicSpellView): boolean {
+  const duration = spell.duration.toLowerCase()
+  const dealsDamage = !!(spell.damageFormula || spell.scalingDice || spell.damageType)
+  switch (option.id) {
+    case 'careful':
+    case 'heightened': return spell.attackType === 'save'
+    case 'distant': return /\d+\s*ft|touch/i.test(spell.range)
+    case 'empowered': return dealsDamage
+    case 'extended': return /minute|hour|day/.test(duration)
+    case 'quickened': return spell.castingTime === '1 action'
+    case 'seeking': return spell.attackType === 'attack-roll'
+    case 'subtle': return /[VS]/.test(spell.components)
+    case 'transmuted': return ['acid', 'cold', 'fire', 'lightning', 'poison', 'thunder'].includes(spell.damageType ?? '')
+    case 'twinned': return spell.aoeShape === 'single' && !spell.multiTargetScaling && !/self/i.test(spell.range)
+    default: return true
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { METAMAGIC_BY_ID, METAMAGIC_OPTIONS, metamagicCost, metamagicKnownCount } from '@/domain/data/metamagicData'
+import { METAMAGIC_BY_ID, METAMAGIC_OPTIONS, metamagicApplies, metamagicCost, metamagicKnownCount } from '@/domain/data/metamagicData'
 import { CHANNEL_DIVINITY_OPTIONS, channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import {
   arcaneWardMax, bardicInspirationDie, divineInterventionSucceeds,
@@ -33,6 +33,34 @@ describe('metamagic catalog', () => {
     expect(metamagicKnownCount(3)).toBe(2)
     expect(metamagicKnownCount(10)).toBe(3)
     expect(metamagicKnownCount(17)).toBe(4)
+  })
+})
+
+describe('metamagic eligibility', () => {
+  const byId = METAMAGIC_BY_ID
+  const magicMissile = SPELL_BY_ID['magic-missile']
+  const mageArmor = SPELL_BY_ID['mage-armor']
+  const fireball = SPELL_BY_ID['fireball']
+
+  it('Extended cannot affect instantaneous spells (Magic Missile)', () => {
+    expect(metamagicApplies(byId['extended'], magicMissile)).toBe(false)
+    expect(metamagicApplies(byId['extended'], mageArmor)).toBe(true)   // 8 hours
+  })
+
+  it('damage/save-based options do not apply to Mage Armor', () => {
+    for (const id of ['careful', 'heightened', 'empowered', 'seeking', 'transmuted', 'twinned']) {
+      expect(metamagicApplies(byId[id], mageArmor), id).toBe(false)
+    }
+  })
+
+  it('Twinned needs a single-target, non-multi spell', () => {
+    expect(metamagicApplies(byId['twinned'], magicMissile)).toBe(false)  // multi-dart
+    if (fireball) expect(metamagicApplies(byId['twinned'], fireball)).toBe(false)  // AoE
+  })
+
+  it('Quickened applies to 1-action spells only', () => {
+    expect(metamagicApplies(byId['quickened'], magicMissile)).toBe(true)
+    expect(metamagicApplies(byId['quickened'], SPELL_BY_ID['shield'])).toBe(false)  // reaction
   })
 })
 

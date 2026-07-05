@@ -32,10 +32,15 @@ describe.skipIf(!existsSync(SAVE_DIR))('real saves → v14 migration', () => {
       expect(v14.schemaVersion).toBe(CURRENT_SCHEMA_VERSION)
       expect(v14.name).toBe(raw.name)
       expect(v14.featureState).toBeTypeOf('object')
-      // Legacy one-off fields must be gone from the migrated object.
-      for (const legacy of ['isRaging', 'chosenManeuvers', 'warlockInvocations', 'fightingStyle', 'wildShapeForm', 'piercerCritExtraDie']) {
-        expect((v14 as unknown as Record<string, unknown>)[legacy], legacy).toBeUndefined()
+      if ((raw.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) {
+        // The migration strips legacy one-off fields from pre-v14 saves.
+        for (const legacy of ['isRaging', 'chosenManeuvers', 'warlockInvocations', 'fightingStyle', 'wildShapeForm', 'piercerCritExtraDie']) {
+          expect((v14 as unknown as Record<string, unknown>)[legacy], legacy).toBeUndefined()
+        }
       }
+      // Saves written during the transitional dual-write phase may carry
+      // legacy keys again — the bridge guarantees featureState wins and
+      // stays consistent with them (checked below for the mapped fields).
       // Both engines produce sane derived stats without throwing.
       expect(computeACFull(asChar)).toBeGreaterThanOrEqual(5)
       expect(computeSpeedFull(asChar)).toBeGreaterThanOrEqual(0)

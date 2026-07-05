@@ -37,7 +37,8 @@ import {
   BASE_ATTACK_ROW_IDS, ATTACK_CONSUMPTION, type AttackRow,
 } from './attackRows'
 import { FeatureDetails } from './FeatureDetails'
-import { activeArcaneShotOf, activeManeuverOf, arcaneShotsKnownOf, fightingStyleOf, hasSpellSniper, maneuversKnownOf } from '@/domain/character/compat'
+import { activeArcaneShotOf, activeManeuverOf, arcaneShotsKnownOf, fightingStyleOf, hasSpellSniper, maneuversKnownOf, wildShapeFormOf } from '@/domain/character/compat'
+import { computeEquipmentStats } from '@/shared/data/charCalculations'
 import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
 import styles from './ActionDetailPanel.module.css'
 
@@ -523,6 +524,33 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   // ATTACK — show description + weapons table + attack breakdown
   if (selectedAction === 'Attack') {
+    // Wild Shape: attacks are the beast's, not the wielded weapons.
+    // Equipment 'all'-scope damage riders still apply (they melded or work through the form).
+    const shapedForm = wildShapeFormOf(char)
+    if (shapedForm?.attack) {
+      const equipStats = computeEquipmentStats(char)
+      const equipRiders = equipStats.bonusDamage.filter(b => b.appliesTo === 'all')
+      return (
+        <div className={styles.attackWrapper}>
+          <div className={styles.detailPane}>
+            <div className={styles.detailHeader}>
+              <span className={styles.detailName}>Attack — {shapedForm.name} (Wild Shape)</span>
+              <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action</span>
+            </div>
+            <div className={styles.detailResource}>{shapedForm.attack}</div>
+            {equipRiders.length > 0 && (
+              <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                Equipment riders: {equipRiders.map(r => `${[...r.dice, r.flat ? String(r.flat) : null].filter(Boolean).join('+')} ${r.dmgType}`).join(' · ')}
+              </p>
+            )}
+            <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+              Weapon attacks are unavailable while shaped — leave the form to use your weapons.
+            </p>
+            {renderAttackControls()}
+          </div>
+        </div>
+      )
+    }
     return (
       <div className={styles.attackWrapper}>
         <div className={styles.detailPane}>

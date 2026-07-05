@@ -1218,6 +1218,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                     ac: selectedBeast.ac,
                     cr: selectedBeast.cr,
                     speed: selectedBeast.speed,
+                    attack: selectedBeast.attack,
                   },
                 })
               }}

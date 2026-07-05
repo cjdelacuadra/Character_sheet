@@ -13,13 +13,15 @@ import styles from './ResourcesPanel.module.css'
 interface Props {
   character: Character
   update: (patch: Partial<Character>) => void
+  /** Maps a resource name to a detail-opening handler (null = no detail). */
+  resolveDetail?: (name: string) => (() => void) | null
 }
 
 // Resources whose total exceeds this render as a numeric pool (value + steppers + set-amount)
 // instead of a row of pips. Catches HP pools like Lay on Hands (5×level) and high Ki / Sorcery Points.
 const POOL_THRESHOLD = 12
 
-export function ResourcesPanel({ character: char, update }: Props) {
+export function ResourcesPanel({ character: char, update, resolveDetail }: Props) {
   const entries = Object.entries(char.resources)
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [fomOpen, setFomOpen] = useState(false)
@@ -90,7 +92,14 @@ export function ResourcesPanel({ character: char, update }: Props) {
           const isPool = res.total > POOL_THRESHOLD
           return (
             <div key={name} className={styles.resourceRow}>
-              <span className={styles.resourceName}>{name}</span>
+              {(() => {
+                const openDetail = resolveDetail?.(name)
+                return openDetail ? (
+                  <button className={styles.resourceNameBtn} onClick={openDetail} title="Open details">{name}</button>
+                ) : (
+                  <span className={styles.resourceName}>{name}</span>
+                )
+              })()}
               {isPool ? (
                 <div className={styles.resourcePool}>
                   <button
