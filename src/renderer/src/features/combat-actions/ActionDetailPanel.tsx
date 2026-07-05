@@ -524,10 +524,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   // ATTACK — show description + weapons table + attack breakdown
   if (selectedAction === 'Attack') {
-    // Wild Shape: attacks are the beast's, not the wielded weapons.
-    // Equipment 'all'-scope damage riders still apply (they melded or work through the form).
+    // Wild Shape: attacks are the beast's, not the wielded weapons — rendered
+    // in the same table format as weapons. Equipment 'all'-scope damage
+    // riders still apply and appear as rider rows.
     const shapedForm = wildShapeFormOf(char)
-    if (shapedForm?.attack) {
+    const shapedAttacks = shapedForm?.attacks ?? []
+    if (shapedForm && shapedAttacks.length > 0) {
       const equipStats = computeEquipmentStats(char)
       const equipRiders = equipStats.bonusDamage.filter(b => b.appliesTo === 'all')
       return (
@@ -537,17 +539,72 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               <span className={styles.detailName}>Attack — {shapedForm.name} (Wild Shape)</span>
               <span className={`${styles.detailBadge} ${styles.badgeAction}`}>Action</span>
             </div>
-            <div className={styles.detailResource}>{shapedForm.attack}</div>
-            {equipRiders.length > 0 && (
-              <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                Equipment riders: {equipRiders.map(r => `${[...r.dice, r.flat ? String(r.flat) : null].filter(Boolean).join('+')} ${r.dmgType}`).join(' · ')}
-              </p>
+            {shapedForm.multiattack && (
+              <div className={styles.detailResource}>Multiattack: {shapedForm.multiattack}</div>
             )}
             <p className={styles.detailFull} style={{ color: 'var(--text-muted)', fontSize: 11 }}>
               Weapon attacks are unavailable while shaped — leave the form to use your weapons.
             </p>
             {renderAttackControls()}
           </div>
+          {shapedAttacks.map(atk => {
+            const rows: AttackRow[] = [
+              { id: 'normal', name: 'Normal', toHit: atk.toHit, dmg: atk.dmg, dmgType: atk.dmgType, bonusDmg: null, bonusDmgType: null, note: atk.note },
+              ...equipRiders.map((r, i) => ({
+                id: `equip-bonus-${i}`,
+                name: r.names.join(', '),
+                toHit: null,
+                dmg: null,
+                dmgType: null,
+                bonusDmg: [...r.dice, r.flat ? String(r.flat) : null].filter(Boolean).join('+') || null,
+                bonusDmgType: r.dmgType,
+              })),
+            ]
+            const subtotals = dmgSubtotals(rows, () => true)
+            const critTotals = criticalSubtotals(subtotals, [])
+            return (
+              <div key={atk.name} className={styles.attackBreakdownSection}>
+                <div className={styles.detailHeader} style={{ padding: '6px 10px' }}>
+                  <span className={styles.detailName}>{atk.name}</span>
+                  {atk.note && <span className={styles.detailBadge} title={atk.note}>note</span>}
+                </div>
+                <table className={styles.attackBreakdownTable}>
+                  <thead>
+                    <tr>
+                      <th>Attack</th><th>To Hit</th><th>Crit mod</th><th>DMG</th>
+                      <th>DMG Type</th><th>Bonus DMG</th><th>Bonus Type</th><th>Resource</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(row => (
+                      <tr key={row.id} className={`${styles.attackBreakdownRow} ${styles.attackBreakdownRowActive}`}>
+                        <td title={row.note}>{row.name}{row.note && <span className={styles.diceNote}> note</span>}</td>
+                        <td>{row.id === 'normal' ? formatToHitParts(row.toHit, []) : formatToHitRider(row.toHit, [])}</td>
+                        <td style={{ color: 'var(--text-muted)' }}>—</td>
+                        <td>{row.dmg ?? '—'}</td>
+                        <td>{row.dmgType ?? '—'}</td>
+                        <td>{row.bonusDmg ?? '—'}</td>
+                        <td>{row.bonusDmgType ?? '—'}</td>
+                        <td><span className={styles.resourceChip}>{row.id === 'normal' ? '—' : 'Equipment'}</span></td>
+                      </tr>
+                    ))}
+                    <tr className={styles.attackBreakdownRow} style={{ fontWeight: 600 }}>
+                      <td>Total</td>
+                      <td>{formatToHitParts(atk.toHit, [])}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>Crit 20+</td>
+                      <td colSpan={5}>{subtotals.map(s => `(${s.expr}) ${s.type}`).join(' + ')}</td>
+                    </tr>
+                    <tr className={styles.attackBreakdownRow} style={{ opacity: 0.85 }}>
+                      <td>critical</td>
+                      <td>—</td>
+                      <td>—</td>
+                      <td colSpan={5}>{critTotals.map(s => `(${s.expr}) ${s.type}`).join(' + ')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
         </div>
       )
     }

@@ -723,11 +723,14 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   }
 
   // ── Metamagic ─────────────────────────────────────────────────────
-  const isMetamagic = selectedFeature.name === 'Metamagic'
+  const isMetamagic = selectedFeature.name === 'Metamagic' || selectedFeature.name === 'Metamagic Adept'
   if (isMetamagic) {
     const metaState = char.featureState?.['metamagic'] ?? {}
     const known = metaState.known ?? []
-    const limit = metamagicKnownCount(char.level)
+    // Sorcerer class progression is the RAW default; Metamagic Adept adds
+    // two more picks for anyone (feat access, no class gate).
+    const classKnown = char.classId === 'Sorcerer' ? metamagicKnownCount(char.level) : 0
+    const limit = classKnown + (char.feats.includes('metamagic-adept') ? 2 : 0)
     const spRes = char.resources['Sorcery Points']
     const spRemaining = spRes ? spRes.total - spRes.used : 0
     const toggleKnown = (id: string) => {
@@ -1144,7 +1147,9 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
     const eligibleBeasts = WILD_SHAPE_BEASTS.filter(beast => beast.cr <= wsLimit.maxCR)
     const selectedBeast = eligibleBeasts.find(beast => beast.id === selectedWildShapeBeastId) ?? eligibleBeasts[0]
     const currentForm = wildShapeFormOf(char)
-    const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast && !currentForm
+    // Re-shaping while shaped is allowed: it expends another use and the new
+    // form arrives at full HP (RAW: a new use of the feature).
+    const canShape = !!wsRes && wsRes.used < wsRes.total && !!selectedBeast
     return (
       <>
         <ResourcesPanel character={char} update={update} />
@@ -1196,7 +1201,8 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
           </select>
           {selectedBeast && (
             <div className={styles.detailResource} style={{ marginTop: 8 }}>
-              {selectedBeast.speed} · {selectedBeast.attack}
+              {selectedBeast.speed} · {selectedBeast.attacks.map(a => `${a.name} +${a.toHit} (${a.dmg} ${a.dmgType})`).join(' · ')}
+              {selectedBeast.multiattack ? ` · Multiattack: ${selectedBeast.multiattack}` : ''}
               {selectedBeast.speed.includes('fly') && char.level < 8 ? ' · flying speed restricted before L8' : ''}
               {selectedBeast.speed.includes('swim') && char.level < 4 ? ' · swimming speed restricted before L4' : ''}
             </div>
@@ -1218,12 +1224,13 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
                     ac: selectedBeast.ac,
                     cr: selectedBeast.cr,
                     speed: selectedBeast.speed,
-                    attack: selectedBeast.attack,
+                    attacks: selectedBeast.attacks.map(a => ({ ...a })),
+                    multiattack: selectedBeast.multiattack,
                   },
                 })
               }}
             >
-              Enter Wild Shape
+              {currentForm ? 'Re-shape (new form, full HP)' : 'Enter Wild Shape'}
             </button>
             {currentForm && (
               <button

@@ -8,6 +8,9 @@ export interface FeatDef {
   abilityChoice?: (keyof AbilityScores)[]
   grantedSpells?: string[]
   freeCastSpells?: string[]
+  /** Resource pools this feat grants (name → amount). Added to an existing
+   *  pool's total, or created; removed symmetrically when the feat is dropped. */
+  grantsResources?: Record<string, number>
 }
 
 export const FEATS: FeatDef[] = [
@@ -31,6 +34,7 @@ export const FEATS: FeatDef[] = [
     id: 'lucky',
     name: 'Lucky',
     description: 'You have 3 luck points. When you make an attack, ability check, or saving throw, you can spend 1 luck point to roll an extra d20 and choose which to use. You can also spend 1 point to reroll an attack targeting you.',
+    grantsResources: { 'Luck Points': 3 },
   },
   {
     id: 'mobile',
@@ -268,7 +272,8 @@ export const FEATS: FeatDef[] = [
   {
     id: 'metamagic-adept',
     name: 'Metamagic Adept',
-    description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn two Metamagic options from the Sorcerer class. Gain 2 sorcery points to spend only on those Metamagic options; these points are regained on a long rest.',
+    description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn two Metamagic options from the Sorcerer class. Gain 2 sorcery points to spend only on those Metamagic options; these points are regained on a long rest. (Modeled as +2 to the shared Sorcery Points pool.)',
+    grantsResources: { 'Sorcery Points': 2 },
   },
   {
     id: 'piercer',

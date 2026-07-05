@@ -270,10 +270,18 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         return !!spell && spell.level === 1 && ['fey-touched', 'shadow-touched', 'magicInitiate', 'artificer-initiate'].includes(featId)
       })
     const featFreeCastIds = [...new Set([...freeCastSpellIds, ...chosenFreeCastIds])]
-    if (featFreeCastIds.length) {
+    if (featFreeCastIds.length || def.grantsResources) {
       const resources = { ...char.resources }
       for (const spellId of featFreeCastIds) {
         resources[`Feat:${spellId}`] = resources[`Feat:${spellId}`] ?? { used: 0, total: 1 }
+      }
+      // Feat-granted pools (Lucky, Metamagic Adept): add to an existing pool
+      // or create it, so the resource shows up with pips immediately.
+      for (const [resName, amount] of Object.entries(def.grantsResources ?? {})) {
+        const existing = resources[resName]
+        resources[resName] = existing
+          ? { ...existing, total: existing.total + amount }
+          : { used: 0, total: amount }
       }
       patch.resources = resources
     }
@@ -319,6 +327,18 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     if (featId === 'crusher') patch.crusherCritAdvantage = false
     if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = false
     if (featId === 'mountedCombatant') patch.mountedCombatantFlags = false
+
+    if (def?.grantsResources) {
+      const resources = { ...char.resources }
+      for (const [resName, amount] of Object.entries(def.grantsResources)) {
+        const existing = resources[resName]
+        if (!existing) continue
+        const nextTotal = existing.total - amount
+        if (nextTotal <= 0) delete resources[resName]
+        else resources[resName] = { used: Math.min(existing.used, nextTotal), total: nextTotal }
+      }
+      patch.resources = resources
+    }
 
     get().updateCharacter(id, patch)
   },
