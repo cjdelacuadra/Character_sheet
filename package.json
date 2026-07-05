@@ -1,6 +1,6 @@
 {
   "name": "character-sheet",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "DnD 5e Player Companion",
   "main": "./out/main/index.js",
   "scripts": {
