@@ -30,6 +30,7 @@ export type FontOfMagicError =
   | 'no-such-slot'
   | 'no-expended-slot'
   | 'no-available-slot'
+  | 'points-at-max'
 
 export function canCreateSlot(char: FontInput, slotLevel: number): FontOfMagicError | null {
   const cost = CREATE_SLOT_COST[slotLevel]
@@ -63,10 +64,14 @@ export function createSlotFromPoints(char: FontInput, slotLevel: number): Pick<C
 }
 
 export function canConvertSlot(char: FontInput, slotLevel: number): FontOfMagicError | null {
-  if (!char.resources[SORCERY_POINTS_RESOURCE]) return 'no-sorcery-points-resource'
+  const pool = char.resources[SORCERY_POINTS_RESOURCE]
+  if (!pool) return 'no-sorcery-points-resource'
   const slot = char.spellSlots[slotLevel]
   if (!slot) return 'no-such-slot'
   if (slot.used >= slot.total) return 'no-available-slot'
+  // RAW: the pool can't exceed its maximum — converting at full would burn a
+  // slot for nothing, so refuse with a legible reason instead.
+  if (pool.used <= 0) return 'points-at-max'
   return null
 }
 

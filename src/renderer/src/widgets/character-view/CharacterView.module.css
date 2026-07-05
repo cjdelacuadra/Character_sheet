@@ -185,7 +185,8 @@
 
 .rightCol {
   flex: 1.4;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   min-width: 280px;

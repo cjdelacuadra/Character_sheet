@@ -1059,6 +1059,27 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
     )
   }
 
+  // Actions whose rich interactive detail lives in FeatureDetails (also
+  // reachable from the Features panel) — route there so the action list
+  // offers the same pickers instead of a plain text pane.
+  const FEATURE_ROUTED_ACTIONS: Record<string, string> = {
+    'Wild Shape': 'Wild Shape',
+    'Channel Divinity': 'Channel Divinity (1/rest)',
+    'Turn Undead': 'Channel Divinity (1/rest)',
+    'Metamagic': 'Metamagic',
+  }
+  if (FEATURE_ROUTED_ACTIONS[selectedAction]) {
+    return (
+      <FeatureDetails
+        character={char}
+        update={update}
+        feature={{ level: selectedActionDef.requiresLevel ?? 2, name: FEATURE_ROUTED_ACTIONS[selectedAction], desc: selectedActionDef.full }}
+        onSummon={onSummon}
+        onConcentrationBroken={onConcentrationBroken}
+      />
+    )
+  }
+
   // ARCANE RECOVERY — slot picker
   if (selectedAction === 'Arcane Recovery') {
     return <ArcaneRecoveryDetail character={char} update={update} desc={selectedActionDef.full} useButton={renderActionUseButton()} />

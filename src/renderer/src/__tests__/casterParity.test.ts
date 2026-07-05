@@ -167,6 +167,11 @@ describe('Font of Magic — flexible casting', () => {
     expect(canConvertSlot(sorcerer, 3)).toBe('no-available-slot')
   })
 
+  it('refuses to convert when the pool is already full (points would be lost)', () => {
+    const fullPool = { ...sorcerer, resources: { 'Sorcery Points': { used: 0, total: 10 } } }
+    expect(canConvertSlot(fullPool, 1)).toBe('points-at-max')
+  })
+
   it('any character with the resource can use it — no class gate', () => {
     const homebrewBard = {
       resources: { 'Sorcery Points': { used: 0, total: 4 } },

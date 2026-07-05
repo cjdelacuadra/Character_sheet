@@ -8,6 +8,7 @@ import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, co
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import { hasSpellSniper, landTerrainOf, masterySpellsOf } from '@/domain/character/compat'
+import { METAMAGIC_BY_ID, metamagicCost } from '@/domain/data/metamagicData'
 import type { EconomyType } from '@/app/store/turnSlice'
 import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
@@ -309,6 +310,36 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             })}
           </ul>
         )}
+        {(() => {
+          // Metamagic at cast time: known options spend from the Sorcery
+          // Points pool, costed against this spell's level (Twinned scales).
+          const metamagicKnown = (char.featureState?.['metamagic']?.known ?? [])
+            .map(id => METAMAGIC_BY_ID[id])
+            .filter((o): o is NonNullable<typeof o> => !!o)
+          const spRes = char.resources['Sorcery Points']
+          if (metamagicKnown.length === 0 || !spRes) return null
+          const spRemaining = spRes.total - spRes.used
+          return (
+            <div className={styles.spellExpandActions} style={{ flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Metamagic · {spRemaining}/{spRes.total} SP</span>
+              {metamagicKnown.map(opt => {
+                const cost = metamagicCost(opt, spell.level)
+                return (
+                  <button
+                    key={opt.id}
+                    className={styles.spellExpandCastBtn}
+                    style={{ fontSize: 10, padding: '2px 8px' }}
+                    disabled={spRemaining < cost}
+                    title={spRemaining < cost ? 'Not enough sorcery points' : opt.desc}
+                    onClick={() => update({ resources: { ...char.resources, 'Sorcery Points': { ...spRes, used: spRes.used + cost } } })}
+                  >
+                    {opt.name.replace(' Spell', '')} −{cost}pt
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })()}
         {(spell.id === masterySpellsOf(char).level1 || spell.id === masterySpellsOf(char).level2) && (
           <button
             className={styles.spellExpandCastBtn}

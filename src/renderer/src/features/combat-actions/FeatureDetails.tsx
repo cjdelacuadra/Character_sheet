@@ -660,7 +660,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   }
 
   // ── Channel Divinity ──────────────────────────────────────────────
-  const isChannelDivinity = selectedFeature.name === 'Channel Divinity (1/rest)'
+  const isChannelDivinity = selectedFeature.name.startsWith('Channel Divinity')
   if (isChannelDivinity) {
     const cdRes = char.resources['Channel Divinity']
     const cdRemaining = cdRes ? cdRes.total - cdRes.used : 0

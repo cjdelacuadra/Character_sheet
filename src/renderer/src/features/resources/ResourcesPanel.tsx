@@ -185,6 +185,7 @@ export function ResourcesPanel({ character: char, update }: Props) {
                     title={reason === null
                       ? `Expend a level-${level} slot to gain ${level} sorcery points`
                       : reason === 'no-available-slot' ? 'All slots of this level are spent'
+                      : reason === 'points-at-max' ? 'Sorcery points are already at maximum'
                       : 'Unavailable'}
                   >
                     L{lvl} (+{level}pt)
