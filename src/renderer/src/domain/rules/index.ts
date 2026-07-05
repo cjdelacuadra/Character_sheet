@@ -7,7 +7,7 @@ import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { computeUpcastDice, type SpellEntry } from '@/shared/data/spellData'
-import { fightingStyleOf, hasCrusherCrit, hasPiercerCrit, hexWarriorWeaponIdOf, invocationsOf, isRaging } from '@/domain/character/compat'
+import { fightingStyleOf, hasCrusherCrit, hasPiercerCrit, hexWarriorWeaponIdOf, invocationsOf, isRaging, wildShapeFormOf } from '@/domain/character/compat'
 
 // ── Spellcasting ────────────────────────────────────────────────────────────
 
@@ -486,7 +486,10 @@ export function getAvailableActions(character: Character): ActionDef[] {
     return true
   })
   const subclassCasts = character.subclass ? !!SUBCLASS_BY_ID[character.subclass]?.spellcastingAbility : false
-  const spellAction = (CLASS_BY_ID[character.classId]?.isSpellcaster || subclassCasts)
+  // RAW: you can't cast spells while in Wild Shape until Beast Spells
+  // (druid 18) — the Cast a Spell actions disappear while a form is active.
+  const shapedNoCasting = !!wildShapeFormOf(character) && character.level < 18
+  const spellAction = (CLASS_BY_ID[character.classId]?.isSpellcaster || subclassCasts) && !shapedNoCasting
     ? [CAST_A_SPELL, CAST_BONUS_SPELL, CAST_REACTION_SPELL]
     : []
 

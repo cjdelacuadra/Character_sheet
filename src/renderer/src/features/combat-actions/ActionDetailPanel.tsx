@@ -906,10 +906,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
               )
             })()}
-            {char.subclass === 'BattleMaster' && (() => {
-              const totalDice = char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4
-              const dieSize = char.level >= 10 ? '1d10' : '1d8'
-              const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: totalDice }
+            {(char.subclass === 'BattleMaster' || char.feats.includes('martialAdept') || maneuversKnownOf(char).length > 0) && (() => {
+              const isBattleMaster = char.subclass === 'BattleMaster'
+              const fallbackTotal = isBattleMaster ? (char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4) : 1
+              const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: fallbackTotal }
+              const totalDice = superiorityDice.total
+              const dieSize = isBattleMaster ? (char.level >= 10 ? '1d10' : '1d8') : '1d6'
               const usedDice = superiorityDice.used
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))

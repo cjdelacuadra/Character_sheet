@@ -228,8 +228,10 @@ export function buildAttackRows(
       group: SPECIAL_GROUP[sa.name] ?? 'both' })
   }
 
-  if (char.subclass === 'BattleMaster') {
-    const dieSize = char.level >= 10 ? '1d10' : '1d8'
+  {
+    // Maneuver rider: anyone with an armed maneuver (Battle Master OR the
+    // Martial Adept feat). Feat-only dice are d6; Battle Master scales.
+    const dieSize = char.subclass === 'BattleMaster' ? (char.level >= 10 ? '1d10' : '1d8') : '1d6'
     const mId = activeManeuverOf(char)
     if (mId) {
       const m = MANEUVER_BY_ID[mId]
