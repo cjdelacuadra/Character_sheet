@@ -153,6 +153,25 @@ describe('Agonizing Blast wiring', () => {
   })
 })
 
+describe('no spellcasting while wild-shaped (Beast Spells at 18)', () => {
+  const form = { name: 'Wolf', hp: { current: 11, max: 11 }, ac: 13, cr: 0.25, speed: '40 ft' }
+
+  it('Cast a Spell actions disappear while shaped below druid 18', () => {
+    const druid = makeChar({ schemaVersion: 13, classId: 'Druid', level: 9 })
+    expect(legacyRules.getAvailableActions(druid).some(a => a.name.startsWith('Cast a Spell'))).toBe(true)
+    const shaped = { ...druid, wildShapeForm: form }
+    expect(legacyRules.getAvailableActions(shaped).some(a => a.name.startsWith('Cast a Spell'))).toBe(false)
+    // v14 generation: form lives in featureState
+    const shapedV14 = { ...druid, featureState: { 'wild-shape': { data: { form } } } }
+    expect(legacyRules.getAvailableActions(shapedV14).some(a => a.name.startsWith('Cast a Spell'))).toBe(false)
+  })
+
+  it('Beast Spells: casting returns at druid 18', () => {
+    const archdruid = makeChar({ schemaVersion: 13, classId: 'Druid', level: 18, wildShapeForm: form })
+    expect(legacyRules.getAvailableActions(archdruid).some(a => a.name.startsWith('Cast a Spell'))).toBe(true)
+  })
+})
+
 describe('Font of Magic — flexible casting', () => {
   const sorcerer = {
     resources: { 'Sorcery Points': { used: 2, total: 10 } },   // 8 available

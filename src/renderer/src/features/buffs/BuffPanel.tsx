@@ -12,7 +12,7 @@ import {
   getBuffCategory,
   getBuffTarget,
 } from '@/shared/data/spellData'
-import { Panel, PanelEmptyNote, PanelGroup, useCollapsedGroups } from '@/ui/Panel'
+import { Panel, PanelEmptyNote } from '@/ui/Panel'
 import { consumeOneShotBuff } from './buffRuntime'
 import styles from './BuffPanel.module.css'
 
@@ -62,8 +62,18 @@ function effectSummary(id: string): string {
 export function BuffPanel({ character: char, update }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const groups = useCollapsedGroups()
+  // Groups start COLLAPSED; clicking a header expands it.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const dropConcentration = useAppStore(s => s.dropConcentration)
+
+  const isExpanded = (key: string) => expandedGroups.has(key)
+  const toggleGroup = (key: string) =>
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   const activeIds = char.activeBuffSpells ?? []
   const activeBuffs = activeIds
@@ -179,34 +189,32 @@ export function BuffPanel({ character: char, update }: Props) {
       {pickerOpen && (
         <div className={styles.picker}>
           {catalogGroups.map(([category, items]) => (
-            <PanelGroup
-              key={category}
-              name={category}
-              count={items.length}
-              collapsed={groups.isCollapsed(`picker-${category}`)}
-              onToggle={() => groups.toggle(`picker-${category}`)}
-            >
-              {items.map(({ id, spell }) => (
+            <div key={category} className={styles.group}>
+              <button className={styles.groupHeader} onClick={() => toggleGroup(`picker-${category}`)}>
+                <span className={styles.groupArrow}>{isExpanded(`picker-${category}`) ? 'v' : '>'}</span>
+                <span className={styles.groupName}>{category}</span>
+                <span className={styles.groupCount}>{items.length}</span>
+              </button>
+              {isExpanded(`picker-${category}`) && items.map(({ id, spell }) => (
                 <button key={id} className={styles.pickRow} onClick={() => addBuff(id)} disabled={activeIds.includes(id)}>
                   <span>{spell.name}</span>
                   <span className={styles.rowMeta}>{effectSummary(id)}</span>
                 </button>
               ))}
-            </PanelGroup>
+            </div>
           ))}
         </div>
       )}
 
       {activeIds.length === 0 && <PanelEmptyNote>No active buffs</PanelEmptyNote>}
       {activeGroups.map(([category, items]) => (
-        <PanelGroup
-          key={category}
-          name={category}
-          count={items.length}
-          collapsed={groups.isCollapsed(category)}
-          onToggle={() => groups.toggle(category)}
-        >
-          {items.map(({ id, spell }) => {
+        <div key={category} className={styles.group}>
+          <button className={styles.groupHeader} onClick={() => toggleGroup(category)}>
+            <span className={styles.groupArrow}>{isExpanded(category) ? 'v' : '>'}</span>
+            <span className={styles.groupName}>{category}</span>
+            <span className={styles.groupCount}>{items.length}</span>
+          </button>
+          {isExpanded(category) && items.map(({ id, spell }) => {
             const selected = selectedId === id
             const target = getBuffTarget(spell)
             return (
@@ -226,7 +234,7 @@ export function BuffPanel({ character: char, update }: Props) {
               </div>
             )
           })}
-        </PanelGroup>
+        </div>
       ))}
     </Panel>
   )

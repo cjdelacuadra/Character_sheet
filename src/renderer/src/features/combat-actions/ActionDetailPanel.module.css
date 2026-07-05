@@ -62,12 +62,9 @@
 
 /* ── Attack action wrapper (flex column filling rightCol) ── */
 .attackWrapper {
+  /* Natural height — the right column is the single scroll container. */
   display: flex;
   flex-direction: column;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
   gap: 12px;
 }
 
