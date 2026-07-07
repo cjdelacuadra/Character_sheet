@@ -153,10 +153,8 @@ export function ActionListPanel({ character: char, selectedAction, onSelectActio
       return
     }
     if (isActionPrereqBlocked(action) || isActionDepleted(action)) return
-    if (action.name === 'Disengage') {
-      setDisengaged(char.id, true)
-      spendEconomy(char.id, 'action')
-    }
+    // Selecting an action only opens its detail — the cost and side effects
+    // (Disengage, Dash, …) apply when 'Use Action' is clicked in the detail.
     onSelectAction(action.name)
   }
 

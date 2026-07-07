@@ -286,7 +286,7 @@ const GEAR_SLOTS: Array<keyof Equipment> = [
  * accessories) and — when `weapons` is provided — the equipped weapons'
  * stat blocks (weapons can carry the same stats as gear).
  */
-export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { weapons?: Character['weapons'] }): EquipmentStats {
+export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] }): EquipmentStats {
   const result: EquipmentStats = {
     acBonus: 0,
     toHitBonus: 0,
@@ -358,15 +358,22 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { wea
     }
   }
 
+  // Attunement (RAW): an item that requires attunement grants its magical
+  // stats only while attuned — unattuned it works as a mundane item.
+  const attuned = char.attunedItemIds ?? []
   for (const slotKey of GEAR_SLOTS) {
     const itemId = char.equipment[slotKey]
     if (!itemId || typeof itemId !== 'string') continue
     const gear = GEAR_BY_ID[itemId]
-    if (gear?.stats) fold(gear.stats, gear.name)
+    if (!gear?.stats) continue
+    if (gear.requiresAttunement && !attuned.includes(itemId)) continue
+    fold(gear.stats, gear.name)
   }
   for (const w of char.weapons ?? []) {
     const def = WEAPON_BY_ID[w.id]
-    if (def?.stats) fold(def.stats, def.name)
+    if (!def?.stats) continue
+    if (def.requiresAttunement && !attuned.includes(w.id)) continue
+    fold(def.stats, def.name)
   }
 
   return result

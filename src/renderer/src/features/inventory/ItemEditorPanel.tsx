@@ -17,6 +17,7 @@ const STAT_OPTIONS: { key: string; label: string; adv: boolean; complex?: boolea
   { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false },
   { key: 'speedBonus',       label: 'Speed Bonus',       adv: false },
   { key: 'bonusDamage',      label: 'Bonus Damage',      adv: false, complex: true },
+  { key: 'toHitDice',        label: 'To-Hit Dice',       adv: false, complex: true },
   { key: 'critMod',          label: 'Crit Range',        adv: false, complex: true },
   { key: 'critDamage',       label: 'Crit Damage',       adv: false, complex: true },
   { key: 'abset_str',        label: 'Set STR (floor)',   adv: false },
@@ -235,9 +236,20 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [enchant,    setEnchant]    = useState(fullDef?.enchantmentBonus ?? 0)
   const [statRows,   setStatRows]   = useState<StatRow[]>(() => {
     const rows = statsToRows(fullDef && 'stats' in fullDef ? fullDef.stats : undefined)
-    // Weapons keep their crit-range modifier on the def itself.
+    // Weapons keep to-hit / bonus-damage / crit-range on the def itself —
+    // surface those native fields as selector rows so there is ONE editing
+    // path and no duplicated sections.
     if (weapDef?.critModifier && !rows.some(r => r.key === 'critMod')) {
       rows.push({ key: 'critMod', value: Object.values(weapDef.critModifier)[0] ?? 0 })
+    }
+    if (weapDef?.toHitFlat && !rows.some(r => r.key === 'toHitBonus')) {
+      rows.push({ key: 'toHitBonus', value: weapDef.toHitFlat })
+    }
+    if (weapDef?.toHitDiceCount && !rows.some(r => r.key === 'toHitDice')) {
+      rows.push({ key: 'toHitDice', value: 0 })
+    }
+    if ((weapDef?.dmgBonusCount || weapDef?.dmgBonusFlat) && !rows.some(r => r.key === 'bonusDamage')) {
+      rows.push({ key: 'bonusDamage', value: 0 })
     }
     return rows
   })
@@ -302,12 +314,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
   // ── Gear bonus-damage edit state ─────────────────────────────────────────
   const accBd     = gearDef?.stats?.bonusDamage
-  const initAccBd = parseDie(accBd?.dice ?? '1d6')
-  const [hasAccBonusDmg, setHasAccBonusDmg] = useState(!!accBd)
-  const [accBdCount,     setAccBdCount]     = useState(accBd?.dice ? initAccBd.count : 0)
+  const initAccBd = parseDie(accBd?.dice ?? (weapDef?.dmgBonusCount ? `${weapDef.dmgBonusCount}d${weapDef.dmgBonusDieType ?? 6}` : '1d6'))
+  const [accBdCount,     setAccBdCount]     = useState(accBd?.dice || weapDef?.dmgBonusCount ? initAccBd.count : 0)
   const [accBdSides,     setAccBdSides]     = useState(initAccBd.sides)
-  const [accBdFlat,      setAccBdFlat]      = useState(accBd?.flat ?? 0)
-  const [accBdType,      setAccBdType]      = useState<string>(accBd?.dmgType ?? 'fire')
+  const [accBdFlat,      setAccBdFlat]      = useState(accBd?.flat ?? weapDef?.dmgBonusFlat ?? 0)
+  const [accBdType,      setAccBdType]      = useState<string>(accBd?.dmgType ?? weapDef?.dmgBonusType ?? 'fire')
   const [accBdAppliesTo, setAccBdAppliesTo] = useState<'melee' | 'ranged' | 'all'>(accBd?.appliesTo ?? 'all')
   const [toHitAppliesTo, setToHitAppliesTo] = useState<'melee' | 'ranged' | 'both'>(gearDef?.stats?.toHitBonusAppliesTo ?? 'both')
 
@@ -334,7 +345,8 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
   function addStat() {
     if (!addKey || statRows.some(r => r.key === addKey)) return
-    setStatRows(prev => [...prev, { key: addKey, value: 1 }])
+    // Ability floors start at a meaningful value (13); plain bonuses at +1.
+    setStatRows(prev => [...prev, { key: addKey, value: addKey.startsWith('abset_') ? 13 : 1 }])
     setAddKey('')
   }
 
@@ -402,10 +414,18 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     if (statRows.some(r => r.key === 'critMod') && critModValue !== 0) {
       critModifier[critModAppliesTo] = critModValue
     }
-    // Weapons carry the same selector stats as gear (AC, abilities, skills, …);
-    // the crit-range modifier stays on the weapon def itself.
+    // Weapons carry the same selector stats as gear (AC, abilities, skills, …),
+    // but to-hit, bonus damage, and crit range write the weapon's NATIVE
+    // fields (they fold into the weapon's own attack math) — stripped from
+    // the stats block so nothing applies twice.
     const selectorStats = buildSelectorStats()
     delete selectorStats.critModifier
+    delete selectorStats.bonusDamage
+    delete selectorStats.toHitBonus
+    delete selectorStats.toHitBonusAppliesTo
+    const hasBd = statRows.some(r => r.key === 'bonusDamage')
+    const hasThDice = statRows.some(r => r.key === 'toHitDice')
+    const toHitBonusRow = statRows.find(r => r.key === 'toHitBonus')
 
     return {
       stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
@@ -423,13 +443,13 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       enchantmentBonus: enchant || undefined,
       bonusDamageDie:   undefined,
       bonusDamageType:  undefined,
-      toHitDiceCount:   hasToHitDice ? toHitCount : undefined,
-      toHitDieType:     hasToHitDice ? Number(toHitDie) : undefined,
-      toHitFlat:        toHitFlat || undefined,
-      dmgBonusCount:    hasDmgBonus2 ? dmgBonusCount : undefined,
-      dmgBonusDieType:  hasDmgBonus2 ? Number(dmgBonusDie) : undefined,
-      dmgBonusFlat:     dmgBonusFlat || undefined,
-      dmgBonusType:     dmgBonusType2 || undefined,
+      toHitDiceCount:   hasThDice ? toHitCount : undefined,
+      toHitDieType:     hasThDice ? Number(toHitDie) : undefined,
+      toHitFlat:        toHitBonusRow?.value || undefined,
+      dmgBonusCount:    hasBd && accBdCount > 0 ? accBdCount : undefined,
+      dmgBonusDieType:  hasBd && accBdCount > 0 ? Number(accBdSides) : undefined,
+      dmgBonusFlat:     hasBd ? (accBdFlat || undefined) : undefined,
+      dmgBonusType:     hasBd ? (accBdType || undefined) : undefined,
     }
   }
 
@@ -694,111 +714,6 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
             )}
           </div>
 
-          <div className={styles.fieldRow}>
-            <label className={styles.label}>Hit Dice</label>
-            {editMode ? (
-              <div className={styles.diceRow}>
-                <input
-                  type="checkbox"
-                  checked={hasToHitDice}
-                  onChange={e => setHasToHitDice(e.target.checked)}
-                  className={styles.diceCheck}
-                />
-                {hasToHitDice && (
-                  <>
-                    <input
-                      type="number" min={1} max={20} value={toHitCount}
-                      onChange={e => setToHitCount(Math.max(1, Number(e.target.value)))}
-                      className={styles.diceCount}
-                    />
-                    <span className={styles.diceSep}>d</span>
-                    <select value={toHitDie} onChange={e => setToHitDie(e.target.value)} className={styles.diceSelect}>
-                      {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </>
-                )}
-              </div>
-            ) : (
-              <span className={styles.value}>
-                {hasToHitDice ? `+${toHitCount}d${toHitDie}` : '—'}
-              </span>
-            )}
-          </div>
-
-          <div className={styles.fieldRow}>
-            <label className={styles.label}>Hit Flat</label>
-            {editMode ? (
-              <input
-                type="number" min={-20} max={20} value={toHitFlat}
-                onChange={e => setToHitFlat(Number(e.target.value))}
-                className={styles.inputSmall}
-              />
-            ) : (
-              <span className={styles.value} style={{ color: toHitFlat !== 0 ? 'var(--accent)' : undefined }}>
-                {toHitFlat !== 0 ? (toHitFlat > 0 ? `+${toHitFlat}` : String(toHitFlat)) : '—'}
-              </span>
-            )}
-          </div>
-
-          <div className={styles.fieldRow}>
-            <label className={styles.label}>Dmg Dice</label>
-            {editMode ? (
-              <div className={styles.diceRow}>
-                <input
-                  type="checkbox"
-                  checked={hasDmgBonus2}
-                  onChange={e => setHasDmgBonus2(e.target.checked)}
-                  className={styles.diceCheck}
-                />
-                {hasDmgBonus2 && (
-                  <>
-                    <input
-                      type="number" min={1} max={20} value={dmgBonusCount}
-                      onChange={e => setDmgBonusCount(Math.max(1, Number(e.target.value)))}
-                      className={styles.diceCount}
-                    />
-                    <span className={styles.diceSep}>d</span>
-                    <select value={dmgBonusDie} onChange={e => setDmgBonusDie(e.target.value)} className={styles.diceSelect}>
-                      {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </>
-                )}
-              </div>
-            ) : (
-              <span className={styles.value}>
-                {hasDmgBonus2 ? `+${dmgBonusCount}d${dmgBonusDie}` : '—'}
-              </span>
-            )}
-          </div>
-
-          <div className={styles.fieldRow}>
-            <label className={styles.label}>Dmg Flat</label>
-            {editMode ? (
-              <input
-                type="number" min={-20} max={20} value={dmgBonusFlat}
-                onChange={e => setDmgBonusFlat(Number(e.target.value))}
-                className={styles.inputSmall}
-              />
-            ) : (
-              <span className={styles.value} style={{ color: dmgBonusFlat !== 0 ? 'var(--accent)' : undefined }}>
-                {dmgBonusFlat !== 0 ? (dmgBonusFlat > 0 ? `+${dmgBonusFlat}` : String(dmgBonusFlat)) : '—'}
-              </span>
-            )}
-          </div>
-
-          {hasDmgBonus2 && (
-            <div className={`${styles.fieldRow} ${styles.fullRow}`}>
-              <label className={styles.label}>Dmg Type 2</label>
-              {editMode ? (
-                <select value={dmgBonusType2} onChange={e => setDmgBonusType2(e.target.value)} className={styles.select}>
-                  <option value="">—</option>
-                  {DAMAGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              ) : (
-                <span className={styles.value}>{dmgBonusType2 || '—'}</span>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -832,10 +747,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
               const isAdv = row.key.startsWith('adv:')
               if (row.key === 'bonusDamage') {
                 return (
-                  <div key={row.key} className={styles.statRow}>
-                    <span className={styles.statLabel}>Bonus DMG</span>
+                  <div key={row.key} className={`${styles.fieldRow} ${styles.fullRow}`}>
+                    <label className={styles.label}>Bonus DMG</label>
                     {editMode ? (
-                      <span style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div className={styles.diceRow}>
                         <input type="number" min={0} max={20} value={accBdCount} onChange={e => setAccBdCount(Math.max(0, Number(e.target.value)))} className={styles.diceCount} />
                         <span className={styles.diceSep}>d</span>
                         <select value={accBdSides} onChange={e => setAccBdSides(e.target.value)} className={styles.diceSelect}>
@@ -846,27 +761,48 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                         <select value={accBdType} onChange={e => setAccBdType(e.target.value)} className={styles.diceSelect}>
                           {DAMAGE_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
                         </select>
-                        <select value={accBdAppliesTo} onChange={e => setAccBdAppliesTo(e.target.value as 'melee' | 'ranged' | 'all')} className={styles.diceSelect}>
-                          <option value="all">all</option>
-                          <option value="melee">melee</option>
-                          <option value="ranged">ranged</option>
-                        </select>
-                      </span>
+                        {isGear && (
+                          <select value={accBdAppliesTo} onChange={e => setAccBdAppliesTo(e.target.value as 'melee' | 'ranged' | 'all')} className={styles.diceSelect}>
+                            <option value="all">all</option>
+                            <option value="melee">melee</option>
+                            <option value="ranged">ranged</option>
+                          </select>
+                        )}
+                        <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>
+                      </div>
                     ) : (
-                      <span className={styles.statVal}>
-                        {[accBdCount > 0 ? `${accBdCount}d${accBdSides}` : null, accBdFlat || null].filter(Boolean).join('+') || '0'} {accBdType} ({accBdAppliesTo})
+                      <span className={styles.value}>
+                        {[accBdCount > 0 ? `${accBdCount}d${accBdSides}` : null, accBdFlat || null].filter(Boolean).join('+') || '0'} {accBdType}{isGear ? ` (${accBdAppliesTo})` : ''}
                       </span>
                     )}
-                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
+                  </div>
+                )
+              }
+              if (row.key === 'toHitDice') {
+                return (
+                  <div key={row.key} className={`${styles.fieldRow} ${styles.fullRow}`}>
+                    <label className={styles.label}>To-Hit Dice</label>
+                    {editMode ? (
+                      <div className={styles.diceRow}>
+                        <input type="number" min={1} max={20} value={toHitCount} onChange={e => setToHitCount(Math.max(1, Number(e.target.value)))} className={styles.diceCount} />
+                        <span className={styles.diceSep}>d</span>
+                        <select value={toHitDie} onChange={e => setToHitDie(e.target.value)} className={styles.diceSelect}>
+                          {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>
+                      </div>
+                    ) : (
+                      <span className={styles.value}>+{toHitCount}d{toHitDie} to hit</span>
+                    )}
                   </div>
                 )
               }
               if (row.key === 'critMod') {
                 return (
-                  <div key={row.key} className={styles.statRow}>
-                    <span className={styles.statLabel} title="Crit threshold reduction (1 = crit on 19+)">Crit Range</span>
+                  <div key={row.key} className={`${styles.fieldRow} ${styles.fullRow}`}>
+                    <label className={styles.label} title="Crit threshold reduction (1 = crit on 19+)">Crit Range</label>
                     {editMode ? (
-                      <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      <div className={styles.diceRow}>
                         <input type="number" min={-20} max={20} value={critModValue} onChange={e => setCritModValue(Number(e.target.value))} className={styles.diceCount} />
                         <select value={critModAppliesTo} onChange={e => setCritModAppliesTo(e.target.value as 'melee' | 'ranged' | 'spells' | 'martial' | 'all')} className={styles.diceSelect}>
                           <option value="all">all</option>
@@ -875,20 +811,20 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                           <option value="ranged">ranged</option>
                           <option value="spells">spells</option>
                         </select>
-                      </span>
+                        <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>
+                      </div>
                     ) : (
-                      <span className={styles.statVal}>{critModValue !== 0 ? `crit ${20 - critModValue}+ (${critModAppliesTo})` : '—'}</span>
+                      <span className={styles.value}>{critModValue !== 0 ? `crit ${20 - critModValue}+ (${critModAppliesTo})` : '—'}</span>
                     )}
-                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
                   </div>
                 )
               }
               if (row.key === 'critDamage') {
                 return (
-                  <div key={row.key} className={styles.statRow}>
-                    <span className={styles.statLabel} title="Extra damage dealt only on a critical hit">Crit DMG</span>
+                  <div key={row.key} className={`${styles.fieldRow} ${styles.fullRow}`}>
+                    <label className={styles.label} title="Extra damage dealt only on a critical hit">Crit DMG</label>
                     {editMode ? (
-                      <span style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div className={styles.diceRow}>
                         <input type="number" min={0} max={20} value={critDmgCount} onChange={e => setCritDmgCount(Math.max(0, Number(e.target.value)))} className={styles.diceCount} />
                         <span className={styles.diceSep}>d</span>
                         <select value={critDmgSides} onChange={e => setCritDmgSides(e.target.value)} className={styles.diceSelect}>
@@ -899,13 +835,13 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                         <select value={critDmgType} onChange={e => setCritDmgType(e.target.value)} className={styles.diceSelect}>
                           {DAMAGE_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
                         </select>
-                      </span>
+                        <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>
+                      </div>
                     ) : (
-                      <span className={styles.statVal}>
+                      <span className={styles.value}>
                         {[critDmgCount > 0 ? `${critDmgCount}d${critDmgSides}` : null, critDmgFlat || null].filter(Boolean).join('+') || '0'} {critDmgType} on crit
                       </span>
                     )}
-                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
                   </div>
                 )
               }

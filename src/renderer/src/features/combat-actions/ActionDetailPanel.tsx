@@ -156,6 +156,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   const unmarkActionUsed = useAppStore(s => s.unmarkActionUsed)
   const setAttacked = useAppStore(s => s.setAttacked)
   const setDashed = useAppStore(s => s.setDashed)
+  const setDisengaged = useAppStore(s => s.setDisengaged)
   const setAdvantageNextAttack = useAppStore(s => s.setAdvantageNextAttack)
   const setSpeedZero = useAppStore(s => s.setSpeedZero)
   const baseAttackAdvantage = computeAttackAdvantage(char)
@@ -434,10 +435,12 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
             recoverEconomy(char.id, economy)
             unmarkActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, false)
+            if (action.name === 'Disengage') setDisengaged(char.id, false)
           } else {
             spendEconomy(char.id, economy)
             markActionUsed(char.id, action.name)
             if (action.name === 'Dash') setDashed(char.id, true)
+            if (action.name === 'Disengage') setDisengaged(char.id, true)
           }
         }}
       >

@@ -44,6 +44,7 @@ describe('equipment stat extensions', () => {
       schemaVersion: 13,
       abilityScores: { str: 8, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
       equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+      attunedItemIds: ['hill-giant-gauntlets'],
     })
     expect(effectiveAbilityScore(weakling, 'str')).toBe(18)
 
@@ -62,11 +63,28 @@ describe('equipment stat extensions', () => {
     expect(stats.critBonusDamage).toHaveLength(1)
   })
 
+  it('attunement gates the stats: unattuned items grant nothing', () => {
+    setGearData([...ORIGINAL_GEAR, gauntlets])   // requiresAttunement: true
+    const base = makeChar({
+      schemaVersion: 13,
+      abilityScores: { str: 8, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+    })
+    // Equipped but NOT attuned → mundane gloves, no STR floor.
+    expect(effectiveAbilityScore(base, 'str')).toBe(8)
+    expect(computeEquipmentStats(base).critBonusDamage).toHaveLength(0)
+    // Attuned → the magic works.
+    const attuned = { ...base, attunedItemIds: ['hill-giant-gauntlets'] }
+    expect(effectiveAbilityScore(attuned, 'str')).toBe(18)
+    expect(computeEquipmentStats(attuned).critBonusDamage).toHaveLength(1)
+  })
+
   it('critBonusDamage lands in the crit extras', () => {
     setGearData([...ORIGINAL_GEAR, gauntlets])
     const char = makeChar({
       schemaVersion: 13,
       equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+      attunedItemIds: ['hill-giant-gauntlets'],
     })
     const extras = critExtraDice(char, { id: 'w', name: 'Club', atkBonus: 0, damage: '1d4', damageType: 'bludgeoning', rangeType: 'Melee' }, 'bludgeoning')
     expect(extras).toContainEqual({ expr: '2d6', type: 'bludgeoning' })

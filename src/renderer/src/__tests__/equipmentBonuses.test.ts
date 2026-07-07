@@ -33,6 +33,7 @@ describe('computeEquipmentStats', () => {
         amuletId: 'amulet-of-power',      // savingThrowBonus all +1
         necklaceId: 'pearl-necklace',     // advantage save wis
       },
+      attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'],
     })
     const stats = computeEquipmentStats(char)
     expect(stats.acBonus).toBe(1)
@@ -42,13 +43,14 @@ describe('computeEquipmentStats', () => {
   })
 
   it('flags death-save advantage from Ring of Life', () => {
-    const char = makeChar({ equipment: { ...makeChar().equipment, ring1Id: 'ring-of-life' } })
+    const char = makeChar({ equipment: { ...makeChar().equipment, ring1Id: 'ring-of-life' }, attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'], })
     expect(computeEquipmentStats(char).advantage.deathSaves).toBe(true)
   })
 
   it('merges bonus damage of the same type and appliesTo across slots', () => {
     const char = makeChar({
       equipment: { ...makeChar().equipment, ring1Id: 'ring-of-fire-damage', ring2Id: 'ring-of-fire-damage' },
+      attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'],
     })
     const rider = computeEquipmentStats(char).bonusDamage.find(b => b.dmgType === 'fire')
     expect(rider).toBeDefined()
@@ -80,18 +82,18 @@ describe('computeACFull', () => {
     expect(computeACFull(makeChar())).toBe(10)
   })
   it('adds accessory acBonus', () => {
-    const char = makeChar({ equipment: { ...makeChar().equipment, helmetId: 'steel-helmet' } })
+    const char = makeChar({ equipment: { ...makeChar().equipment, helmetId: 'steel-helmet' }, attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'], })
     expect(computeACFull(char)).toBe(11)
   })
   it('applies equipment ability bonuses to the DEX component', () => {
-    const char = makeChar({ equipment: { ...makeChar().equipment, capeId: 'movility-cape' } })
+    const char = makeChar({ equipment: { ...makeChar().equipment, capeId: 'movility-cape' }, attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'], })
     expect(computeACFull(char)).toBe(11) // 10 + mod(10 + 2)
   })
 })
 
 describe('effectiveAbilityScore', () => {
   it('adds accessory ability bonuses to the base score', () => {
-    const char = makeChar({ equipment: { ...makeChar().equipment, capeId: 'movility-cape' } })
+    const char = makeChar({ equipment: { ...makeChar().equipment, capeId: 'movility-cape' }, attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'], })
     expect(effectiveAbilityScore(char, 'dex')).toBe(12)
   })
 })
@@ -107,6 +109,7 @@ describe('computeInitiative', () => {
     const char = makeChar({
       abilityScores: { str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 10 },
       equipment: { ...makeChar().equipment, capeId: 'movility-cape' },
+      attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'],
     })
     expect(computeInitiativeFull(char)).toBe(3) // mod(14 + 2)
   })
@@ -126,6 +129,7 @@ describe('computeWeaponDamage', () => {
     const char = makeChar({
       abilityScores: { str: 16, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
       equipment: { ...makeChar().equipment, ring1Id: 'ring-of-fire-damage' },
+      attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'],
     })
     expect(computeWeaponDamage(char, makeWeapon())).toBe('1d8 + 3 slashing + 2 fire')
   })
@@ -134,6 +138,7 @@ describe('computeWeaponDamage', () => {
     const char = makeChar({
       abilityScores: { str: 10, dex: 16, con: 10, int: 10, wis: 10, cha: 10 },
       equipment: { ...makeChar().equipment, ring1Id: 'ring-of-fire-damage' },
+      attunedItemIds: ['steel-helmet', 'movility-cape', 'amulet-of-power', 'pearl-necklace', 'ring-of-life', 'ring-of-fire-damage'],
     })
     const bow = makeWeapon({ name: 'Shortbow', damage: '1d6', damageType: 'piercing', rangeType: 'Ranged' })
     expect(computeWeaponDamage(char, bow)).toBe('1d6 + 3 piercing')
