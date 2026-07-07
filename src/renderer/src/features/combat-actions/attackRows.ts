@@ -7,7 +7,7 @@ import type { Character, Weapon, Equipment } from '@/entities/character/types'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getSpecialAttacks, getWeaponSpecialAttacks, SPELL_ATTACK_IDS } from '@/domain/rules'
-import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore, withLiveWeaponDef } from '@/shared/data/charCalculations'
 import { combineDiceExpr, critDiceExpr } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
 import { MANEUVER_BY_ID } from '@/shared/data/maneuversData'
@@ -121,6 +121,7 @@ export function buildAttackRows(
   w: Weapon,
   opts?: { offHand?: boolean; hasTWF?: boolean; smiteSlotLevel?: number | null },
 ): AttackRow[] {
+  w = withLiveWeaponDef(w)
   const strMod = mod(effectiveAbilityScore(char, 'str'))
   const dexMod = mod(effectiveAbilityScore(char, 'dex'))
   const props = (w.properties ?? []).map(p => p.toLowerCase())
@@ -303,10 +304,10 @@ export function buildAttackRows(
         ? (dmgAppliesTo === 'melee' ? 'melee' : dmgAppliesTo === 'ranged' ? 'ranged' : 'both')
         : null
     const appliesMelee =
-      (toHit !== 0 && (toHitGroup === 'melee' || toHitGroup === 'both')) ||
+      ((toHit !== 0 || toHitDice) && (toHitGroup === 'melee' || toHitGroup === 'both')) ||
       (dmgGroup !== null && (dmgGroup === 'melee' || dmgGroup === 'both'))
     const appliesRanged =
-      (toHit !== 0 && (toHitGroup === 'ranged' || toHitGroup === 'both')) ||
+      ((toHit !== 0 || toHitDice) && (toHitGroup === 'ranged' || toHitGroup === 'both')) ||
       (dmgGroup !== null && (dmgGroup === 'ranged' || dmgGroup === 'both'))
     const eGroup: AttackRow['group'] =
       (appliesMelee && appliesRanged) ? 'both' :

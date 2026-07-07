@@ -14,7 +14,7 @@ import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { computeEquipmentStats, mod } from '@/shared/data/charCalculations'
+import { computeEquipmentStats, mod, withLiveWeaponDef } from '@/shared/data/charCalculations'
 import { combineDiceExpr } from '../dice'
 import { collectActiveEffects } from '../collect'
 import { abilityBonusTotal, damageRiders, type SourcedEffect } from '../effects'
@@ -75,6 +75,7 @@ function attackAbilityMod(char: AttackInput, effects: SourcedEffect[], weapon: W
 }
 
 export function computeAttackBonus(char: AttackInput, weapon: Weapon, opts?: { forceRanged?: boolean }): number {
+  weapon = withLiveWeaponDef(weapon)
   const effects = collectActiveEffects(char)
   const abilityMod = attackAbilityMod(char, effects, weapon)
   const proficient = isProficientWithWeapon(char, weapon)
@@ -94,6 +95,7 @@ export function computeAttackBonus(char: AttackInput, weapon: Weapon, opts?: { f
  * expression; other types append as ` + <expr> <type>` segments.
  */
 export function computeWeaponDamage(char: AttackInput, weapon: Weapon): string {
+  weapon = withLiveWeaponDef(weapon)
   const effects = collectActiveEffects(char)
   const dmgMod = attackAbilityMod(char, effects, weapon)
   const props = (weapon.properties ?? []).map(p => p.toLowerCase())

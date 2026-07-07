@@ -1,5 +1,5 @@
 import type { Character, Weapon } from '@/entities/character/types'
-import { mod, effectiveAbilityScore, computeEquipmentStats } from '@/shared/data/charCalculations'
+import { mod, effectiveAbilityScore, computeEquipmentStats, withLiveWeaponDef } from '@/shared/data/charCalculations'
 import { combineDiceExpr, critDiceExpr } from '@/shared/lib/diceExpr'
 import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
@@ -181,6 +181,7 @@ export function isProficientWithWeapon(character: Character, weapon: Weapon): bo
 }
 
 export function computeAttackBonus(character: Character, weapon: Weapon, opts?: { forceRanged?: boolean }): number {
+  weapon = withLiveWeaponDef(weapon)
   const strMod = mod(effectiveAbilityScore(character, 'str'))
   const dexMod = mod(effectiveAbilityScore(character, 'dex'))
   const chaMod = mod(effectiveAbilityScore(character, 'cha'))
@@ -209,6 +210,7 @@ export function computeAttackBonus(character: Character, weapon: Weapon, opts?: 
  * riders of a different type are appended as separate ` + <expr> <type>` segments.
  */
 export function computeWeaponDamage(character: Character, weapon: Weapon): string {
+  weapon = withLiveWeaponDef(weapon)
   const strMod = mod(effectiveAbilityScore(character, 'str'))
   const dexMod = mod(effectiveAbilityScore(character, 'dex'))
   const chaMod = mod(effectiveAbilityScore(character, 'cha'))
@@ -392,6 +394,7 @@ const CLASS_ACTIONS: ActionDef[] = [
  * feat. Anyone can dual wield; no class involved.
  */
 export function canDualWield(character: Pick<Character, 'feats'>, w: Weapon): boolean {
+  w = withLiveWeaponDef(w)
   const props = (w.properties ?? []).map(p => p.toLowerCase())
   if (w.rangeType === 'Ranged') return false
   if (props.some(p => p.includes('two-handed'))) return false

@@ -42,6 +42,22 @@ export async function deleteGearDef(id: string): Promise<void> {
 }
 
 /**
+ * Legacy per-user custom items (the __customItems__ store) predate the CSV
+ * catalog and are invisible to GEAR_BY_ID, where every stat computation
+ * resolves items — so their bonuses never applied. Fold them into the live
+ * catalog (and gear.csv) once at load; the catalog copy shadows the store
+ * copy from then on.
+ */
+export async function mergeCustomGearIntoCatalog(customs: GearEquipmentItem[]): Promise<void> {
+  const missing = customs.filter(c => c.kind !== 'weapon' && !GEAR.some(g => g.id === c.id))
+  if (missing.length === 0) return
+  const updated = [...GEAR, ...missing]
+  setGearData(updated)
+  rebuildCatalogue()
+  await equipmentIpc.writeFile('gear.csv', gearToCsv(updated))
+}
+
+/**
  * The bundled CSVs (public/equipment_data) are the authoritative catalog —
  * the in-code WEAPONS/GEAR defaults carry stale sprite paths and exist only
  * as a last-resort fallback (AUDIT P0).

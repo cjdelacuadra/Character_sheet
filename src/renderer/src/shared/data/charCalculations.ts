@@ -1,4 +1,4 @@
-import type { AbilityScores, Character, Equipment } from '@/entities/character/types'
+import type { AbilityScores, Character, Equipment, Weapon } from '@/entities/character/types'
 import type { AbilityScore } from './equipment/types'
 import type { Skill } from './skills'
 import { GEAR_BY_ID } from './equipment/gear'
@@ -273,6 +273,34 @@ export const ZERO_EQUIP_STATS: EquipmentStats = {
   advantage: { savingThrows: [], skills: [], deathSaves: false },
   bonusDamage: [],
   critBonusDamage: [],
+}
+
+/**
+ * Equipped weapon instances are snapshots taken at equip time; the catalog
+ * def is the live source of truth for the weapon's own numbers, so an edit
+ * in the item editor applies to already-equipped copies immediately.
+ * Weapons without a catalog def (legacy custom weapons) pass through as-is.
+ */
+export function withLiveWeaponDef<W extends Weapon>(w: W): W {
+  const def = WEAPON_BY_ID[w.id]
+  if (!def) return w
+  return {
+    ...w,
+    name:             def.name,
+    damage:           def.damageDie,
+    damageType:       def.damageType,
+    rangeType:        def.rangeType,
+    properties:       [...def.properties],
+    enchantmentBonus: def.enchantmentBonus || undefined,
+    toHitDiceCount:   def.toHitDiceCount,
+    toHitDieType:     def.toHitDieType,
+    toHitFlat:        def.toHitFlat,
+    dmgBonusCount:    def.dmgBonusCount,
+    dmgBonusDieType:  def.dmgBonusDieType,
+    dmgBonusFlat:     def.dmgBonusFlat,
+    dmgBonusType:     def.dmgBonusType,
+    critModifier:     w.critModifier ?? def.critModifier,
+  }
 }
 
 const GEAR_SLOTS: Array<keyof Equipment> = [

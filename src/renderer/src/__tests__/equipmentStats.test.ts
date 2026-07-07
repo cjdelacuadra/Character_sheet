@@ -4,7 +4,8 @@ import type { GearEquipmentItem, WeaponEquipmentItem } from '@/shared/data/equip
 import { GEAR, setGearData } from '@/shared/data/equipment/gear'
 import { setWeaponsData, WEAPONS } from '@/shared/data/equipment/weapons'
 import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/charCalculations'
-import { critExtraDice } from '@/domain/rules'
+import { critExtraDice, computeAttackBonus, computeWeaponDamage } from '@/domain/rules'
+import * as newAttacks from '@/domain/rules/attacks'
 import { makeChar } from './helpers'
 
 const ORIGINAL_GEAR = [...GEAR]
@@ -26,6 +27,24 @@ const flameTongue: WeaponEquipmentItem = {
   rangeType: 'Melee', properties: ['Versatile (1d10)'],
   stats: { abilityBonus: { cha: 1 }, critBonusDamage: { dice: '1d10', dmgType: 'fire' } },
 }
+
+describe('live weapon def resolution (no stale equip snapshots)', () => {
+  it('an equipped weapon picks up def edits made after equipping', () => {
+    const edited: WeaponEquipmentItem = { ...flameTongue, toHitFlat: 2, dmgBonusCount: 1, dmgBonusDieType: 6 }
+    setWeaponsData([...ORIGINAL_WEAPONS, edited])
+    // Instance snapshotted BEFORE the edit — carries none of the new bonuses.
+    const stale = { id: 'flame-tongue-test', name: 'Flame Tongue', atkBonus: 0, damage: '1d8', damageType: 'slashing', rangeType: 'Melee' as const }
+    const unlinked = { ...stale, id: 'custom-uuid-no-def' }   // no catalog def → passthrough
+    const char = makeChar({ schemaVersion: 13, weapons: [stale] })
+
+    expect(computeAttackBonus(char, stale) - computeAttackBonus(char, unlinked)).toBe(2)
+    expect(computeWeaponDamage(char, stale)).toContain('1d6')
+    // New engine agrees.
+    const v14 = { ...char, featureState: char.featureState ?? {} }
+    expect(newAttacks.computeAttackBonus(v14, stale)).toBe(computeAttackBonus(char, stale))
+    expect(newAttacks.computeWeaponDamage(v14, stale)).toContain('1d6')
+  })
+})
 
 describe('equipment stat extensions', () => {
   it('CSV round-trips abilitySet, critBonusDamage, and weapon stat blocks', () => {

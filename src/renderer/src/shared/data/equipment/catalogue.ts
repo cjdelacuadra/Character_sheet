@@ -114,7 +114,8 @@ export function gearToShopItem(g: GearEquipmentItem): ShopItem {
 }
 
 export function getShopCatalogueWithCustom(customItems: GearEquipmentItem[]): ShopItem[] {
-  const customShop = customItems.map(gearToShopItem)
+  // Custom items already merged into the gear catalog are listed there.
+  const customShop = customItems.filter(c => !SHOP_ITEM_BY_ID[c.id]).map(gearToShopItem)
   return [...SHOP_CATALOGUE, ...customShop]
 }
 

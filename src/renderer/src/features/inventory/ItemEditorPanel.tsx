@@ -214,12 +214,15 @@ interface Props {
 export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const customItems   = useAppStore(s => s.customItems)
   const addCustomItem = useAppStore(s => s.addCustomItem)
+  const removeCustomItem = useAppStore(s => s.removeCustomItem)
 
   const [editMode,    setEditMode]    = useState(!readOnly)
   const [saveStatus,  setSaveStatus]  = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const shopItem = getShopItemById(itemId, customItems)
-  const fullDef = customItems[itemId] ?? GEAR_BY_ID[itemId] ?? WEAPON_BY_ID[itemId]
+  // Catalog first: legacy custom items are merged into the catalog at load,
+  // and the catalog copy is the one every stat computation reads.
+  const fullDef = GEAR_BY_ID[itemId] ?? WEAPON_BY_ID[itemId] ?? customItems[itemId]
 
   const isWeapon = !!fullDef && 'damageDie' in fullDef
   const isGear   = !!fullDef && !isWeapon
@@ -464,11 +467,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       if (isWeapon) {
         await saveWeaponDef(buildWeaponDef())
       } else if (isGear) {
-        if (customItems[itemId]) {
-          addCustomItem(buildGearDef())
-        } else {
-          await saveGearDef(buildGearDef())
-        }
+        const def = buildGearDef()
+        await saveGearDef(def)
+        // Keep the legacy custom-items copy in sync so both stores agree.
+        if (customItems[itemId]) addCustomItem(def)
       }
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
@@ -491,8 +493,9 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       if (isWeapon) {
         await saveWeaponDef(buildWeaponDef(newId))
       } else if (isGear) {
-        if (customItems[itemId]) addCustomItem(buildGearDef(newId))
-        else await saveGearDef(buildGearDef(newId))
+        const def = buildGearDef(newId)
+        await saveGearDef(def)
+        if (customItems[itemId]) addCustomItem(def)
       }
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
@@ -510,8 +513,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     try {
       if (isWeapon) {
         await deleteWeaponDef(itemId)
-      } else if (isGear && !customItems[itemId]) {
+      } else if (isGear) {
         await deleteGearDef(itemId)
+        // Drop the legacy copy too, or it re-merges on the next app load.
+        if (customItems[itemId]) removeCustomItem(itemId)
       }
       setSaveStatus('saved')
       setTimeout(() => {

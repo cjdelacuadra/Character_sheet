@@ -17,7 +17,7 @@ import { applyRestToResources } from '@/domain/rules/resources'
 import { racialActionUsesOf } from '@/domain/character/compat'
 import { migrateCharacterV14 } from '@/domain/character/migrations'
 import { ipcService } from '@/services/ipc'
-import { loadEquipmentFromCsv } from '@/shared/data/equipment/equipmentLoader'
+import { loadEquipmentFromCsv, mergeCustomGearIntoCatalog } from '@/shared/data/equipment/equipmentLoader'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 
@@ -81,6 +81,7 @@ export interface CharacterSlice {
 
   customItems: Record<string, GearEquipmentItem>
   addCustomItem: (def: GearEquipmentItem) => void
+  removeCustomItem: (id: string) => void
 }
 
 
@@ -167,6 +168,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     const customItems = { ...get().customItems, [def.id]: def }
     set({ customItems })
     ipcService.saveCustomItems(customItems as Record<string, unknown>)
+  },
+  removeCustomItem: (id) => {
+    const { [id]: _removed, ...rest } = get().customItems
+    set({ customItems: rest })
+    ipcService.saveCustomItems(rest as Record<string, unknown>)
   },
   loaded: false,
 
@@ -384,6 +390,12 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
           customItems = rawCustom as Record<string, GearEquipmentItem>
         }
       } catch { /* no custom items file yet */ }
+
+      // Legacy custom items must live in the gear catalog for their stats,
+      // AC, and attunement to resolve — merge once, then the catalog wins.
+      try {
+        await mergeCustomGearIntoCatalog(Object.values(customItems))
+      } catch { /* keep loading even if the catalog write fails */ }
 
       set({ characters, customItems, loaded: true })
     } catch {
@@ -736,6 +748,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
         dmgBonusDieType:  def.dmgBonusDieType,
         dmgBonusFlat:     def.dmgBonusFlat,
         dmgBonusType:     def.dmgBonusType,
+        critModifier:     def.critModifier,
       }
       const nextWeapons = [...char.weapons]
       nextWeapons[slotIndex] = newWeapon
