@@ -9,6 +9,7 @@ import { critExtraDice, computeAttackBonus, computeWeaponDamage } from '@/domain
 import * as newAttacks from '@/domain/rules/attacks'
 import { makeChar } from './helpers'
 import { buildAttackRows, formatToHitParts } from '@/features/combat-actions/attackRows'
+import { abilityScoreBreakdown } from '@/features/detail-panel/SkillSaveDetailPanel'
 
 const ORIGINAL_GEAR = [...GEAR]
 const ORIGINAL_WEAPONS = [...WEAPONS]
@@ -152,6 +153,33 @@ describe('equipment stat extensions', () => {
     const v14 = { ...clumsy, featureState: clumsy.featureState ?? {} }
     const v14bare = { ...bare, featureState: bare.featureState ?? {} }
     expect(newComputeAC(v14) - newComputeAC(v14bare)).toBe(4)
+  })
+
+  it('ability breakdown reconstructs base from ASI history + feats, floors on top', () => {
+    setGearData([...ORIGINAL_GEAR, gauntlets])
+    const char = makeChar({
+      schemaVersion: 13,
+      abilityScores: { str: 20, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      completedAsiLevels: [4, 8, 12],
+      completedAsiChoices: { 4: '+2 STR', 8: '+1 STR / +1 DEX', 12: 'Feat: Resilient (+1 STR)' },
+      feats: ['resilient'],
+      featChoices: { resilient: 'str' },
+      equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+      attunedItemIds: ['hill-giant-gauntlets'],
+    })
+    const bd = abilityScoreBreakdown(char, 'str')
+    // 20 stored = 16 base + 2 (lvl 4) + 1 (lvl 8 split) + 1 (Resilient)
+    expect(bd.base).toBe(16)
+    expect(bd.rows).toContainEqual({ label: 'ASI lvl 4', delta: 2 })
+    expect(bd.rows).toContainEqual({ label: 'ASI lvl 8', delta: 1 })
+    expect(bd.rows).toContainEqual({ label: 'Resilient', delta: 1 })
+    expect(bd.rows).toContainEqual({ label: 'Hill Giant Gauntlets', setTo: 18 })
+    expect(bd.total).toBe(20)      // floor 18 < 20, no effect
+    expect(bd.abilityMod).toBe(5)
+
+    const dexBd = abilityScoreBreakdown(char, 'dex')
+    expect(dexBd.base).toBe(9)     // 10 stored - 1 from the lvl 8 split
+    expect(dexBd.rows).toContainEqual({ label: 'ASI lvl 8', delta: 1 })
   })
 
   it('critBonusDamage lands in the crit extras', () => {

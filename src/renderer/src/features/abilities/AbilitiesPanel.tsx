@@ -15,8 +15,8 @@ const ABILITY_LABELS: Record<AbilityScore, string> = { str: 'STR', dex: 'DEX', c
 interface Props {
   character: Character
   update: (patch: Partial<Character>) => void
-  selectedDetail: { type: 'save' | 'skill'; key: string } | null
-  onSelectDetail: (d: { type: 'save' | 'skill'; key: string } | null) => void
+  selectedDetail: { type: 'save' | 'skill' | 'ability'; key: string } | null
+  onSelectDetail: (d: { type: 'save' | 'skill' | 'ability'; key: string } | null) => void
 }
 
 
@@ -90,9 +90,15 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
           const val = char.abilityScores[key]
           const equipAbilBonus = abilityDelta[key] ?? 0
           const isEditing = fieldEdit?.key === key
+          const isSelAbility = selectedDetail?.type === 'ability' && selectedDetail.key === key
           return (
             <div key={key} className={`${styles.abilityBlock} ${equipAbilBonus ? styles.abilityBlockBoosted : ''}`}>
-              <div className={styles.abilityModCircle}>{fmtMod(mod(val + equipAbilBonus))}</div>
+              <div
+                className={styles.abilityModCircle}
+                style={{ cursor: 'pointer', ...(isSelAbility ? { boxShadow: '0 0 0 2px var(--accent)' } : {}) }}
+                title="Click for the ability breakdown"
+                onClick={() => onSelectDetail(isSelAbility ? null : { type: 'ability', key })}
+              >{fmtMod(mod(val + equipAbilBonus))}</div>
               <div
                 className={styles.abilityScoreBox}
                 onClick={() => !isEditing && setFieldEdit({ key, value: String(val) })}

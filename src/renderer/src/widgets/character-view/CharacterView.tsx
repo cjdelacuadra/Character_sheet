@@ -38,7 +38,7 @@ type RightPane =
   | { kind: 'equip'; shopOpen: boolean }
   | { kind: 'action'; name: string }
   | { kind: 'feature'; entry: FeatureEntry }
-  | { kind: 'skillSave'; detail: { type: 'save' | 'skill'; key: string } }
+  | { kind: 'skillSave'; detail: { type: 'save' | 'skill' | 'ability'; key: string } }
   | { kind: 'summon'; id: string }
   | null
 
