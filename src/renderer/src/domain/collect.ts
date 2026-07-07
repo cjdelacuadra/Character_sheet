@@ -13,8 +13,8 @@ import { CONDITION_BY_ID } from '@/shared/data/conditionsData'
 import { computeEquipmentStats } from '@/shared/data/charCalculations'
 import type { SourcedEffect } from './effects'
 
-type EffectSources = Pick<Character, 'equipment'> &
-  Partial<Pick<Character, 'activeBuffSpells' | 'conditionIds' | 'buffStates'>>
+type EffectSources = Pick<Character, 'equipment' | 'abilityScores'> &
+  Partial<Pick<Character, 'activeBuffSpells' | 'conditionIds' | 'buffStates' | 'weapons' | 'attunedItemIds'>>
 
 export function collectActiveEffects(char: EffectSources): SourcedEffect[] {
   return [
@@ -92,7 +92,7 @@ export function collectConditionEffects(char: Pick<EffectSources, 'conditionIds'
 }
 
 /** Equipped gear stats → Effects (bonuses, advantage grants, damage riders). */
-export function collectEquipmentEffects(char: Pick<Character, 'equipment'>): SourcedEffect[] {
+export function collectEquipmentEffects(char: Pick<Character, 'equipment' | 'abilityScores'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] }): SourcedEffect[] {
   const stats = computeEquipmentStats(char)
   const src = { sourceId: 'equipment', sourceLabel: 'Equipment', sourceType: 'gear' as const }
   const out: SourcedEffect[] = []
@@ -103,6 +103,12 @@ export function collectEquipmentEffects(char: Pick<Character, 'equipment'>): Sou
 
   for (const [ability, value] of Object.entries(stats.abilityBonus) as [AbilityScore, number][]) {
     if (value) out.push({ ...src, effect: { kind: 'abilityBonus', ability, value } })
+  }
+  // abilitySet floors (Gauntlets of Ogre Power pattern) emit the delta over
+  // the wearer's bonus-adjusted score, so effectiveMod folds them like any bonus.
+  for (const [ability, setTo] of Object.entries(stats.abilitySet) as [AbilityScore, number][]) {
+    const current = char.abilityScores[ability] + (stats.abilityBonus[ability] ?? 0)
+    if (setTo > current) out.push({ ...src, effect: { kind: 'abilityBonus', ability, value: setTo - current } })
   }
   for (const [ability, value] of Object.entries(stats.savingThrowBonus) as [AbilityScore, number][]) {
     if (value) out.push({ ...src, effect: { kind: 'saveBonus', ability, value } })

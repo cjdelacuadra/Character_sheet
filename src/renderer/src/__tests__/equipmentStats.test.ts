@@ -3,7 +3,8 @@ import { csvToGear, csvToWeapons, gearToCsv, weaponsToCsv } from '@/shared/data/
 import type { GearEquipmentItem, WeaponEquipmentItem } from '@/shared/data/equipment/types'
 import { GEAR, setGearData } from '@/shared/data/equipment/gear'
 import { setWeaponsData, WEAPONS } from '@/shared/data/equipment/weapons'
-import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { computeEquipmentStats, effectiveAbilityScore, effectiveAbilityBonus, computeACFull } from '@/shared/data/charCalculations'
+import { computeAC as newComputeAC } from '@/domain/rules/defense'
 import { critExtraDice, computeAttackBonus, computeWeaponDamage } from '@/domain/rules'
 import * as newAttacks from '@/domain/rules/attacks'
 import { makeChar } from './helpers'
@@ -129,6 +130,28 @@ describe('equipment stat extensions', () => {
     const attuned = { ...base, attunedItemIds: ['hill-giant-gauntlets'] }
     expect(effectiveAbilityScore(attuned, 'str')).toBe(18)
     expect(computeEquipmentStats(attuned).critBonusDamage).toHaveLength(1)
+  })
+
+  it('abilitySet floors reach derived stats: delta map, AC, both engines', () => {
+    const boots: GearEquipmentItem = {
+      id: 'cat-boots', name: 'Boots of the Cat', kind: 'boots', cost: 0,
+      stats: { abilitySet: { dex: 18 } },
+    }
+    setGearData([...ORIGINAL_GEAR, boots])
+    const clumsy = makeChar({
+      schemaVersion: 13,
+      abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      equipment: { ...makeChar().equipment, bootsId: 'cat-boots' },
+    })
+    // Delta map exposes the floor as a +8 dex bonus.
+    expect(effectiveAbilityBonus(clumsy)).toEqual({ dex: 8 })
+    // Unarmored AC 10 + dex mod: floored 18 dex -> +4.
+    const bare = { ...clumsy, equipment: { ...clumsy.equipment, bootsId: null } }
+    expect(computeACFull(clumsy) - computeACFull(bare)).toBe(4)
+    // New engine agrees (floor emitted as an equipment abilityBonus effect).
+    const v14 = { ...clumsy, featureState: clumsy.featureState ?? {} }
+    const v14bare = { ...bare, featureState: bare.featureState ?? {} }
+    expect(newComputeAC(v14) - newComputeAC(v14bare)).toBe(4)
   })
 
   it('critBonusDamage lands in the crit extras', () => {

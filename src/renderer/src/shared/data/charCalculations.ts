@@ -413,13 +413,32 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { wea
  * wearer's score is already equal or higher.
  */
 export function effectiveAbilityScore(
-  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons'] },
+  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] },
   ability: AbilityScore,
 ): number {
   const stats = computeEquipmentStats(char)
   const value = char.abilityScores[ability] + (stats.abilityBonus[ability] ?? 0)
   const setTo = stats.abilitySet[ability]
   return setTo !== undefined ? Math.max(value, setTo) : value
+}
+
+const ABILITY_KEYS: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
+
+/**
+ * Per-ability delta between the effective score (equipment bonuses AND
+ * abilitySet floors) and the base score — a drop-in replacement for raw
+ * `equipStats.abilityBonus` wherever ability math is derived, so floors
+ * (Gauntlets of Ogre Power pattern) reach AC, initiative, saves, and skills.
+ */
+export function effectiveAbilityBonus(
+  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] },
+): Partial<Record<AbilityScore, number>> {
+  const out: Partial<Record<AbilityScore, number>> = {}
+  for (const ab of ABILITY_KEYS) {
+    const delta = effectiveAbilityScore(char, ab) - char.abilityScores[ab]
+    if (delta !== 0) out[ab] = delta
+  }
+  return out
 }
 
 /** Dual Wielder feat: +1 AC while wielding a melee weapon in each hand. */
@@ -434,15 +453,14 @@ export function dualWielderAcBonus(char: Pick<Character, 'feats' | 'weapons'>): 
 export function computeACFull(char: Character): number {
   const equip = computeEquipmentStats(char)
   const spellAcBonus = (char.activeBuffSpells ?? []).reduce((sum, id) => sum + (SPELL_BY_ID[id]?.acBonus ?? 0), 0)
-  return computeAC(char, equip.abilityBonus) + equip.acBonus + spellAcBonus + dualWielderAcBonus(char) + computeConditionModifiers(char).acDelta
+  return computeAC(char, effectiveAbilityBonus(char)) + equip.acBonus + spellAcBonus + dualWielderAcBonus(char) + computeConditionModifiers(char).acDelta
 }
 
-/** computeInitiative including DEX bonuses from equipped accessories. */
+/** computeInitiative including DEX bonuses (and floors) from equipment. */
 export function computeInitiativeFull(char: Character): number {
-  const equip = computeEquipmentStats(char)
   return computeInitiative(
     char.abilityScores, char.classId, char.level,
-    char.proficiencyBonus, char.feats, char.subclass, equip.abilityBonus,
+    char.proficiencyBonus, char.feats, char.subclass, effectiveAbilityBonus(char),
   )
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Character, AbilityScore, AbilityScores } from '@/entities/character/types'
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
-import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats, computeConditionModifiers } from '@/shared/data/charCalculations'
+import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats, computeConditionModifiers, effectiveAbilityBonus } from '@/shared/data/charCalculations'
 import { RACE_BY_ID, RACE_SAVE_ADVANTAGES } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
@@ -72,9 +72,11 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
   const joatBonus = hasJoAT ? Math.floor(prof / 2) : 0
 
   const equipStats = computeEquipmentStats(char)
+  // Bonuses AND abilitySet floors, as a per-ability delta over the base score.
+  const abilityDelta = effectiveAbilityBonus(char)
   const condMods = computeConditionModifiers(char)
 
-  const passivePerception = 10 + mod(char.abilityScores.wis + (equipStats.abilityBonus.wis ?? 0)) +
+  const passivePerception = 10 + mod(char.abilityScores.wis + (abilityDelta.wis ?? 0)) +
     (char.skillProficiencies['perception'] === 'expert' ? prof * 2 :
      char.skillProficiencies['perception'] === 'proficient' ? prof : joatBonus) +
     (equipStats.skillBonus['perception'] ?? 0)
@@ -86,7 +88,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
       <div className={styles.statsSubLeft}>
         {ABILITY_KEYS.map(key => {
           const val = char.abilityScores[key]
-          const equipAbilBonus = equipStats.abilityBonus[key] ?? 0
+          const equipAbilBonus = abilityDelta[key] ?? 0
           const isEditing = fieldEdit?.key === key
           return (
             <div key={key} className={`${styles.abilityBlock} ${equipAbilBonus ? styles.abilityBlockBoosted : ''}`}>
@@ -133,7 +135,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
         {ABILITY_KEYS.map(ab => {
           const isProficient = char.savingThrowProficiencies.includes(ab)
           const equipBonus = equipStats.savingThrowBonus[ab] ?? 0
-          const abilBonus = equipStats.abilityBonus[ab] ?? 0
+          const abilBonus = abilityDelta[ab] ?? 0
           const hasEquipAdv = equipStats.advantage.savingThrows.includes(ab)
           const racialAdv = (RACE_SAVE_ADVANTAGES[char.race] ?? []).filter(adv => adv.saves.includes(ab))
           const hasAdv = hasEquipAdv || racialAdv.length > 0
@@ -180,7 +182,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
           {SKILLS.map(({ key, label, ability }) => {
             const state = char.skillProficiencies[key] ?? 'none'
             const equipBonus = equipStats.skillBonus[key] ?? 0
-            const abilBonus = equipStats.abilityBonus[ability] ?? 0
+            const abilBonus = abilityDelta[ability] ?? 0
             const hasAdv = equipStats.advantage.skills.includes(key)
             const abilMod = mod(char.abilityScores[ability] + abilBonus)
             const bonus = abilMod +

@@ -386,10 +386,11 @@ function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Char
   const saveEntries   = Object.entries(stats.savingThrowBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
   const skillEntries  = Object.entries(stats.skillBonus).filter(([, v]) => v !== 0) as [Skill, number][]
   const abilityEntries = Object.entries(stats.abilityBonus).filter(([, v]) => v !== 0) as [AbilityScore, number][]
+  const floorEntries  = Object.entries(stats.abilitySet).filter(([, v]) => v !== 0) as [AbilityScore, number][]
   const advSaves  = stats.advantage.savingThrows
   const advSkills = stats.advantage.skills
   const hasAny = stats.acBonus || stats.toHitBonus || stats.speedBonus || abilityEntries.length ||
-    saveEntries.length || skillEntries.length || advSaves.length ||
+    floorEntries.length || saveEntries.length || skillEntries.length || advSaves.length ||
     advSkills.length || stats.advantage.deathSaves || stats.bonusDamage.length
 
   const attunedIds = char.attunedItemIds ?? []
@@ -436,8 +437,14 @@ function DndEquipStatsPanel({ stats, char }: { stats: EquipmentStats; char: Char
       {stats.acBonus !== 0 && <StatRow label="AC Bonus" value={stats.acBonus} />}
       {stats.toHitBonus !== 0 && <StatRow label="To-Hit" value={stats.toHitBonus} />}
       {stats.speedBonus !== 0 && <StatRow label="Speed" value={stats.speedBonus} unit=" ft" />}
-      {abilityEntries.length > 0 && <div className={styles.statGroupTitle}>Ability</div>}
+      {(abilityEntries.length > 0 || floorEntries.length > 0) && <div className={styles.statGroupTitle}>Ability</div>}
       {abilityEntries.map(([ab, val]) => <StatRow key={ab} label={ab.toUpperCase()} value={val} />)}
+      {floorEntries.map(([ab, val]) => (
+        <div key={`floor-${ab}`} className={styles.statRow}>
+          <span className={styles.statLabel}>{ab.toUpperCase()}</span>
+          <span className={styles.statValue} style={{ color: 'var(--accent)', fontWeight: 600 }}>set {val}</span>
+        </div>
+      ))}
       {saveEntries.length > 0 && <div className={styles.statGroupTitle}>Saving Throws</div>}
       {saveEntries.map(([ab, val]) => <StatRow key={ab} label={ab.toUpperCase()} value={val} />)}
       {skillEntries.length > 0 && <div className={styles.statGroupTitle}>Skills</div>}
