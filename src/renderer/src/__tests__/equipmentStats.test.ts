@@ -7,7 +7,7 @@ import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/char
 import { critExtraDice, computeAttackBonus, computeWeaponDamage } from '@/domain/rules'
 import * as newAttacks from '@/domain/rules/attacks'
 import { makeChar } from './helpers'
-import { buildAttackRows } from '@/features/combat-actions/attackRows'
+import { buildAttackRows, formatToHitParts } from '@/features/combat-actions/attackRows'
 
 const ORIGINAL_GEAR = [...GEAR]
 const ORIGINAL_WEAPONS = [...WEAPONS]
@@ -70,6 +70,12 @@ describe('live weapon def resolution (no stale equip snapshots)', () => {
     const normal = rows.find(r => r.id === 'normal')!
     const normalNoFlat = buildAttackRows(char, { ...instance, id: 'mjonir-noflat' }).find(r => r.id === 'normal')!
     expect(normal.toHit! - normalNoFlat.toHit!).toBe(2)
+  })
+
+  it('to-hit totals group same-size dice (Bless 1d4 + weapon 1d4 -> 2d4)', () => {
+    expect(formatToHitParts(11, ['1d4', '1d4'])).toBe('1d20 + 2d4 + 11')
+    expect(formatToHitParts(11, ['1d4', '1d6'])).toBe('1d20 + 1d6 + 1d4 + 11')   // canonical order: larger die first
+    expect(formatToHitParts(-2, ['1d4'])).toBe('1d20 + 1d4 - 2')
   })
 })
 

@@ -60,6 +60,60 @@ export interface MetamagicSpellView {
   multiTargetScaling?: unknown
 }
 
+export interface MetamagicModifiedView {
+  castingTime: string
+  range: string
+  duration: string
+  components: string
+  /** Cast-time reminders for options with no numeric stat to rewrite. */
+  notes: string[]
+}
+
+/** Doubles a "N minute/hour/day(s)" duration, RAW-capped at 24 hours. */
+function doubleDuration(duration: string): string {
+  return duration.replace(/(\d+)\s*(minute|hour|day)s?/i, (_, n: string, unit: string) => {
+    const u = unit.toLowerCase()
+    let minutes = Number(n) * (u === 'minute' ? 1 : u === 'hour' ? 60 : 1440)
+    minutes = Math.min(minutes * 2, 1440)
+    if (minutes % 60 === 0) return `${minutes / 60} hour${minutes / 60 > 1 ? 's' : ''}`
+    return `${minutes} minute${minutes > 1 ? 's' : ''}`
+  })
+}
+
+/**
+ * Maps armed metamagic options onto the spell's displayed stats: Quickened
+ * rewrites the casting time, Distant the range, Extended the duration,
+ * Subtle the components. Options whose effect isn't a stat rewrite
+ * (Twinned, Heightened, …) surface as cast-time reminder notes.
+ */
+export function applyMetamagicToSpell(spell: MetamagicSpellView, armedIds: string[]): MetamagicModifiedView {
+  let { castingTime, range, duration, components } = spell
+  const notes: string[] = []
+  for (const id of armedIds) {
+    switch (id) {
+      case 'quickened': castingTime = '1 bonus action'; break
+      case 'distant':
+        range = /touch/i.test(range)
+          ? '30ft'
+          : range.replace(/(\d+)\s*ft/gi, (_, n: string) => `${Number(n) * 2}ft`)
+        break
+      case 'extended': duration = doubleDuration(duration); break
+      case 'subtle': {
+        const material = components.includes('M') ? components.slice(components.indexOf('M')) : ''
+        components = material || 'None'
+        break
+      }
+      case 'careful':    notes.push('Careful: up to CHA mod (min 1) chosen creatures auto-succeed on the save.'); break
+      case 'empowered':  notes.push('Empowered: reroll up to CHA mod (min 1) damage dice.'); break
+      case 'heightened': notes.push('Heightened: one target has disadvantage on its first save.'); break
+      case 'seeking':    notes.push('Seeking: reroll the d20 on a missed spell attack.'); break
+      case 'transmuted': notes.push('Transmuted: change the damage type (acid, cold, fire, lightning, poison, thunder).'); break
+      case 'twinned':    notes.push('Twinned: target a second creature with the same casting.'); break
+    }
+  }
+  return { castingTime, range, duration, components, notes }
+}
+
 /**
  * RAW eligibility per option — e.g. Extended needs a duration of 1 minute+
  * (Magic Missile is instantaneous, so no), Twinned needs a single-target

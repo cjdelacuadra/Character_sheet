@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { METAMAGIC_BY_ID, METAMAGIC_OPTIONS, metamagicApplies, metamagicCost, metamagicKnownCount } from '@/domain/data/metamagicData'
+import { METAMAGIC_BY_ID, METAMAGIC_OPTIONS, applyMetamagicToSpell, metamagicApplies, metamagicCost, metamagicKnownCount } from '@/domain/data/metamagicData'
 import { CHANNEL_DIVINITY_OPTIONS, channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import {
   arcaneWardMax, bardicInspirationDie, divineInterventionSucceeds,
@@ -61,6 +61,38 @@ describe('metamagic eligibility', () => {
   it('Quickened applies to 1-action spells only', () => {
     expect(metamagicApplies(byId['quickened'], magicMissile)).toBe(true)
     expect(metamagicApplies(byId['quickened'], SPELL_BY_ID['shield'])).toBe(false)  // reaction
+  })
+})
+
+describe('metamagic influence mapping', () => {
+  const base = { level: 1, range: '60ft', duration: 'Concentration, 1 minute', castingTime: '1 action', components: 'V, S, M (a firefly)' }
+
+  it('Quickened rewrites the casting time to a bonus action', () => {
+    expect(applyMetamagicToSpell(base, ['quickened']).castingTime).toBe('1 bonus action')
+  })
+
+  it('Distant doubles ranged spells and makes touch spells 30ft', () => {
+    expect(applyMetamagicToSpell(base, ['distant']).range).toBe('120ft')
+    expect(applyMetamagicToSpell({ ...base, range: 'Touch' }, ['distant']).range).toBe('30ft')
+  })
+
+  it('Extended doubles the duration, capped at 24 hours', () => {
+    expect(applyMetamagicToSpell(base, ['extended']).duration).toBe('Concentration, 2 minutes')
+    expect(applyMetamagicToSpell({ ...base, duration: '8 hours' }, ['extended']).duration).toBe('16 hours')
+    expect(applyMetamagicToSpell({ ...base, duration: '24 hours' }, ['extended']).duration).toBe('24 hours')
+  })
+
+  it('Subtle strips verbal/somatic components, keeping material', () => {
+    expect(applyMetamagicToSpell(base, ['subtle']).components).toBe('M (a firefly)')
+    expect(applyMetamagicToSpell({ ...base, components: 'V, S' }, ['subtle']).components).toBe('None')
+  })
+
+  it('non-stat options surface as notes and stack with stat rewrites', () => {
+    const mm = applyMetamagicToSpell(base, ['quickened', 'heightened', 'twinned'])
+    expect(mm.castingTime).toBe('1 bonus action')
+    expect(mm.notes).toHaveLength(2)
+    expect(mm.notes.join(' ')).toContain('disadvantage')
+    expect(mm.notes.join(' ')).toContain('second creature')
   })
 })
 

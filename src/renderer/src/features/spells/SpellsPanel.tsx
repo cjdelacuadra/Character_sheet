@@ -8,7 +8,7 @@ import { computeAttackAdvantage, computeSpellSaveDC, computeSpellAttackBonus, co
 import { computeACFull } from '@/shared/data/charCalculations'
 import { useAppStore } from '@/app/store'
 import { hasSpellSniper, landTerrainOf, masterySpellsOf } from '@/domain/character/compat'
-import { METAMAGIC_BY_ID, metamagicApplies, metamagicCost } from '@/domain/data/metamagicData'
+import { METAMAGIC_BY_ID, applyMetamagicToSpell, metamagicApplies, metamagicCost } from '@/domain/data/metamagicData'
 import type { EconomyType } from '@/app/store/turnSlice'
 import { rollDiceExpr } from '@/shared/lib/diceExpr'
 import { SpellVisualization } from './SpellVisualization'
@@ -163,7 +163,10 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
       }
       if (shortDuration) registerEndOfTurnBuff(char.id, spell.id)
     }
-    const econ = castingTimeToEconomy(spell.castingTime)
+    // Quickened rewrites a 1-action cast to a bonus action.
+    const econ = armedMetamagic.includes('quickened') && spell.castingTime === '1 action'
+      ? 'bonus' as const
+      : castingTimeToEconomy(spell.castingTime)
     if (econ) spendEconomy(char.id, econ)
     setExpandedSpell(null)
   }
@@ -267,13 +270,17 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
             })))
       : []
 
+    // Armed metamagic rewrites the displayed stats (Quickened -> bonus
+    // action, Distant -> range, Extended -> duration, Subtle -> components).
+    const mm = applyMetamagicToSpell(spell, armedMetamagic)
+
     const leftCol = (
       <>
         <dl className={styles.spellExpandMeta}>
-          <dt>Casting Time</dt><dd>{spell.castingTime}</dd>
-          <dt>Range</dt><dd>{spellSniperRange(spell, hasSpellSniper(char))}</dd>
-          <dt>Components</dt><dd>{spell.components}</dd>
-          <dt>Duration</dt><dd>{spell.concentration ? '⚡ ' : ''}{spell.duration}</dd>
+          <dt>Casting Time</dt><dd style={mm.castingTime !== spell.castingTime ? { color: 'var(--accent)' } : undefined}>{mm.castingTime}</dd>
+          <dt>Range</dt><dd style={mm.range !== spell.range ? { color: 'var(--accent)' } : undefined}>{spellSniperRange({ ...spell, range: mm.range }, hasSpellSniper(char))}</dd>
+          <dt>Components</dt><dd style={mm.components !== spell.components ? { color: 'var(--accent)' } : undefined}>{mm.components}</dd>
+          <dt>Duration</dt><dd style={mm.duration !== spell.duration ? { color: 'var(--accent)' } : undefined}>{spell.concentration ? '⚡ ' : ''}{mm.duration}</dd>
           {spell.saveAbility && (<><dt>Save DC</dt><dd>{spellSaveDC} {spell.saveAbility.toUpperCase()}</dd></>)}
           {SPELL_ATTACK_IDS.has(spell.id) && (<><dt>To Hit</dt><dd>{fmtMod(spellAtkBonus)}</dd></>)}
           {SPELL_ATTACK_IDS.has(spell.id) && attackAdvantage.spell !== 'none' && (
@@ -365,6 +372,11 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
                   </button>
                 )
               })}
+              {mm.notes.length > 0 && (
+                <div style={{ flexBasis: '100%', fontSize: 10, color: 'var(--text-muted)' }}>
+                  {mm.notes.map(n => <div key={n}>· {n}</div>)}
+                </div>
+              )}
             </div>
           )
         })()}

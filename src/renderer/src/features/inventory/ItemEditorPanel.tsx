@@ -431,8 +431,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     const hasToHit = statRows.some(r => r.key === 'toHitBonus')
 
     return {
-      stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
       ...weapDef!,
+      // After the spread — the old def always carries a stats key (CSV codec
+      // sets it even when undefined), which would clobber the fresh block.
+      stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
       id:                 overrideId ?? weapDef!.id,
       name:               editName,
       cost:               editCost,

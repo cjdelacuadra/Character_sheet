@@ -53,12 +53,18 @@ export function dmgSubtotals(rows: AttackRow[], isActive: (id: string) => boolea
   }))
 }
 
+/** Same-size to-hit dice group together (1d4 + 1d4 \u2192 2d4). */
+function groupedDiceParts(diceParts: string[]): string[] {
+  if (diceParts.length < 2) return diceParts
+  return combineDiceExpr(diceParts.join('+')).split(' + ')
+}
+
 export function formatToHitParts(toHit: number | null, diceParts: string[]): string {
   const flat =
     toHit !== null && toHit !== 0
       ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
       : null
-  const parts = ['1d20', ...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+  const parts = ['1d20', ...groupedDiceParts(diceParts).map(d => `+ ${d}`), flat].filter(Boolean)
   return parts.join(' ') || '\u2014'
 }
 
@@ -67,7 +73,7 @@ export function formatToHitRider(toHit: number | null, diceParts: string[]): str
     toHit !== null && toHit !== 0
       ? toHit > 0 ? `+ ${toHit}` : `- ${Math.abs(toHit)}`
       : null
-  const parts = [...diceParts.map(d => `+ ${d}`), flat].filter(Boolean)
+  const parts = [...groupedDiceParts(diceParts).map(d => `+ ${d}`), flat].filter(Boolean)
   return parts.length ? parts.join(' ') : '—'
 }
 
