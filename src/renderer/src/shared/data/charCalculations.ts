@@ -394,11 +394,19 @@ export function effectiveAbilityScore(
   return setTo !== undefined ? Math.max(value, setTo) : value
 }
 
+/** Dual Wielder feat: +1 AC while wielding a melee weapon in each hand. */
+export function dualWielderAcBonus(char: Pick<Character, 'feats' | 'weapons'>): number {
+  if (!(char.feats ?? []).includes('dualWielder')) return 0
+  const melee = (char.weapons ?? []).filter(w =>
+    w.rangeType !== 'Ranged' && !(w.properties ?? []).some(p => p.toLowerCase().includes('two-handed')))
+  return melee.length >= 2 ? 1 : 0
+}
+
 /** computeAC + accessory acBonus + ability score bonuses from equipment. */
 export function computeACFull(char: Character): number {
   const equip = computeEquipmentStats(char)
   const spellAcBonus = (char.activeBuffSpells ?? []).reduce((sum, id) => sum + (SPELL_BY_ID[id]?.acBonus ?? 0), 0)
-  return computeAC(char, equip.abilityBonus) + equip.acBonus + spellAcBonus + computeConditionModifiers(char).acDelta
+  return computeAC(char, equip.abilityBonus) + equip.acBonus + spellAcBonus + dualWielderAcBonus(char) + computeConditionModifiers(char).acDelta
 }
 
 /** computeInitiative including DEX bonuses from equipped accessories. */

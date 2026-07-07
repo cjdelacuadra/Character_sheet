@@ -15,7 +15,7 @@ import type { AbilityScores, ActiveCondition, BuffRuntime, Equipment } from '@/e
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { mod } from '@/shared/data/charCalculations'
+import { dualWielderAcBonus, mod } from '@/shared/data/charCalculations'
 import { collectActiveEffects } from '../collect'
 import { abilityBonusTotal, acBaseFormulas, sumOf } from '../effects'
 import { featureChoice, featureOn, FEATURE_KEYS, type FeatureState } from '../character/schema'
@@ -30,6 +30,8 @@ export interface ACInput {
   buffStates?: Record<string, BuffRuntime>
   conditionIds?: ActiveCondition[]
   featureState: Record<string, FeatureState>
+  feats?: string[]
+  weapons?: import('@/entities/character/types').Weapon[]
 }
 
 /** RAW Unarmored Defense formulas by class (defaults — data, not a gate). */
@@ -82,7 +84,7 @@ export function computeAC(char: ACInput): number {
       : 0
 
   // All stacking flat bonuses: buffs (Shield/Shield of Faith), gear, conditions.
-  const flatBonuses = sumOf(effects, 'acBonus')
+  const flatBonuses = sumOf(effects, 'acBonus') + dualWielderAcBonus({ feats: char.feats ?? [], weapons: char.weapons ?? [] })
 
   if (noBodyArmor) return unarmoredAC + bladesongBonus + flatBonuses
 

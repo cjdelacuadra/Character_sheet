@@ -172,6 +172,29 @@ describe('no spellcasting while wild-shaped (Beast Spells at 18)', () => {
   })
 })
 
+describe('dual wielding + Paladin Channel Divinity', () => {
+  const dagger = { id: 'd', name: 'Dagger', atkBonus: 0, damage: '1d4', rangeType: 'Melee' as const, properties: ['Light', 'Finesse'] }
+  const longsword = { id: 'l', name: 'Longsword', atkBonus: 0, damage: '1d8', rangeType: 'Melee' as const, properties: ['Versatile (1d10)'] }
+  const greatsword = { id: 'g', name: 'Greatsword', atkBonus: 0, damage: '2d6', rangeType: 'Melee' as const, properties: ['Heavy', 'Two-Handed'] }
+
+  it('anyone can dual wield light weapons; Dual Wielder relaxes to any one-handed', () => {
+    const plain = makeChar({ schemaVersion: 13 })
+    expect(legacyRules.canDualWield(plain, dagger)).toBe(true)
+    expect(legacyRules.canDualWield(plain, longsword)).toBe(false)
+    const feated = makeChar({ schemaVersion: 13, feats: ['dualWielder'] })
+    expect(legacyRules.canDualWield(feated, longsword)).toBe(true)
+    expect(legacyRules.canDualWield(feated, greatsword)).toBe(false)   // still two-handed
+  })
+
+  it('Paladin oaths get their two Channel Divinity options at 3rd (no Turn Undead)', () => {
+    const opts = channelDivinityOptionsFor('OathOfVengeance', 3).map(o => o.id)
+    expect(opts).toContain('abjure-enemy')
+    expect(opts).toContain('vow-of-enmity')
+    expect(opts).not.toContain('turn-undead')   // cleric baseline, not paladin
+    expect(channelDivinityOptionsFor('OathOfVengeance', 2)).toHaveLength(0)
+  })
+})
+
 describe('Font of Magic — flexible casting', () => {
   const sorcerer = {
     resources: { 'Sorcery Points': { used: 2, total: 10 } },   // 8 available

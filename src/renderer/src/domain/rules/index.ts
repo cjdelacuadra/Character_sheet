@@ -323,6 +323,10 @@ const CLASS_ACTIONS: ActionDef[] = [
   { name: 'Channel Divinity', type: 'Action', classOnly: 'Cleric', requiresLevel: 2, resourceKey: 'Channel Divinity', resourceCost: 1,
     short: 'Use a divine power (varies by domain).',
     full: 'Choose a Channel Divinity option available to you based on your divine domain. All clerics have Turn Undead; your domain grants additional options. Recharges on short rest.' },
+  // Paladin
+  { name: 'Channel Divinity', type: 'Action', classOnly: 'Paladin', requiresLevel: 3, resourceKey: 'Channel Divinity', resourceCost: 1,
+    short: 'Use your Sacred Oath power (varies by oath).',
+    full: 'Your oath grants two Channel Divinity options at 3rd level. You must finish a short or long rest to use your Channel Divinity again.' },
   { name: 'Divine Intervention', type: 'Action', classOnly: 'Cleric', requiresLevel: 10, resourceKey: 'Divine Intervention', resourceCost: 1,
     short: 'Call on your deity for aid. Roll d100 ≤ cleric level to succeed.',
     full: "Implore your deity's aid. Roll a percentile die. If the roll is equal to or lower than your cleric level, your deity intervenes. At level 20, the intervention always succeeds. On success this feature can't be used again for 7 days. On failure, try again after a long rest." },
@@ -381,6 +385,18 @@ const CLASS_ACTIONS: ActionDef[] = [
     short: 'Cantrip: 1d10 force dmg. Beams scale: 1 at level 1 → 4 at level 17.',
     full: 'A beam of crackling energy streaks toward a creature within 120ft. Make a ranged spell attack. On a hit: 1d10 force damage. Creates additional beams at 5th (×2), 11th (×3), and 17th (×4) level. Each beam can target the same or different creatures.' },
 ]
+
+/**
+ * Off-hand (two-weapon fighting) eligibility: a one-handed melee weapon with
+ * the Light property — or any one-handed melee weapon with the Dual Wielder
+ * feat. Anyone can dual wield; no class involved.
+ */
+export function canDualWield(character: Pick<Character, 'feats'>, w: Weapon): boolean {
+  const props = (w.properties ?? []).map(p => p.toLowerCase())
+  if (w.rangeType === 'Ranged') return false
+  if (props.some(p => p.includes('two-handed'))) return false
+  return props.some(p => p === 'light') || character.feats.includes('dualWielder')
+}
 
 const CAST_A_SPELL: ActionDef = {
   name: 'Cast a Spell',
@@ -499,10 +515,8 @@ export function getAvailableActions(character: Character): ActionDef[] {
     ? [CAST_A_SPELL, CAST_BONUS_SPELL, CAST_REACTION_SPELL]
     : []
 
-  const lightMelee = (character.weapons ?? []).filter(w =>
-    w.rangeType !== 'Ranged' && (w.properties ?? []).some(p => p.toLowerCase() === 'light')
-  )
-  const offHandActions = lightMelee.length >= 2 ? [makeOffHandAction(character)] : []
+  const offHandCapable = (character.weapons ?? []).filter(w => canDualWield(character, w))
+  const offHandActions = offHandCapable.length >= 2 ? [makeOffHandAction(character)] : []
 
   const subclassActions: ActionDef[] = []
 
@@ -843,7 +857,7 @@ export function getWeaponAttackActions(char: Character): ActionDef[] {
   }
 
   if (offHand) {
-    const isLight = offHand.properties?.some(p => p.toLowerCase() === 'light') ?? false
+    const isLight = canDualWield(char, offHand)
     if (isLight) {
       const dmgLabel = [offHand.damage, offHand.damageType].filter(Boolean).join(' ')
       actions.push({

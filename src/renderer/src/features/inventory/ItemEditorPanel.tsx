@@ -14,10 +14,9 @@ import styles from './ItemEditorPanel.module.css'
 interface StatRow { key: string; value: number }
 
 const STAT_OPTIONS: { key: string; label: string; adv: boolean; complex?: boolean }[] = [
-  { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false },
+  { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false, complex: true },
   { key: 'speedBonus',       label: 'Speed Bonus',       adv: false },
   { key: 'bonusDamage',      label: 'Bonus Damage',      adv: false, complex: true },
-  { key: 'toHitDice',        label: 'To-Hit Dice',       adv: false, complex: true },
   { key: 'critMod',          label: 'Crit Range',        adv: false, complex: true },
   { key: 'critDamage',       label: 'Crit Damage',       adv: false, complex: true },
   { key: 'abset_str',        label: 'Set STR (floor)',   adv: false },
@@ -75,7 +74,7 @@ function labelOf(key: string): string {
 function statsToRows(stats: AccessoryStats | undefined): StatRow[] {
   if (!stats) return []
   const rows: StatRow[] = []
-  if (stats.toHitBonus) rows.push({ key: 'toHitBonus', value: stats.toHitBonus })
+  if (stats.toHitBonus || stats.toHitDice) rows.push({ key: 'toHitBonus', value: 0 })
   if (stats.speedBonus) rows.push({ key: 'speedBonus', value: stats.speedBonus })
   for (const [ab, v] of Object.entries(stats.abilityBonus ?? {}))
     if (v) rows.push({ key: `ab_${ab}`, value: v })
@@ -100,7 +99,7 @@ function rowsToStats(rows: StatRow[]): AccessoryStats {
   const s: AccessoryStats = {}
   for (const row of rows) {
     if (row.key === 'toHitBonus') {
-      s.toHitBonus = row.value
+      // Complex row — dice/flat/applies merged by the caller.
     } else if (row.key === 'speedBonus') {
       s.speedBonus = row.value
     } else if (row.key.startsWith('abset_')) {
@@ -242,11 +241,8 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     if (weapDef?.critModifier && !rows.some(r => r.key === 'critMod')) {
       rows.push({ key: 'critMod', value: Object.values(weapDef.critModifier)[0] ?? 0 })
     }
-    if (weapDef?.toHitFlat && !rows.some(r => r.key === 'toHitBonus')) {
-      rows.push({ key: 'toHitBonus', value: weapDef.toHitFlat })
-    }
-    if (weapDef?.toHitDiceCount && !rows.some(r => r.key === 'toHitDice')) {
-      rows.push({ key: 'toHitDice', value: 0 })
+    if ((weapDef?.toHitFlat || weapDef?.toHitDiceCount) && !rows.some(r => r.key === 'toHitBonus')) {
+      rows.push({ key: 'toHitBonus', value: 0 })
     }
     if ((weapDef?.dmgBonusCount || weapDef?.dmgBonusFlat) && !rows.some(r => r.key === 'bonusDamage')) {
       rows.push({ key: 'bonusDamage', value: 0 })
@@ -285,10 +281,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [dmgSides,     setDmgSides]     = useState(initDmg.sides)
   const [dmgType,      setDmgType]      = useState(weapDef?.damageType ?? 'slashing')
   const [propsText,    setPropsText]    = useState((weapDef?.properties ?? []).join(', '))
-  const [toHitCount,   setToHitCount]   = useState(weapDef?.toHitDiceCount ?? 1)
-  const [toHitDie,     setToHitDie]     = useState(String(weapDef?.toHitDieType ?? '6'))
-  const [toHitFlat,    setToHitFlat]    = useState(weapDef?.toHitFlat ?? 0)
-  const [hasToHitDice, setHasToHitDice] = useState(!!weapDef?.toHitDiceCount)
+  const initGearThDice = parseDie(gearDef?.stats?.toHitDice ?? '0d4')
+  const [toHitCount,   setToHitCount]   = useState(weapDef?.toHitDiceCount ?? (gearDef?.stats?.toHitDice ? initGearThDice.count : 0))
+  const [toHitDie,     setToHitDie]     = useState(String(weapDef?.toHitDieType ?? (gearDef?.stats?.toHitDice ? initGearThDice.sides : '4')))
+  const [toHitFlat,    setToHitFlat]    = useState(weapDef?.toHitFlat ?? gearDef?.stats?.toHitBonus ?? 0)
   const [dmgBonusCount,  setDmgBonusCount]  = useState(weapDef?.dmgBonusCount ?? 1)
   const [dmgBonusDie,    setDmgBonusDie]    = useState(String(weapDef?.dmgBonusDieType ?? '6'))
   const [dmgBonusFlat,   setDmgBonusFlat]   = useState(weapDef?.dmgBonusFlat ?? 0)
@@ -361,7 +357,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   /** Complex stats live in the same selector; their fields render inline. */
   function buildSelectorStats(): AccessoryStats {
     const stats: AccessoryStats = rowsToStats(statRows)
-    if (stats.toHitBonus) stats.toHitBonusAppliesTo = toHitAppliesTo
+    if (statRows.some(r => r.key === 'toHitBonus')) {
+      stats.toHitBonus = toHitFlat || undefined
+      stats.toHitDice = toHitCount > 0 ? `${toHitCount}d${toHitDie}` : undefined
+      if (stats.toHitBonus || stats.toHitDice) stats.toHitBonusAppliesTo = toHitAppliesTo
+    }
     if (statRows.some(r => r.key === 'bonusDamage')) {
       stats.bonusDamage = {
         dice:      accBdCount > 0 ? `${accBdCount}d${accBdSides}` : undefined,
@@ -422,10 +422,10 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     delete selectorStats.critModifier
     delete selectorStats.bonusDamage
     delete selectorStats.toHitBonus
+    delete selectorStats.toHitDice
     delete selectorStats.toHitBonusAppliesTo
     const hasBd = statRows.some(r => r.key === 'bonusDamage')
-    const hasThDice = statRows.some(r => r.key === 'toHitDice')
-    const toHitBonusRow = statRows.find(r => r.key === 'toHitBonus')
+    const hasToHit = statRows.some(r => r.key === 'toHitBonus')
 
     return {
       stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
@@ -443,9 +443,9 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       enchantmentBonus: enchant || undefined,
       bonusDamageDie:   undefined,
       bonusDamageType:  undefined,
-      toHitDiceCount:   hasThDice ? toHitCount : undefined,
-      toHitDieType:     hasThDice ? Number(toHitDie) : undefined,
-      toHitFlat:        toHitBonusRow?.value || undefined,
+      toHitDiceCount:   hasToHit && toHitCount > 0 ? toHitCount : undefined,
+      toHitDieType:     hasToHit && toHitCount > 0 ? Number(toHitDie) : undefined,
+      toHitFlat:        hasToHit ? (toHitFlat || undefined) : undefined,
       dmgBonusCount:    hasBd && accBdCount > 0 ? accBdCount : undefined,
       dmgBonusDieType:  hasBd && accBdCount > 0 ? Number(accBdSides) : undefined,
       dmgBonusFlat:     hasBd ? (accBdFlat || undefined) : undefined,
@@ -778,21 +778,35 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                   </div>
                 )
               }
-              if (row.key === 'toHitDice') {
+              if (row.key === 'toHitBonus') {
                 return (
                   <div key={row.key} className={`${styles.fieldRow} ${styles.fullRow}`}>
-                    <label className={styles.label}>To-Hit Dice</label>
+                    <label className={styles.label}>To-Hit Bonus</label>
                     {editMode ? (
                       <div className={styles.diceRow}>
-                        <input type="number" min={1} max={20} value={toHitCount} onChange={e => setToHitCount(Math.max(1, Number(e.target.value)))} className={styles.diceCount} />
+                        <input type="number" min={0} max={20} value={toHitCount} onChange={e => setToHitCount(Math.max(0, Number(e.target.value)))} className={styles.diceCount} />
                         <span className={styles.diceSep}>d</span>
                         <select value={toHitDie} onChange={e => setToHitDie(e.target.value)} className={styles.diceSelect}>
                           {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
+                        <span className={styles.diceSep}>+</span>
+                        <input type="number" min={-20} max={20} value={toHitFlat} onChange={e => setToHitFlat(Number(e.target.value))} className={styles.diceCount} title="Flat bonus" />
+                        {isGear && (
+                          <>
+                            <span className={styles.diceSep}>Applies</span>
+                            <select value={toHitAppliesTo} onChange={e => setToHitAppliesTo(e.target.value as 'melee' | 'ranged' | 'both')} className={styles.diceSelect}>
+                              <option value="both">both</option>
+                              <option value="melee">melee</option>
+                              <option value="ranged">ranged</option>
+                            </select>
+                          </>
+                        )}
                         <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>
                       </div>
                     ) : (
-                      <span className={styles.value}>+{toHitCount}d{toHitDie} to hit</span>
+                      <span className={styles.value}>
+                        {[toHitCount > 0 ? `${toHitCount}d${toHitDie}` : null, toHitFlat || null].filter(Boolean).join(' + ') || '0'} to hit{isGear ? ` (${toHitAppliesTo})` : ''}
+                      </span>
                     )}
                   </div>
                 )
@@ -865,24 +879,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                 </div>
               )
             })}
-            {statRows.some(r => r.key === 'toHitBonus') && (
-              <div className={styles.statRow}>
-                <span className={styles.statLabel}>To-Hit Applies</span>
-                {editMode ? (
-                  <select
-                    value={toHitAppliesTo}
-                    onChange={e => setToHitAppliesTo(e.target.value as 'melee' | 'ranged' | 'both')}
-                    className={styles.select}
-                  >
-                    <option value="both">both</option>
-                    <option value="melee">melee</option>
-                    <option value="ranged">ranged</option>
-                  </select>
-                ) : (
-                  <span className={styles.statVal}>{toHitAppliesTo}</span>
-                )}
-              </div>
-            )}
+
           </div>
         </div>
       )}

@@ -40,6 +40,10 @@ const CASES: Array<[string, Partial<Character>]> = [
   ['restrained condition (speed ×0)', { conditionIds: [{ conditionId: 'restrained' }] }],
   ['defense fighting style in armor', { fightingStyle: 'defense', equipment: { ...makeChar().equipment, armorId: 'chainMail' } }],
   ['Bladesinger with Bladesong active', { classId: 'Wizard', subclass: 'Bladesinging', isBladesinging: true, abilityScores: { str: 8, dex: 14, con: 12, int: 18, wis: 10, cha: 10 } }],
+  ['Dual Wielder +1 AC with two melee weapons', { feats: ['dualWielder'], weapons: [
+    { id: 'a', name: 'Longsword', atkBonus: 0, damage: '1d8', rangeType: 'Melee' },
+    { id: 'b', name: 'Rapier', atkBonus: 0, damage: '1d8', rangeType: 'Melee' },
+  ] }],
 ]
 
 describe('new rules engine parity with legacy (AC + speed)', () => {

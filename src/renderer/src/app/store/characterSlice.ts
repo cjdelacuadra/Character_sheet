@@ -4,6 +4,7 @@ import type { AbilityScore, Character, AbilityScores, Equipment, Weapon } from '
 import type { ActiveSummon, ActiveSummonRuntime, SummonBase } from '@/entities/summon/types'
 import type { GearEquipmentItem } from '@/shared/data/equipment/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
+import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
 import { loadSummonTemplatesFromDisk } from '@/shared/data/summons/summonLoader'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
@@ -608,7 +609,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     set((state) => {
       const char = state.characters[id]
       if (!char) return state
-      const withEquip: Character = { ...char, equipment: { ...char.equipment, [slot]: value } }
+      // Auto-attune on equip when the item needs it and a slot is free (max 3).
+      const attuned = char.attunedItemIds ?? []
+      const needsAttune = !!value && !!GEAR_BY_ID[value]?.requiresAttunement && !attuned.includes(value)
+      const nextAttuned = needsAttune && attuned.length < 3 ? [...attuned, value!] : attuned
+      const withEquip: Character = { ...char, equipment: { ...char.equipment, [slot]: value }, attunedItemIds: nextAttuned }
       const updated: Character = {
         ...withEquip,
         updatedAt: new Date().toISOString(),
@@ -736,7 +741,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       nextWeapons[slotIndex] = newWeapon
       if (slotIndex === 0 && def.properties.some(p => p.toLowerCase().includes('two-handed')))
         nextWeapons.length = 1
-      const withWeapons: Character = { ...char, weapons: nextWeapons }
+      // Auto-attune on equip when the weapon needs it and a slot is free (max 3).
+      const attuned = char.attunedItemIds ?? []
+      const nextAttuned = def.requiresAttunement && !attuned.includes(defId) && attuned.length < 3
+        ? [...attuned, defId] : attuned
+      const withWeapons: Character = { ...char, weapons: nextWeapons, attunedItemIds: nextAttuned }
       const updated: Character = {
         ...withWeapons,
         updatedAt: new Date().toISOString(),

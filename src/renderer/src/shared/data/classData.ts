@@ -149,6 +149,7 @@ export const CLASSES: ClassDef[] = [
     resources: [
       { name: 'Lay on Hands', recoverOn: 'long', scalingPer: 'level', scalingTable: { 1:5, 2:10, 3:15, 4:20, 5:25, 6:30, 7:35, 8:40, 9:45, 10:50, 11:55, 12:60, 13:65, 14:70, 15:75, 16:80, 17:85, 18:90, 19:95, 20:100 } },
       { name: 'Divine Sense', recoverOn: 'long', scalingPer: 'chamod' },
+      { name: 'Channel Divinity', recoverOn: 'short', fixedTotal: 1, minLevel: 3 },
     ],
   },
   {

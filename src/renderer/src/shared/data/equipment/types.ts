@@ -20,6 +20,8 @@ export type ShopItemKind = 'armor' | 'shield' | 'weapon' | AccessorySlot
 export interface AccessoryStats {
   acBonus?: number
   toHitBonus?: number
+  /** Dice added to attack rolls (e.g. '1d4') alongside the flat bonus. */
+  toHitDice?: string
   toHitBonusAppliesTo?: 'melee' | 'ranged' | 'both'
   speedBonus?: number
   abilityBonus?: Partial<Record<AbilityScore, number>>

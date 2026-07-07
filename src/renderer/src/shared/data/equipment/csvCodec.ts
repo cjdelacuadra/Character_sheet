@@ -36,7 +36,7 @@ function serPipes(arr: string[] | undefined): string {
 // ── shared stats block (gear + weapons) ──────────────────────────────────────
 
 const STATS_COLS = [
-  'stats_acBonus', 'stats_toHitBonus', 'stats_toHitAppliesTo', 'stats_speedBonus',
+  'stats_acBonus', 'stats_toHitBonus', 'stats_toHitDice', 'stats_toHitAppliesTo', 'stats_speedBonus',
   ...ABILITIES.map(a => `stats_ab_${a}`),
   ...ABILITIES.map(a => `stats_abset_${a}`),
   ...ABILITIES.map(a => `stats_save_${a}`),
@@ -50,6 +50,7 @@ const STATS_COLS = [
 function writeStatsColumns(row: Record<string, string | number>, s: import('./types').AccessoryStats | undefined): void {
   row.stats_acBonus        = s?.acBonus ?? ''
   row.stats_toHitBonus     = s?.toHitBonus ?? ''
+  row.stats_toHitDice      = s?.toHitDice ?? ''
   row.stats_toHitAppliesTo = s?.toHitBonusAppliesTo ?? ''
   row.stats_speedBonus     = s?.speedBonus ?? ''
   for (const ab of ABILITIES) {
@@ -101,6 +102,7 @@ function readStatsColumns(r: Record<string, string>): import('./types').Accessor
   const hasStats =
     num(r.stats_acBonus) !== undefined ||
     num(r.stats_toHitBonus) !== undefined ||
+    str(r.stats_toHitDice) !== undefined ||
     num(r.stats_speedBonus) !== undefined ||
     Object.keys(abilityBonus).length > 0 ||
     Object.keys(abilitySet).length > 0 ||
@@ -115,6 +117,7 @@ function readStatsColumns(r: Record<string, string>): import('./types').Accessor
   return {
     acBonus:             num(r.stats_acBonus),
     toHitBonus:          num(r.stats_toHitBonus),
+    toHitDice:           str(r.stats_toHitDice),
     toHitBonusAppliesTo: str(r.stats_toHitAppliesTo) as 'melee' | 'ranged' | 'both' | undefined,
     speedBonus:          num(r.stats_speedBonus),
     abilityBonus:     Object.keys(abilityBonus).length     ? abilityBonus     : undefined,

@@ -286,6 +286,7 @@ export function buildAttackRows(
     const stats = GEAR_BY_ID[itemId]?.stats
     if (!stats) continue
     const toHit = stats.toHitBonus ?? 0
+    const toHitDice = stats.toHitDice ?? null
     let bonusDmg: string | null = null
     let bonusDmgType: string | null = null
     const bd = stats.bonusDamage
@@ -293,9 +294,9 @@ export function buildAttackRows(
       const parts = [bd.dice, bd.flat ? String(bd.flat) : null].filter(Boolean).join('+')
       if (parts) { bonusDmg = combineDiceExpr(parts); bonusDmgType = bd.dmgType }
     }
-    if (toHit === 0 && !bonusDmg) continue
+    if (toHit === 0 && !toHitDice && !bonusDmg) continue
     const toHitGroup: 'melee' | 'ranged' | 'both' =
-      toHit !== 0 ? (stats.toHitBonusAppliesTo ?? 'both') : 'both'
+      (toHit !== 0 || toHitDice) ? (stats.toHitBonusAppliesTo ?? 'both') : 'both'
     const dmgAppliesTo = stats.bonusDamage?.appliesTo ?? 'all'
     const dmgGroup: 'melee' | 'ranged' | 'both' | null =
       bonusDmg !== null
@@ -314,6 +315,7 @@ export function buildAttackRows(
       id: `equip-bonus-${slotKey}`,
       name: GEAR_BY_ID[itemId]!.name,
       toHit: toHit !== 0 ? toHit : null,
+      toHitDice,
       dmg: null,
       dmgType: null,
       bonusDmg,

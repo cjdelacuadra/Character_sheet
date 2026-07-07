@@ -3,7 +3,7 @@ import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { CLASS_BY_ID } from '@/shared/data/classData'
-import { computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
+import { canDualWield, computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
 import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
 import { portentDiceCount, wildShapeLimit } from '@/domain/rules/casterFeatures'
@@ -1337,10 +1337,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   // OFF-HAND ATTACK — light melee weapons, no ability mod unless TWF
   if (selectedAction === 'Off-Hand Attack') {
-    const offHandWeapons = char.weapons.filter(w =>
-      w.rangeType !== 'Ranged' &&
-      (w.properties ?? []).some(p => p.toLowerCase() === 'light')
-    )
+    const offHandWeapons = char.weapons.filter(w => canDualWield(char, w))
     const hasTWF = fightingStyleOf(char) === 'two-weapon-fighting'
     const strMod = mod(char.abilityScores.str)
     const dexMod = mod(char.abilityScores.dex)
