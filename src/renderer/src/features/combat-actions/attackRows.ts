@@ -188,6 +188,31 @@ export function buildAttackRows(
     })
   }
 
+  // The weapon's own magic bonuses (item-editor "To-Hit Bonus" dice and
+  // "Bonus DMG"): the flat to-hit part is already folded into the base
+  // attack bonus; to-hit dice and typed bonus damage surface as a rider
+  // row, same as gear items do.
+  const nativeToHitDice = w.toHitDiceCount && w.toHitDieType ? `${w.toHitDiceCount}d${w.toHitDieType}` : null
+  const nativeBonusParts = [
+    w.dmgBonusCount && w.dmgBonusDieType ? `${w.dmgBonusCount}d${w.dmgBonusDieType}` : null,
+    w.dmgBonusFlat ? String(w.dmgBonusFlat) : null,
+  ].filter(Boolean).join('+')
+  if (nativeToHitDice || nativeBonusParts) {
+    rows.push({
+      // The equip-bonus- prefix makes the row always-active and
+      // non-toggleable in every attack table, same as gear rider rows.
+      id: 'equip-bonus-weapon',
+      name: w.name,
+      toHit: null,
+      toHitDice: nativeToHitDice,
+      dmg: null,
+      dmgType: null,
+      bonusDmg: nativeBonusParts ? combineDiceExpr(nativeBonusParts) : null,
+      bonusDmgType: nativeBonusParts ? (w.dmgBonusType ?? w.damageType ?? null) : null,
+      group: 'both',
+    })
+  }
+
   const SPECIAL_GROUP: Record<string, AttackRow['group']> = {
     'Sharpshooter':    'ranged',
     'GWM Power Attack':'melee',

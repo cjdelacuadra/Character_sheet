@@ -7,6 +7,7 @@ import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/char
 import { critExtraDice, computeAttackBonus, computeWeaponDamage } from '@/domain/rules'
 import * as newAttacks from '@/domain/rules/attacks'
 import { makeChar } from './helpers'
+import { buildAttackRows } from '@/features/combat-actions/attackRows'
 
 const ORIGINAL_GEAR = [...GEAR]
 const ORIGINAL_WEAPONS = [...WEAPONS]
@@ -43,6 +44,32 @@ describe('live weapon def resolution (no stale equip snapshots)', () => {
     const v14 = { ...char, featureState: char.featureState ?? {} }
     expect(newAttacks.computeAttackBonus(v14, stale)).toBe(computeAttackBonus(char, stale))
     expect(newAttacks.computeWeaponDamage(v14, stale)).toContain('1d6')
+  })
+
+  it('weapon native to-hit dice and typed bonus damage surface as an always-on attack row', () => {
+    // The Mjonir pattern: To-Hit 1d4 + 2, Bonus DMG 1d6 + 1 lightning.
+    const mjonir: WeaponEquipmentItem = {
+      ...flameTongue, id: 'mjonir-test', name: 'Mjonir', damageType: 'bludgeoning',
+      toHitDiceCount: 1, toHitDieType: 4, toHitFlat: 2,
+      dmgBonusCount: 1, dmgBonusDieType: 6, dmgBonusFlat: 1, dmgBonusType: 'lightning',
+    }
+    setWeaponsData([...ORIGINAL_WEAPONS, mjonir])
+    const instance = { id: 'mjonir-test', name: 'Mjonir', atkBonus: 0, damage: '1d8', damageType: 'bludgeoning', rangeType: 'Melee' as const }
+    const char = makeChar({ schemaVersion: 13, weapons: [instance] })
+
+    const rows = buildAttackRows(char, instance)
+    const rider = rows.find(r => r.id === 'equip-bonus-weapon')
+    expect(rider).toBeTruthy()
+    expect(rider!.toHitDice).toBe('1d4')
+    expect(rider!.bonusDmg).toContain('1d6')
+    expect(rider!.bonusDmgType).toBe('lightning')
+    // Flat +2 folds into the base to-hit, not the rider row.
+    const noFlat = { ...mjonir, id: 'mjonir-noflat' }
+    delete (noFlat as { toHitFlat?: number }).toHitFlat
+    setWeaponsData([...ORIGINAL_WEAPONS, mjonir, noFlat])
+    const normal = rows.find(r => r.id === 'normal')!
+    const normalNoFlat = buildAttackRows(char, { ...instance, id: 'mjonir-noflat' }).find(r => r.id === 'normal')!
+    expect(normal.toHit! - normalNoFlat.toHit!).toBe(2)
   })
 })
 

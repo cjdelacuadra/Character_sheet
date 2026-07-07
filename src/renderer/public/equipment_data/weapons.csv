@@ -57,4 +57,4 @@ royal-spear+1,Royal Spear +1,weapon,2,common,/assets/weapons/royal-spear+1.png,1
 royal-spear+2,Royal Spear +2,weapon,3,common,/assets/weapons/royal-spear+2.png,1d10,piercing,Simple,Melee or Ranged,Thrown (range 20/60)|Versatile (1d12)|finesse,2,,,,,true,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 royal-spear+3,Royal Spear +3,weapon,4,common,/assets/weapons/royal-spear+3.png,1d10,piercing,Simple,Melee or Ranged,Thrown (range 20/60)|Versatile (1d12)|finesse,3,,,,,true,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 critical shortsword,Critical shortsword,weapon,5,uncommon,/assets/weapons/shortsword.png,1d6,piercing,Martial,Melee,Finesse|Light,,,,,,true,,,,,,,,true,1,all,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
-mjonir,Mjonir,weapon,15,common,/assets/weapons/warhammer.png,1d8,bludgeoning,Martial,Melee,Versatile (1d10),,,,,,,1,4,2,1,6,,lightning,true,2,all,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+mjonir,Mjonir,weapon,15,common,/assets/weapons/warhammer.png,1d8,bludgeoning,Martial,Melee,Versatile (1d10),,,,,,,1,4,2,1,6,1,lightning,true,2,all,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
