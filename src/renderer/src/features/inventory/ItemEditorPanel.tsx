@@ -13,9 +13,18 @@ import styles from './ItemEditorPanel.module.css'
 
 interface StatRow { key: string; value: number }
 
-const STAT_OPTIONS: { key: string; label: string; adv: boolean }[] = [
+const STAT_OPTIONS: { key: string; label: string; adv: boolean; complex?: boolean }[] = [
   { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false },
   { key: 'speedBonus',       label: 'Speed Bonus',       adv: false },
+  { key: 'bonusDamage',      label: 'Bonus Damage',      adv: false, complex: true },
+  { key: 'critMod',          label: 'Crit Range',        adv: false, complex: true },
+  { key: 'critDamage',       label: 'Crit Damage',       adv: false, complex: true },
+  { key: 'abset_str',        label: 'Set STR (floor)',   adv: false },
+  { key: 'abset_dex',        label: 'Set DEX (floor)',   adv: false },
+  { key: 'abset_con',        label: 'Set CON (floor)',   adv: false },
+  { key: 'abset_int',        label: 'Set INT (floor)',   adv: false },
+  { key: 'abset_wis',        label: 'Set WIS (floor)',   adv: false },
+  { key: 'abset_cha',        label: 'Set CHA (floor)',   adv: false },
   { key: 'ab_str',           label: 'STR Bonus',         adv: false },
   { key: 'ab_dex',           label: 'DEX Bonus',         adv: false },
   { key: 'ab_con',           label: 'CON Bonus',         adv: false },
@@ -69,6 +78,11 @@ function statsToRows(stats: AccessoryStats | undefined): StatRow[] {
   if (stats.speedBonus) rows.push({ key: 'speedBonus', value: stats.speedBonus })
   for (const [ab, v] of Object.entries(stats.abilityBonus ?? {}))
     if (v) rows.push({ key: `ab_${ab}`, value: v })
+  for (const [ab, v] of Object.entries(stats.abilitySet ?? {}))
+    if (v) rows.push({ key: `abset_${ab}`, value: v })
+  if (stats.bonusDamage) rows.push({ key: 'bonusDamage', value: 0 })
+  if (stats.critModifier) rows.push({ key: 'critMod', value: Object.values(stats.critModifier)[0] ?? 0 })
+  if (stats.critBonusDamage) rows.push({ key: 'critDamage', value: 0 })
   for (const [ab, v] of Object.entries(stats.savingThrowBonus ?? {}))
     if (v) rows.push({ key: `${ab}_save`, value: v })
   for (const [sk, v] of Object.entries(stats.skillBonus ?? {}))
@@ -88,9 +102,14 @@ function rowsToStats(rows: StatRow[]): AccessoryStats {
       s.toHitBonus = row.value
     } else if (row.key === 'speedBonus') {
       s.speedBonus = row.value
+    } else if (row.key.startsWith('abset_')) {
+      const ab = row.key.slice(6) as AbilityScore
+      s.abilitySet = { ...s.abilitySet, [ab]: row.value }
     } else if (row.key.startsWith('ab_')) {
       const ab = row.key.slice(3) as AbilityScore
       s.abilityBonus = { ...s.abilityBonus, [ab]: row.value }
+    } else if (row.key === 'bonusDamage' || row.key === 'critMod' || row.key === 'critDamage') {
+      // Complex stats carry no simple value; their fields are merged in the caller.
     } else if (row.key === 'adv:death') {
       s.advantage = { ...s.advantage, deathSaves: true }
     } else if (row.key.startsWith('adv:')) {
@@ -214,7 +233,14 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [editCost,   setEditCost]   = useState(fullDef?.cost ?? shopItem?.cost ?? 0)
   const [editRarity, setEditRarity] = useState<string>(fullDef?.rarity ?? shopItem?.rarity ?? 'common')
   const [enchant,    setEnchant]    = useState(fullDef?.enchantmentBonus ?? 0)
-  const [statRows,   setStatRows]   = useState<StatRow[]>(statsToRows(gearDef?.stats))
+  const [statRows,   setStatRows]   = useState<StatRow[]>(() => {
+    const rows = statsToRows(fullDef && 'stats' in fullDef ? fullDef.stats : undefined)
+    // Weapons keep their crit-range modifier on the def itself.
+    if (weapDef?.critModifier && !rows.some(r => r.key === 'critMod')) {
+      rows.push({ key: 'critMod', value: Object.values(weapDef.critModifier)[0] ?? 0 })
+    }
+    return rows
+  })
   const [addKey,     setAddKey]     = useState('')
 
   const initSprite = parseSprite(fullDef?.sprite, kind, fullDef?.name ?? shopItem?.name ?? nameFromId(itemId))
@@ -285,6 +311,14 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [accBdAppliesTo, setAccBdAppliesTo] = useState<'melee' | 'ranged' | 'all'>(accBd?.appliesTo ?? 'all')
   const [toHitAppliesTo, setToHitAppliesTo] = useState<'melee' | 'ranged' | 'both'>(gearDef?.stats?.toHitBonusAppliesTo ?? 'both')
 
+  // ── Crit bonus damage (extra damage only on crits) ───────────────────────
+  const initCritDmg = (fullDef && 'stats' in fullDef ? fullDef.stats?.critBonusDamage : undefined)
+  const initCritDmgDie = parseDie(initCritDmg?.dice ?? '1d6')
+  const [critDmgCount, setCritDmgCount] = useState(initCritDmg?.dice ? initCritDmgDie.count : 1)
+  const [critDmgSides, setCritDmgSides] = useState(initCritDmgDie.sides)
+  const [critDmgFlat,  setCritDmgFlat]  = useState(initCritDmg?.flat ?? 0)
+  const [critDmgType,  setCritDmgType]  = useState<string>(initCritDmg?.dmgType ?? 'fire')
+
   const computedSprite = `${SPRITE_PREFIX}${spriteFolder}${spriteFile}`
   const rarityColor    = RARITY_COLOR[editRarity] ?? 'var(--text-muted)'
 
@@ -312,11 +346,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     setStatRows(prev => prev.map(r => r.key === key ? { ...r, value } : r))
   }
 
-  function buildGearDef(overrideId?: string): GearEquipmentItem {
+  /** Complex stats live in the same selector; their fields render inline. */
+  function buildSelectorStats(): AccessoryStats {
     const stats: AccessoryStats = rowsToStats(statRows)
     if (stats.toHitBonus) stats.toHitBonusAppliesTo = toHitAppliesTo
-    if (acBonus) stats.acBonus = acBonus
-    if (hasAccBonusDmg) {
+    if (statRows.some(r => r.key === 'bonusDamage')) {
       stats.bonusDamage = {
         dice:      accBdCount > 0 ? `${accBdCount}d${accBdSides}` : undefined,
         flat:      accBdFlat || undefined,
@@ -324,8 +358,21 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         appliesTo: accBdAppliesTo,
       }
     }
+    if (statRows.some(r => r.key === 'critDamage')) {
+      stats.critBonusDamage = {
+        dice:    critDmgCount > 0 ? `${critDmgCount}d${critDmgSides}` : undefined,
+        flat:    critDmgFlat || undefined,
+        dmgType: critDmgType,
+      }
+    }
+    return stats
+  }
+
+  function buildGearDef(overrideId?: string): GearEquipmentItem {
+    const stats: AccessoryStats = buildSelectorStats()
+    if (acBonus) stats.acBonus = acBonus
     const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
-    if (critModValue !== 0) {
+    if (statRows.some(r => r.key === 'critMod') && critModValue !== 0) {
       critModifier[critModAppliesTo] = critModValue
     }
     if (Object.keys(critModifier).length > 0) stats.critModifier = critModifier
@@ -352,11 +399,16 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
   function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
     const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
-    if (critModValue !== 0) {
+    if (statRows.some(r => r.key === 'critMod') && critModValue !== 0) {
       critModifier[critModAppliesTo] = critModValue
     }
+    // Weapons carry the same selector stats as gear (AC, abilities, skills, …);
+    // the crit-range modifier stays on the weapon def itself.
+    const selectorStats = buildSelectorStats()
+    delete selectorStats.critModifier
 
     return {
+      stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
       ...weapDef!,
       id:                 overrideId ?? weapDef!.id,
       name:               editName,
@@ -750,8 +802,8 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         </div>
       )}
 
-      {/* Stats — all gear (armor + accessories) */}
-      {isGear && (
+      {/* Stats — every item (gear AND weapons) */}
+      {(isGear || isWeapon) && (
         <div className={styles.statsSection}>
           <div className={styles.statsHead}>
             <span className={styles.statsTitle}>Stats</span>
@@ -778,6 +830,85 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
             {statRows.length === 0 && <span className={styles.statsEmpty}>No stats</span>}
             {statRows.map(row => {
               const isAdv = row.key.startsWith('adv:')
+              if (row.key === 'bonusDamage') {
+                return (
+                  <div key={row.key} className={styles.statRow}>
+                    <span className={styles.statLabel}>Bonus DMG</span>
+                    {editMode ? (
+                      <span style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input type="number" min={0} max={20} value={accBdCount} onChange={e => setAccBdCount(Math.max(0, Number(e.target.value)))} className={styles.diceCount} />
+                        <span className={styles.diceSep}>d</span>
+                        <select value={accBdSides} onChange={e => setAccBdSides(e.target.value)} className={styles.diceSelect}>
+                          {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <span className={styles.diceSep}>+</span>
+                        <input type="number" min={-20} max={20} value={accBdFlat} onChange={e => setAccBdFlat(Number(e.target.value))} className={styles.diceCount} title="Flat bonus" />
+                        <select value={accBdType} onChange={e => setAccBdType(e.target.value)} className={styles.diceSelect}>
+                          {DAMAGE_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
+                        </select>
+                        <select value={accBdAppliesTo} onChange={e => setAccBdAppliesTo(e.target.value as 'melee' | 'ranged' | 'all')} className={styles.diceSelect}>
+                          <option value="all">all</option>
+                          <option value="melee">melee</option>
+                          <option value="ranged">ranged</option>
+                        </select>
+                      </span>
+                    ) : (
+                      <span className={styles.statVal}>
+                        {[accBdCount > 0 ? `${accBdCount}d${accBdSides}` : null, accBdFlat || null].filter(Boolean).join('+') || '0'} {accBdType} ({accBdAppliesTo})
+                      </span>
+                    )}
+                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
+                  </div>
+                )
+              }
+              if (row.key === 'critMod') {
+                return (
+                  <div key={row.key} className={styles.statRow}>
+                    <span className={styles.statLabel} title="Crit threshold reduction (1 = crit on 19+)">Crit Range</span>
+                    {editMode ? (
+                      <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <input type="number" min={-20} max={20} value={critModValue} onChange={e => setCritModValue(Number(e.target.value))} className={styles.diceCount} />
+                        <select value={critModAppliesTo} onChange={e => setCritModAppliesTo(e.target.value as 'melee' | 'ranged' | 'spells' | 'martial' | 'all')} className={styles.diceSelect}>
+                          <option value="all">all</option>
+                          <option value="martial">martial</option>
+                          <option value="melee">melee</option>
+                          <option value="ranged">ranged</option>
+                          <option value="spells">spells</option>
+                        </select>
+                      </span>
+                    ) : (
+                      <span className={styles.statVal}>{critModValue !== 0 ? `crit ${20 - critModValue}+ (${critModAppliesTo})` : '—'}</span>
+                    )}
+                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
+                  </div>
+                )
+              }
+              if (row.key === 'critDamage') {
+                return (
+                  <div key={row.key} className={styles.statRow}>
+                    <span className={styles.statLabel} title="Extra damage dealt only on a critical hit">Crit DMG</span>
+                    {editMode ? (
+                      <span style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input type="number" min={0} max={20} value={critDmgCount} onChange={e => setCritDmgCount(Math.max(0, Number(e.target.value)))} className={styles.diceCount} />
+                        <span className={styles.diceSep}>d</span>
+                        <select value={critDmgSides} onChange={e => setCritDmgSides(e.target.value)} className={styles.diceSelect}>
+                          {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <span className={styles.diceSep}>+</span>
+                        <input type="number" min={-20} max={20} value={critDmgFlat} onChange={e => setCritDmgFlat(Number(e.target.value))} className={styles.diceCount} title="Flat bonus" />
+                        <select value={critDmgType} onChange={e => setCritDmgType(e.target.value)} className={styles.diceSelect}>
+                          {DAMAGE_TYPES.map(dt => <option key={dt} value={dt}>{dt}</option>)}
+                        </select>
+                      </span>
+                    ) : (
+                      <span className={styles.statVal}>
+                        {[critDmgCount > 0 ? `${critDmgCount}d${critDmgSides}` : null, critDmgFlat || null].filter(Boolean).join('+') || '0'} {critDmgType} on crit
+                      </span>
+                    )}
+                    {editMode && <button className={styles.statRemove} onClick={() => removeStat(row.key)}>×</button>}
+                  </div>
+                )
+              }
               return (
                 <div key={row.key} className={styles.statRow}>
                   <span className={styles.statLabel}>{labelOf(row.key)}</span>
@@ -819,129 +950,6 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
           </div>
         </div>
       )}
-
-      {/* Bonus damage — all gear (armor + accessories) */}
-      {isGear && (
-        <div className={styles.weaponSection}>
-          <span className={`${styles.sectionTitle} ${styles.fullRow}`}>Bonus Damage</span>
-
-          <div className={styles.fieldRow}>
-            <label className={styles.label}>Enable</label>
-            {editMode ? (
-              <input
-                type="checkbox"
-                checked={hasAccBonusDmg}
-                onChange={e => setHasAccBonusDmg(e.target.checked)}
-                className={styles.diceCheck}
-              />
-            ) : (
-              <span className={styles.value}>{hasAccBonusDmg ? 'yes' : '—'}</span>
-            )}
-          </div>
-
-          {hasAccBonusDmg && (
-            <>
-              <div className={styles.fieldRow}>
-                <label className={styles.label}>Dice</label>
-                {editMode ? (
-                  <div className={styles.diceRow}>
-                    <input
-                      type="number" min={0} max={20} value={accBdCount}
-                      onChange={e => setAccBdCount(Math.max(0, Number(e.target.value)))}
-                      className={styles.diceCount}
-                    />
-                    <span className={styles.diceSep}>d</span>
-                    <select value={accBdSides} onChange={e => setAccBdSides(e.target.value)} className={styles.diceSelect}>
-                      {DIE_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <span className={styles.value}>{accBdCount > 0 ? `${accBdCount}d${accBdSides}` : '—'}</span>
-                )}
-              </div>
-
-              <div className={styles.fieldRow}>
-                <label className={styles.label}>Flat</label>
-                {editMode ? (
-                  <input
-                    type="number" min={-20} max={20} value={accBdFlat}
-                    onChange={e => setAccBdFlat(Number(e.target.value))}
-                    className={styles.inputSmall}
-                  />
-                ) : (
-                  <span className={styles.value}>{accBdFlat !== 0 ? accBdFlat : '—'}</span>
-                )}
-              </div>
-
-              <div className={styles.fieldRow}>
-                <label className={styles.label}>Type</label>
-                {editMode ? (
-                  <select value={accBdType} onChange={e => setAccBdType(e.target.value)} className={styles.select}>
-                    {DAMAGE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                ) : (
-                  <span className={styles.value}>{accBdType}</span>
-                )}
-              </div>
-
-              <div className={styles.fieldRow}>
-                <label className={styles.label}>Applies</label>
-                {editMode ? (
-                  <select
-                    value={accBdAppliesTo}
-                    onChange={e => setAccBdAppliesTo(e.target.value as 'melee' | 'ranged' | 'all')}
-                    className={styles.select}
-                  >
-                    <option value="all">all</option>
-                    <option value="melee">melee</option>
-                    <option value="ranged">ranged</option>
-                  </select>
-                ) : (
-                  <span className={styles.value}>{accBdAppliesTo}</span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Crit Modifier — all items */}
-      <div className={styles.weaponSection}>
-        <span className={`${styles.sectionTitle} ${styles.fullRow}`}>Crit Modifier</span>
-        <div className={styles.fieldRow}>
-          <label className={styles.label}>Amount</label>
-          {editMode ? (
-            <input
-              type="number" min={-20} max={20} value={critModValue}
-              onChange={e => setCritModValue(Number(e.target.value))}
-              className={styles.inputSmall}
-              title="Crit threshold reduction (e.g. 1 = crit on 19+)"
-            />
-          ) : (
-            <span className={styles.value} style={{ color: critModValue !== 0 ? 'var(--accent)' : undefined }}>
-              {critModValue === 0 ? '—' : critModValue > 0 ? `+${critModValue}` : critModValue}
-            </span>
-          )}
-        </div>
-        <div className={styles.fieldRow}>
-          <label className={styles.label}>Applies To</label>
-          {editMode ? (
-            <select
-              value={critModAppliesTo}
-              onChange={e => setCritModAppliesTo(e.target.value as any)}
-              className={styles.inputSmall}
-            >
-              <option value="all">All</option>
-              <option value="martial">Martial</option>
-              <option value="melee">Melee</option>
-              <option value="ranged">Ranged</option>
-              <option value="spells">Spells</option>
-            </select>
-          ) : (
-            <span className={styles.value}>{critModAppliesTo}</span>
-          )}
-        </div>
-      </div>
 
       </div>{/* scrollBody */}
 

@@ -14,7 +14,7 @@ import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { mod } from '@/shared/data/charCalculations'
+import { computeEquipmentStats, mod } from '@/shared/data/charCalculations'
 import { combineDiceExpr } from '../dice'
 import { collectActiveEffects } from '../collect'
 import { abilityBonusTotal, damageRiders, type SourcedEffect } from '../effects'
@@ -197,7 +197,7 @@ export function computeCritThreshold(
 
 /** Extra dice added on a critical hit (Piercer feat — derived, Brutal Critical, Savage Attacks). */
 export function critExtraDice(
-  char: Pick<AttackInput, 'classId' | 'race' | 'level' | 'feats'>,
+  char: Pick<AttackInput, 'classId' | 'race' | 'level' | 'feats'> & Partial<Pick<AttackInput, 'equipment' | 'weapons'>>,
   weapon: Weapon,
   weaponDamageType: string,
 ): { expr: string; type: string }[] {
@@ -220,6 +220,14 @@ export function critExtraDice(
 
   if (char.race === 'HalfOrc' && weapon.rangeType !== 'Ranged') {
     extras.push({ expr: weaponDie, type: weaponDamageType })
+  }
+
+  // Equipment crit-only damage riders (gear or weapon stat blocks).
+  if ('equipment' in char) {
+    for (const crit of computeEquipmentStats(char as Pick<import('@/entities/character/types').Character, 'equipment'> & { weapons?: import('@/entities/character/types').Character['weapons'] }).critBonusDamage) {
+      const parts = [...crit.dice, crit.flat ? String(crit.flat) : null].filter(Boolean) as string[]
+      if (parts.length) extras.push({ expr: parts.join('+'), type: crit.dmgType })
+    }
   }
 
   return extras

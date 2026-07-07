@@ -1,0 +1,74 @@
+import { describe, it, expect, afterEach } from 'vitest'
+import { csvToGear, csvToWeapons, gearToCsv, weaponsToCsv } from '@/shared/data/equipment/csvCodec'
+import type { GearEquipmentItem, WeaponEquipmentItem } from '@/shared/data/equipment/types'
+import { GEAR, setGearData } from '@/shared/data/equipment/gear'
+import { setWeaponsData, WEAPONS } from '@/shared/data/equipment/weapons'
+import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/charCalculations'
+import { critExtraDice } from '@/domain/rules'
+import { makeChar } from './helpers'
+
+const ORIGINAL_GEAR = [...GEAR]
+const ORIGINAL_WEAPONS = [...WEAPONS]
+afterEach(() => {
+  setGearData(ORIGINAL_GEAR)
+  setWeaponsData(ORIGINAL_WEAPONS)
+})
+
+const gauntlets: GearEquipmentItem = {
+  id: 'hill-giant-gauntlets', name: 'Hill Giant Gauntlets', kind: 'gloves', cost: 0,
+  requiresAttunement: true,
+  stats: { abilitySet: { str: 18 }, critBonusDamage: { dice: '2d6', dmgType: 'bludgeoning' } },
+}
+
+const flameTongue: WeaponEquipmentItem = {
+  id: 'flame-tongue-test', name: 'Flame Tongue', kind: 'weapon', cost: 0,
+  damageDie: '1d8', damageType: 'slashing', proficiencyCategory: 'Martial',
+  rangeType: 'Melee', properties: ['Versatile (1d10)'],
+  stats: { abilityBonus: { cha: 1 }, critBonusDamage: { dice: '1d10', dmgType: 'fire' } },
+}
+
+describe('equipment stat extensions', () => {
+  it('CSV round-trips abilitySet, critBonusDamage, and weapon stat blocks', () => {
+    const [gearBack] = csvToGear(gearToCsv([gauntlets]))
+    expect(gearBack.stats?.abilitySet).toEqual({ str: 18 })
+    expect(gearBack.stats?.critBonusDamage).toEqual({ dice: '2d6', flat: undefined, dmgType: 'bludgeoning' })
+
+    const [weaponBack] = csvToWeapons(weaponsToCsv([flameTongue]))
+    expect(weaponBack.stats?.abilityBonus).toEqual({ cha: 1 })
+    expect(weaponBack.stats?.critBonusDamage?.dmgType).toBe('fire')
+  })
+
+  it('abilitySet floors the score without stacking (Gauntlets of Ogre Power pattern)', () => {
+    setGearData([...ORIGINAL_GEAR, gauntlets])
+    const weakling = makeChar({
+      schemaVersion: 13,
+      abilityScores: { str: 8, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+    })
+    expect(effectiveAbilityScore(weakling, 'str')).toBe(18)
+
+    const bruiser = { ...weakling, abilityScores: { ...weakling.abilityScores, str: 20 } }
+    expect(effectiveAbilityScore(bruiser, 'str')).toBe(20)   // no effect at 18+
+  })
+
+  it('weapon stat blocks fold when weapons are provided', () => {
+    setWeaponsData([...ORIGINAL_WEAPONS, flameTongue])
+    const char = makeChar({
+      schemaVersion: 13,
+      weapons: [{ id: 'flame-tongue-test', name: 'Flame Tongue', atkBonus: 0, damage: '1d8', damageType: 'slashing', rangeType: 'Melee' }],
+    })
+    const stats = computeEquipmentStats(char)
+    expect(stats.abilityBonus.cha).toBe(1)
+    expect(stats.critBonusDamage).toHaveLength(1)
+  })
+
+  it('critBonusDamage lands in the crit extras', () => {
+    setGearData([...ORIGINAL_GEAR, gauntlets])
+    const char = makeChar({
+      schemaVersion: 13,
+      equipment: { ...makeChar().equipment, glovesId: 'hill-giant-gauntlets' },
+    })
+    const extras = critExtraDice(char, { id: 'w', name: 'Club', atkBonus: 0, damage: '1d4', damageType: 'bludgeoning', rangeType: 'Melee' }, 'bludgeoning')
+    expect(extras).toContainEqual({ expr: '2d6', type: 'bludgeoning' })
+  })
+})

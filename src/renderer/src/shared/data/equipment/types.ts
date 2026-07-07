@@ -32,6 +32,11 @@ export interface AccessoryStats {
   }
   bonusDamage?: { flat?: number; dice?: string; dmgType: string; appliesTo?: 'melee' | 'ranged' | 'all' }
   critModifier?: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>>
+  /** Sets the ability score to this value when the wearer's is lower
+   *  (Gauntlets of Ogre Power pattern) — no effect if already ≥. */
+  abilitySet?: Partial<Record<AbilityScore, number>>
+  /** Extra damage dealt only on a critical hit. */
+  critBonusDamage?: { dice?: string; flat?: number; dmgType: string }
 }
 
 export interface BaseEquipmentItem {
@@ -78,6 +83,8 @@ export interface WeaponEquipmentItem extends BaseEquipmentItem {
   dmgBonusFlat?: number
   dmgBonusType?: string
   critModifier?: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>>
+  /** Weapons can carry the same stat block as gear (AC, abilities, skills, …). */
+  stats?: AccessoryStats
 }
 
 export type EquipmentDef = WeaponEquipmentItem | GearEquipmentItem

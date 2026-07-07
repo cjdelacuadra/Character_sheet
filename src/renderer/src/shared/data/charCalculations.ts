@@ -2,6 +2,7 @@ import type { AbilityScores, Character, Equipment } from '@/entities/character/t
 import type { AbilityScore } from './equipment/types'
 import type { Skill } from './skills'
 import { GEAR_BY_ID } from './equipment/gear'
+import { WEAPON_BY_ID } from './equipment/weapons'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
 import { SUBCLASS_BY_ID } from './subclassData'
@@ -251,10 +252,14 @@ export interface EquipmentStats {
   toHitBonus: number
   speedBonus: number
   abilityBonus: Partial<Record<AbilityScore, number>>
+  /** Score floors (Gauntlets of Ogre Power pattern): effective score = max(score+bonus, set). */
+  abilitySet: Partial<Record<AbilityScore, number>>
   savingThrowBonus: Partial<Record<AbilityScore, number>>
   skillBonus: Partial<Record<Skill, number>>
   advantage: { savingThrows: AbilityScore[]; skills: Skill[]; deathSaves: boolean }
   bonusDamage: { flat: number; dice: string[]; dmgType: string; appliesTo: 'melee' | 'ranged' | 'all'; names: string[] }[]
+  /** Extra damage applied only on critical hits. */
+  critBonusDamage: { flat: number; dice: string[]; dmgType: string; names: string[] }[]
 }
 
 export const ZERO_EQUIP_STATS: EquipmentStats = {
@@ -262,10 +267,12 @@ export const ZERO_EQUIP_STATS: EquipmentStats = {
   toHitBonus: 0,
   speedBonus: 0,
   abilityBonus: {},
+  abilitySet: {},
   savingThrowBonus: {},
   skillBonus: {},
   advantage: { savingThrows: [], skills: [], deathSaves: false },
   bonusDamage: [],
+  critBonusDamage: [],
 }
 
 const GEAR_SLOTS: Array<keyof Equipment> = [
@@ -274,26 +281,26 @@ const GEAR_SLOTS: Array<keyof Equipment> = [
   'bootsId', 'glovesId', 'ring1Id', 'ring2Id', 'amuletId',
 ]
 
-/** Aggregates D&D 5e equipment bonus stats across all equipped gear (armor + accessories). */
-export function computeEquipmentStats(char: Pick<Character, 'equipment'>): EquipmentStats {
+/**
+ * Aggregates D&D 5e equipment bonus stats across all equipped gear (armor +
+ * accessories) and — when `weapons` is provided — the equipped weapons'
+ * stat blocks (weapons can carry the same stats as gear).
+ */
+export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { weapons?: Character['weapons'] }): EquipmentStats {
   const result: EquipmentStats = {
     acBonus: 0,
     toHitBonus: 0,
     speedBonus: 0,
     abilityBonus: {},
+    abilitySet: {},
     savingThrowBonus: {},
     skillBonus: {},
     advantage: { savingThrows: [], skills: [], deathSaves: false },
     bonusDamage: [],
+    critBonusDamage: [],
   }
 
-  for (const slotKey of GEAR_SLOTS) {
-    const itemId = char.equipment[slotKey]
-    if (!itemId || typeof itemId !== 'string') continue
-    const gear = GEAR_BY_ID[itemId]
-    if (!gear?.stats) continue
-    const s = gear.stats
-
+  function fold(s: NonNullable<import('./equipment/types').GearEquipmentItem['stats']>, name: string): void {
     if (s.acBonus)     result.acBonus     += s.acBonus
     if (s.toHitBonus)  result.toHitBonus  += s.toHitBonus
     if (s.speedBonus)  result.speedBonus  += s.speedBonus
@@ -301,6 +308,11 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
     if (s.abilityBonus) {
       for (const [ab, val] of Object.entries(s.abilityBonus) as [AbilityScore, number][]) {
         result.abilityBonus[ab] = (result.abilityBonus[ab] ?? 0) + val
+      }
+    }
+    if (s.abilitySet) {
+      for (const [ab, val] of Object.entries(s.abilitySet) as [AbilityScore, number][]) {
+        result.abilitySet[ab] = Math.max(result.abilitySet[ab] ?? 0, val)
       }
     }
 
@@ -328,23 +340,51 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'>): Equip
       if (existing) {
         existing.flat += flat
         if (dice) existing.dice.push(dice)
-        existing.names.push(gear.name)
+        existing.names.push(name)
       } else {
-        result.bonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, appliesTo, names: [gear.name] })
+        result.bonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, appliesTo, names: [name] })
       }
     }
+    if (s.critBonusDamage) {
+      const { flat = 0, dice, dmgType } = s.critBonusDamage
+      const existing = result.critBonusDamage.find(b => b.dmgType === dmgType)
+      if (existing) {
+        existing.flat += flat
+        if (dice) existing.dice.push(dice)
+        existing.names.push(name)
+      } else {
+        result.critBonusDamage.push({ flat, dice: dice ? [dice] : [], dmgType, names: [name] })
+      }
+    }
+  }
+
+  for (const slotKey of GEAR_SLOTS) {
+    const itemId = char.equipment[slotKey]
+    if (!itemId || typeof itemId !== 'string') continue
+    const gear = GEAR_BY_ID[itemId]
+    if (gear?.stats) fold(gear.stats, gear.name)
+  }
+  for (const w of char.weapons ?? []) {
+    const def = WEAPON_BY_ID[w.id]
+    if (def?.stats) fold(def.stats, def.name)
   }
 
   return result
 }
 
-/** Returns the effective value of an ability score after applying equipped accessory bonuses. */
+/**
+ * Effective ability score: base + equipped bonuses, then score-setters
+ * (Gauntlets of Ogre Power pattern) floor the result — no effect when the
+ * wearer's score is already equal or higher.
+ */
 export function effectiveAbilityScore(
-  char: Pick<Character, 'abilityScores' | 'equipment'>,
+  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons'] },
   ability: AbilityScore,
 ): number {
-  const bonus = computeEquipmentStats(char).abilityBonus[ability] ?? 0
-  return char.abilityScores[ability] + bonus
+  const stats = computeEquipmentStats(char)
+  const value = char.abilityScores[ability] + (stats.abilityBonus[ability] ?? 0)
+  const setTo = stats.abilitySet[ability]
+  return setTo !== undefined ? Math.max(value, setTo) : value
 }
 
 /** computeAC + accessory acBonus + ability score bonuses from equipment. */

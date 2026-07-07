@@ -561,7 +561,11 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               })),
             ]
             const subtotals = dmgSubtotals(rows, () => true)
-            const critTotals = criticalSubtotals(subtotals, [])
+            const gearCritExtras = equipStats.critBonusDamage.map(c => ({
+              expr: [...c.dice, c.flat ? String(c.flat) : null].filter(Boolean).join('+') || '0',
+              type: c.dmgType,
+            }))
+            const critTotals = criticalSubtotals(subtotals, gearCritExtras)
             return (
               <div key={atk.name} className={styles.attackBreakdownSection}>
                 <div className={styles.attackBreakdownHead}>

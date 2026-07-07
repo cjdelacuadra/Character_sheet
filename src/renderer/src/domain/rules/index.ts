@@ -453,6 +453,12 @@ export function critExtraDice(
     extras.push({ expr: weaponDie, type: weaponDamageType })
   }
 
+  // Equipment crit-only damage riders (gear or weapon stat blocks).
+  for (const crit of computeEquipmentStats(character).critBonusDamage) {
+    const parts = [...crit.dice, crit.flat ? String(crit.flat) : null].filter(Boolean) as string[]
+    if (parts.length) extras.push({ expr: parts.join('+'), type: crit.dmgType })
+  }
+
   return extras
 }
 
