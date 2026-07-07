@@ -75,11 +75,18 @@ sync to avoid file-lock conflicts:
 |---------|-------------|
 | `npm run dev` | Start dev server + open Electron window with HMR |
 | `npm run build` | Compile renderer + main process into `out/` |
+| `npm run build:ios` | Build the renderer and `cap sync` it into the iOS project |
+| `npm run cap:sync` / `cap:open` | Sync / open the Capacitor iOS project |
 | `npm run preview` | Open a built `out/` in Electron (no HMR) |
 | `npm run typecheck` | Type-check all source files (renderer + main + preload) |
 | `npm test` | Run Vitest unit tests once |
 | `npm run test:watch` | Run Vitest in watch mode |
-| `npm run gen:csv` | Regenerate equipment CSV files from TypeScript source |
+| `npm run lint` | ESLint over `src` + `electron` |
+| `npm run dist` | Production build + package with electron-builder |
+
+> Equipment sprites and damage VFX are regenerated with the Python generators in
+> [`scripts/`](scripts/) (see [scripts/README.md](scripts/README.md)), not an npm script.
+> The committed CSVs under `src/renderer/public/equipment_data/` are the authoritative catalog.
 
 ---
 
@@ -100,31 +107,34 @@ out/
 ```
 
 To package into an installable binary (`.exe` on Windows, `.app` on macOS,
-`.AppImage` on Linux), add **electron-builder**:
+`.AppImage` on Linux), the `dist` script already runs **electron-builder** after the build:
 
 ```bash
-npm install --save-dev electron-builder
+npm run dist
 ```
 
-Then add to `package.json`:
+electron-builder is a dev dependency; add an electron-builder config (either a `build`
+block in `package.json` or an `electron-builder.yml`) to set the app id, product name,
+and per-platform targets, e.g.:
 
 ```json
 "build": {
   "appId": "com.yourname.charactersheet",
-  "productName": "D&D 5e Character Sheet",
+  "productName": "D&D 5e Character Companion",
   "directories": { "output": "dist" },
   "win": { "target": "nsis" },
   "mac": { "target": "dmg" },
   "linux": { "target": "AppImage" }
-},
-"scripts": {
-  "dist": "electron-vite build && electron-builder"
 }
 ```
 
-Then run:
+### iOS (Capacitor)
+
+The same renderer ships to iOS through Capacitor:
+
 ```bash
-npm run dist
+npm run build:ios   # electron-vite build + cap sync ios
+npm run cap:open    # open the iOS project in Xcode
 ```
 
 ---

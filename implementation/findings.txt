@@ -1,9 +1,0 @@
-fighting spirit -> on cast doesnt add temp hp nor gives ADV on attack for the turn
-
-dash -> speed doesnt double
-
-buffs:
-haste -> speed doesnt double
-*_smite -> doesnt add damage
-zephyr strike -> doesnt add speed nor damage
-aura of vitality -> doesnt track the healing for each turn
