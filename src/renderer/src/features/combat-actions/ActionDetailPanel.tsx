@@ -2,40 +2,18 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
-import { CLASS_BY_ID } from '@/shared/data/classData'
-import { canDualWield, computeAttackAdvantage, computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getAvailableActions, getSpecialAttacks, getWeaponSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount, SPELL_ATTACK_IDS } from '@/domain/rules'
-import { channelDivinityOptionsFor } from '@/domain/data/channelDivinityData'
-import { METAMAGIC_OPTIONS, metamagicKnownCount } from '@/domain/data/metamagicData'
-import { portentDiceCount, wildShapeLimit } from '@/domain/rules/casterFeatures'
-import { rollDie } from '@/domain/dice'
-import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
+import { canDualWield, computeAttackAdvantage, computeSpellAttackBonus, getAvailableActions, getSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount } from '@/domain/rules'
+import { mod, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
-import type { Equipment } from '@/entities/character/types'
-import { combineDiceExpr, critDiceExpr, formatToHit } from '@/shared/lib/diceExpr'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
-import { DiceIcon, parseDieType } from '@/shared/components/DiceIcon'
-import { FEATS } from '@/shared/data/featsData'
-import { FIGHTING_STYLES, FIGHTING_STYLE_BY_ID } from '@/shared/data/fightingStylesData'
-import { SUBCLASSES, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
-import { INVOCATIONS, maxInvocations } from '@/shared/data/invocationsData'
-import { INFUSIONS, maxInfusionsKnown, maxInfusionsActive } from '@/shared/data/infusionsData'
+import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { MANEUVERS, MANEUVER_BY_ID, MANEUVER_PROGRESSION, maneuversKnown } from '@/shared/data/maneuversData'
 import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION, arcaneShotsKnown } from '@/shared/data/arcaneShotsData'
-import { psiWarriorAbilities } from '@/shared/data/psiWarriorData'
-import { runes } from '@/shared/data/runeData'
-import { wildSurgeTable } from '@/shared/data/wildSurgeTable'
-import { WILD_MAGIC_SURGE_TABLE } from '@/shared/data/wildMagicSurgeTable'
-import { WILD_SHAPE_BEASTS } from '@/shared/data/wildShapeBeasts'
-import { SKILLS } from '@/shared/data/skills'
 import { ResourcesPanel } from '@/features/resources/ResourcesPanel'
 import { useAppStore } from '@/app/store'
 import { SpellsPanel } from '@/features/spells/SpellsPanel'
 import type { FeatureEntry } from '@/shared/data/classFeaturesData'
-import {
-  buildAttackRows, dmgSubtotals, criticalSubtotals, getAttackConsumption, rowResource,
-  formatToHitParts, formatToHitRider, spellSniperRange, fmtMod,
-  BASE_ATTACK_ROW_IDS, ATTACK_CONSUMPTION, type AttackRow,
-} from './attackRows'
+import { buildAttackRows, dmgSubtotals, criticalSubtotals, getAttackConsumption, rowResource, formatToHitParts, formatToHitRider, spellSniperRange, fmtMod, BASE_ATTACK_ROW_IDS, ATTACK_CONSUMPTION, type AttackRow } from './attackRows'
 import { FeatureDetails } from './FeatureDetails'
 import { activeArcaneShotOf, activeManeuverOf, arcaneShotsKnownOf, fightingStyleOf, hasSpellSniper, maneuversKnownOf, wildShapeFormOf } from '@/domain/character/compat'
 import { computeEquipmentStats } from '@/shared/data/charCalculations'
@@ -43,13 +21,6 @@ import { ArcaneRecoveryDetail } from './ArcaneRecoveryDetail'
 import styles from './ActionDetailPanel.module.css'
 
 const CAST_SPELL_NAMES = new Set(['Cast a Spell', 'Cast a Spell (Bonus)', 'Cast a Spell (Reaction)'])
-
-const SUBCLASS_FEATURE_NAMES = new Set([
-  'Arcane Tradition', 'Otherworldly Patron', 'Divine Domain',
-  'Martial Archetype', 'Primal Path', 'Bard College', 'Druid Circle',
-  'Monastic Tradition', 'Sacred Oath', 'Ranger Archetype',
-  'Roguish Archetype', 'Sorcerous Origin',
-])
 
 interface Props {
   character: Character
@@ -61,7 +32,6 @@ interface Props {
   onConcentrationBroken?: () => void
 }
 
-const ORDINAL: Record<number, string> = { 1:'1st',2:'2nd',3:'3rd',4:'4th',5:'5th',6:'6th',7:'7th',8:'8th',9:'9th' }
 
 function BoomingBladeTurnToggle({ charId }: { charId: string }) {
   const ts = useAppStore(s => s.turnStates[charId])
@@ -135,18 +105,11 @@ function DivineStrikeTurnToggle({ charId, subclass, level }: { charId: string; s
 }
 
 export function ActionDetailPanel({ character: char, update, selectedAction, onSelectAction, selectedFeature, onSummon, onConcentrationBroken }: Props) {
-  const [customWeapon, setCustomWeapon] = useState({ name: '', atkBonus: '0', damage: '', damageType: '' })
   const [spellDetailId, setSpellDetailId] = useState<string | null>(null)
-  const [pendingStyle, setPendingStyle] = useState<string | null>(null)
-  const [pendingSubclass, setPendingSubclass] = useState<string | null>(null)
-  const [pendingBoon, setPendingBoon] = useState<string | null>(null)
   const [maneuverPickerOpen, setManeuverPickerOpen] = useState(false)
   const [arcanePickerOpen, setArcanePickerOpen] = useState(false)
   const [activeRows, setActiveRows] = useState<Record<string, Record<string, boolean>>>({})
   const [smiteSlotLevel, setSmiteSlotLevel] = useState<number | null>(null)
-  const [wildMagicRoll, setWildMagicRoll] = useState<number | null>(null)
-  const [barbarianWildSurgeRoll, setBarbarianWildSurgeRoll] = useState<number | null>(null)
-  const [selectedWildShapeBeastId, setSelectedWildShapeBeastId] = useState('wolf')
   const turnState = useAppStore(s => s.turnStates[char.id])
   const spendEconomy = useAppStore(s => s.spendEconomy)
   const recoverEconomy = useAppStore(s => s.recoverEconomy)
@@ -388,7 +351,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
 
   const availableActions = getAvailableActions(char)
   const selectedActionDef = selectedAction ? availableActions.find(a => a.name === selectedAction) : null
-  const specialAttacks = getSpecialAttacks(char)
   function badgeClass(type: string) {
     if (type === 'Action') return styles.badgeAction
     if (type === 'Bonus Action') return styles.badgeBonusAction
@@ -448,25 +410,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
       </button>
     )
   }
-
-  function addWeaponFromCatalog(w: WeaponDef) {
-    const weapon: Weapon = {
-      id: crypto.randomUUID(),
-      name: w.name,
-      atkBonus: 0,
-      damage: w.damageDie,
-      damageType: w.damageType,
-      rangeType: w.rangeType,
-      properties: w.properties,
-      enchantmentBonus: w.enchantmentBonus || undefined,
-      enchantment: w.enchantment,
-      bonusDamageDie: w.bonusDamageDie ?? (w.enchantment ? '1d6' : undefined),
-      bonusDamageType: w.bonusDamageType ?? w.enchantment ?? undefined,
-    }
-    update({ weapons: [...char.weapons, weapon] })
-  }
-
-  const DAMAGE_PATTERN = /^\d+d\d+([+-]\d+)?$|^\d+$|^—$/
 
   // Arcane Recovery lives in ArcaneRecoveryDetail (shared with the feature path).
 
@@ -1339,8 +1282,6 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
   if (selectedAction === 'Off-Hand Attack') {
     const offHandWeapons = char.weapons.filter(w => canDualWield(char, w))
     const hasTWF = fightingStyleOf(char) === 'two-weapon-fighting'
-    const strMod = mod(char.abilityScores.str)
-    const dexMod = mod(char.abilityScores.dex)
     return (
       <>
         <div className={styles.detailPane}>
