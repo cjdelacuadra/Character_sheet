@@ -9,6 +9,12 @@ import {
 import type { ActionDef } from '@/shared/data/actionsData'
 import { SHOP_CATALOGUE } from '@/shared/data/equipment/catalogue'
 import { ItemEditorPanel } from '@/features/inventory/ItemEditorPanel'
+import { SummonEditorForm } from '@/features/summons/SummonEditorForm'
+import { FeatEditorForm } from '@/features/content-editor/forms/FeatEditorForm'
+import { ConditionEditorForm } from '@/features/content-editor/forms/ConditionEditorForm'
+import { ActionEditorForm } from '@/features/content-editor/forms/ActionEditorForm'
+import { RaceEditorForm } from '@/features/content-editor/forms/RaceEditorForm'
+import { SpellEditorForm } from '@/features/content-editor/forms/SpellEditorForm'
 import styles from '@/features/content-editor/ContentEditor.module.css'
 
 const VIEWS = [
@@ -52,7 +58,7 @@ function ActionsView() {
         <CatalogShell
           key={tab}
           adapter={filtered}
-          renderForm={(draft, setDraft) => <JsonForm key={draft.id} draft={draft} onChange={setDraft} />}
+          renderForm={(draft, setDraft) => <ActionEditorForm key={draft.id} draft={draft} onChange={setDraft} />}
         />
       </div>
     </div>
@@ -97,6 +103,71 @@ function EquipmentView() {
   )
 }
 
+/** Summons view: catalog list + the existing SummonEditorForm (its own save). */
+function SummonsView() {
+  const [, setVersion] = useState(0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
+  const entries = summonsAdapter.list().filter(e =>
+    !search || e.name.toLowerCase().includes(search.toLowerCase()))
+  const selected = selectedId ? summonsAdapter.get(selectedId) : undefined
+
+  async function handleDelete() {
+    if (!selectedId) return
+    if (!window.confirm(`Delete "${selectedId}"?`)) return
+    await summonsAdapter.remove(selectedId)
+    setSelectedId(null)
+    setVersion(v => v + 1)
+  }
+
+  return (
+    <>
+      <div className={styles.list}>
+        <div className={styles.listTools}>
+          <input className={styles.search} placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
+          <button className={styles.newBtn} onClick={() => { setCreating(true); setSelectedId(null) }}>+ New</button>
+        </div>
+        <div className={styles.entries}>
+          {entries.map(e => (
+            <button key={e.id} className={`${styles.entry} ${e.id === selectedId ? styles.entrySelected : ''}`}
+              onClick={() => { setSelectedId(e.id); setCreating(false) }}>
+              <span className={styles.entryName}>{e.name}</span>
+              {e.tag && <span className={styles.entryTag}>{e.tag}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={styles.detail}>
+        {(creating || selected) ? (
+          <>
+            <div className={styles.detailBody}>
+              <SummonEditorForm
+                key={creating ? 'new' : selectedId}
+                initial={creating ? undefined : selected}
+                onSave={async t => {
+                  await summonsAdapter.save(t)
+                  setSelectedId(t.id)
+                  setCreating(false)
+                  setVersion(v => v + 1)
+                }}
+                onCancel={() => { setCreating(false); setSelectedId(null) }}
+              />
+            </div>
+            {!creating && (
+              <div className={styles.detailActions}>
+                <button className={`${styles.actionBtn} ${styles.deleteBtn}`} onClick={handleDelete}>Delete</button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className={styles.detailEmpty}>Select a summon template or create a new one.</div>
+        )}
+      </div>
+    </>
+  )
+}
+
 export function ContentEditorScreen() {
   const setContentEditorOpen = useAppStore(s => s.setContentEditorOpen)
   const [view, setView] = useState<ViewKey>('Feats')
@@ -120,14 +191,29 @@ export function ContentEditorScreen() {
           ))}
         </nav>
         <div className={styles.view}>
-          {view === 'Feats' && <GenericView adapter={featsAdapter} />}
+          {view === 'Feats' && (
+            <CatalogShell adapter={featsAdapter}
+              renderForm={(draft, setDraft) => <FeatEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
           {view === 'Equipment' && <EquipmentView />}
-          {view === 'Spells' && <GenericView adapter={spellsAdapter} />}
-          {view === 'Summons' && <GenericView adapter={summonsAdapter} />}
-          {view === 'Conditions' && <GenericView adapter={conditionsAdapter} />}
-          {view === 'Buffs' && <GenericView adapter={buffsAdapter} />}
+          {view === 'Spells' && (
+            <CatalogShell adapter={spellsAdapter}
+              renderForm={(draft, setDraft) => <SpellEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
+          {view === 'Summons' && <SummonsView />}
+          {view === 'Conditions' && (
+            <CatalogShell adapter={conditionsAdapter}
+              renderForm={(draft, setDraft) => <ConditionEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
+          {view === 'Buffs' && (
+            <CatalogShell adapter={buffsAdapter}
+              renderForm={(draft, setDraft) => <SpellEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
           {view === 'Actions' && <ActionsView />}
-          {view === 'Races' && <GenericView adapter={racesAdapter} />}
+          {view === 'Races' && (
+            <CatalogShell adapter={racesAdapter}
+              renderForm={(draft, setDraft) => <RaceEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
         </div>
       </div>
     </div>

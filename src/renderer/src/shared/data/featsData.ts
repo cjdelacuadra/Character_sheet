@@ -1,3 +1,4 @@
+import type { AccessoryStats } from '@/shared/data/equipment/types'
 import type { AbilityScores } from '@/entities/character/types'
 
 export interface FeatDef {
@@ -11,6 +12,8 @@ export interface FeatDef {
   /** Resource pools this feat grants (name → amount). Added to an existing
    *  pool's total, or created; removed symmetrically when the feat is dropped. */
   grantsResources?: Record<string, number>
+  /** Passive wiring (AC, initiative, skills, …) — folded by both engines (Phase 5). */
+  stats?: AccessoryStats
 }
 
 export let FEATS: FeatDef[] = [

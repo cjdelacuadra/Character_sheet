@@ -238,3 +238,115 @@
   cursor: pointer;
 }
 .tabActive { color: var(--accent); font-weight: 600; border-color: var(--accent); }
+
+/* ── Dedicated form fields ────────────────────────────────────────────── */
+
+.formSection {
+  margin: 14px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.formRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.formLabel {
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.formInput,
+.formSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.formInput:focus, .formSelect:focus, .formTextarea:focus { outline: none; border-color: var(--accent); }
+
+.formInputSm { flex: 0 0 64px; }
+
+.formTextarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 64px;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.formHint { font-size: 11px; color: var(--text-muted); }
+
+.abilityGrid {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+.abilityGrid > label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.abilityGrid input {
+  width: 44px;
+  padding: 4px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.subRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.subRemove {
+  border: none;
+  background: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.subAdd {
+  margin-top: 4px;
+  padding: 4px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+.subAdd:hover { border-color: var(--accent); }
+
+.advancedJson { margin-top: 14px; }
+.advancedJson summary { cursor: pointer; font-size: 12px; color: var(--text-muted); }

@@ -1,3 +1,4 @@
+import type { AccessoryStats } from '@/shared/data/equipment/types'
 import type { AbilityScore, AbilityScores } from '@/entities/character/types'
 
 export type RacialActionCost = 'action' | 'bonus' | 'reaction' | 'free' | 'passive'
@@ -36,6 +37,8 @@ export interface RaceDef {
   naturalAC?: { base: number; addDex?: boolean; addWis?: boolean }
   /** Racial advantage on saving throws (Dwarven Resilience, Fey Ancestry, …). */
   saveAdvantages?: RaceSaveAdvantage[]
+  /** Passive wiring (AC, initiative, skills, …) — folded by both engines (Phase 5). */
+  stats?: AccessoryStats
   size: 'small' | 'medium'
   /** weapon names granted as bonus proficiencies (e.g. Hill Dwarf, High Elf) */
   bonusWeaponProficiencies?: string[]
