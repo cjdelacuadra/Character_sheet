@@ -1,6 +1,6 @@
 import type { Condition } from '@/entities/condition/types'
 
-export const CONDITIONS: Condition[] = [
+export let CONDITIONS: Condition[] = [
   {
     id: 'blinded',
     name: 'Blinded',
@@ -201,7 +201,9 @@ export const CONDITIONS: Condition[] = [
   },
 ]
 
-export const CONDITION_BY_ID: Record<string, Condition> = CONDITIONS.reduce<Record<string, Condition>>((acc, condition) => {
-  acc[condition.id] = condition
-  return acc
-}, {})
+export let CONDITION_BY_ID: Record<string, Condition> = Object.fromEntries(CONDITIONS.map(c => [c.id, c]))
+
+export function setConditionsData(items: Condition[]): void {
+  CONDITIONS = items
+  CONDITION_BY_ID = Object.fromEntries(items.map(c => [c.id, c]))
+}

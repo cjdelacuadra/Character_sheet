@@ -32,7 +32,10 @@ export interface RaceDef {
    * natural AC formula. null = no natural armor.
    * A function so it can use ability scores.
    */
-  naturalAC?: (scores: AbilityScores) => number
+  /** Natural-armor unarmored AC formula as data: base + (dex mod) + (wis mod). */
+  naturalAC?: { base: number; addDex?: boolean; addWis?: boolean }
+  /** Racial advantage on saving throws (Dwarven Resilience, Fey Ancestry, …). */
+  saveAdvantages?: RaceSaveAdvantage[]
   size: 'small' | 'medium'
   /** weapon names granted as bonus proficiencies (e.g. Hill Dwarf, High Elf) */
   bonusWeaponProficiencies?: string[]
@@ -50,7 +53,7 @@ export interface RaceDef {
   racialActions?: RacialAction[]
 }
 
-export const RACES: RaceDef[] = [
+export let RACES: RaceDef[] = [
   {
     id: 'Human',
     label: 'Human',
@@ -73,6 +76,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Elf',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (High)',
     speed: 30,
     abilityBonus: { dex: 2, int: 1 },
@@ -83,6 +87,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'WoodElf',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (Wood)',
     speed: 35,
     abilityBonus: { dex: 2, wis: 1 },
@@ -92,6 +97,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Dwarf',
+    saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
     label: 'Dwarf (Hill)',
     speed: 25,
     abilityBonus: { con: 2, wis: 1 },
@@ -103,6 +109,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'MountainDwarf',
+    saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
     label: 'Dwarf (Mountain)',
     speed: 25,
     abilityBonus: { str: 2, con: 2 },
@@ -112,6 +119,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Halfling',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }],
     label: 'Halfling (Lightfoot)',
     speed: 25,
     abilityBonus: { dex: 2, cha: 1 },
@@ -121,6 +129,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'HalfElf',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Half-Elf',
     speed: 30,
     abilityBonus: { cha: 2 },
@@ -144,6 +153,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Gnome',
+    saveAdvantages: [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
     label: 'Gnome (Forest)',
     speed: 25,
     abilityBonus: { int: 2, dex: 1 },
@@ -177,6 +187,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'StoutHalfling',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }, { saves: ['con'], vs: 'vs poison', source: 'Stout Resilience' }],
     label: 'Halfling (Stout)',
     speed: 25,
     abilityBonus: { dex: 2, con: 1 },
@@ -186,6 +197,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'RockGnome',
+    saveAdvantages: [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
     label: 'Gnome (Rock)',
     speed: 25,
     abilityBonus: { int: 2, con: 1 },
@@ -195,6 +207,7 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Drow',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (Drow)',
     speed: 30,
     abilityBonus: { dex: 2, cha: 1 },
@@ -245,7 +258,7 @@ export const RACES: RaceDef[] = [
     speed: 30,
     abilityBonus: { con: 2, wis: 1 },
     traits: ['Swim speed 30ft', 'Bite (1d6 piercing unarmed strike)', 'Cunning Artisan (craft items from creature remains during short rest)', 'Hold Breath (15 minutes)', "Hunter's Lore (proficiency in 2 of: Animal Handling, Nature, Perception, Stealth, Survival)", 'Natural Armor (AC = 13 + DEX mod when unarmored)'],
-    naturalAC: (scores) => 13 + Math.floor((scores.dex - 10) / 2),
+    naturalAC: { base: 13, addDex: true },
     size: 'medium',
     darkvisionRange: 0,
     racialActions: [
@@ -259,7 +272,7 @@ export const RACES: RaceDef[] = [
     speed: 30,
     abilityBonus: { str: 2, wis: 1 },
     traits: ['Swim speed 30ft', 'Claws (1d4 slashing unarmed strike)', 'Hold Breath (1 hour)', 'Natural Armor (AC 17, cannot use shields)', 'Shell Defense (withdraw into shell: +4 AC, advantage on STR/CON saves, disadvantage on DEX saves, prone, speed 0, no reactions, no actions except to emerge)'],
-    naturalAC: () => 17,
+    naturalAC: { base: 17 },
     size: 'medium',
     darkvisionRange: 0,
     racialActions: [
@@ -269,11 +282,12 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Warforged',
+    saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Constructed Resilience' }],
     label: 'Warforged',
     speed: 30,
     abilityBonus: { con: 2 },
     traits: ['Constructed Resilience (advantage vs poison saves, resistance to poison, immune to disease, no need to eat/drink/breathe, no magic sleep)', "Sentry's Rest (inactive but conscious during long rest)", 'Integrated Protection (AC = 11 + DEX mod + armor bonus, cannot be removed)', 'Specialized Design (proficiency in 1 skill & 1 tool of choice)'],
-    naturalAC: (scores) => 11 + Math.floor((scores.dex - 10) / 2),
+    naturalAC: { base: 11, addDex: true },
     size: 'medium',
     darkvisionRange: 0,
   },
@@ -289,11 +303,12 @@ export const RACES: RaceDef[] = [
   },
   {
     id: 'Githzerai',
+    saveAdvantages: [{ saves: ['wis'], vs: 'vs charm & frightened', source: 'Mental Discipline' }],
     label: 'Githzerai',
     speed: 30,
     abilityBonus: { wis: 2, int: 1 },
     traits: ['Mental Discipline (advantage vs charmed & frightened)', 'Githzerai Psionics (Mage Hand cantrip; Shield; Detect Thoughts — using WIS)', 'Psychic Defense (unarmored AC = 10 + DEX mod + WIS mod)'],
-    naturalAC: (scores) => 10 + Math.floor((scores.dex - 10) / 2) + Math.floor((scores.wis - 10) / 2),
+    naturalAC: { base: 10, addDex: true, addWis: true },
     size: 'medium',
     racialSpells: { 1: ['mage-hand'], 3: ['shield'], 5: ['detect-thoughts'] },
     darkvisionRange: 0,
@@ -500,9 +515,15 @@ export const RACES: RaceDef[] = [
   },
 ]
 
-export const RACE_BY_ID = Object.fromEntries(RACES.map(r => [r.id, r])) as Record<string, RaceDef>
+export let RACE_BY_ID = Object.fromEntries(RACES.map(r => [r.id, r])) as Record<string, RaceDef>
 
-export const RACE_LABELS = RACES.map(r => ({ id: r.id, label: r.label }))
+export let RACE_LABELS = RACES.map(r => ({ id: r.id, label: r.label }))
+
+export function setRacesData(items: RaceDef[]): void {
+  RACES = items
+  RACE_BY_ID = Object.fromEntries(items.map(r => [r.id, r])) as Record<string, RaceDef>
+  RACE_LABELS = items.map(r => ({ id: r.id, label: r.label }))
+}
 
 export interface RaceSaveAdvantage {
   saves: AbilityScore[]
@@ -510,20 +531,8 @@ export interface RaceSaveAdvantage {
   source: string
 }
 
-export const RACE_SAVE_ADVANTAGES: Record<string, RaceSaveAdvantage[]> = {
-  Dwarf:         [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
-  MountainDwarf: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
-  Elf:           [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
-  WoodElf:       [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
-  Drow:          [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
-  HalfElf:       [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
-  Halfling:      [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }],
-  StoutHalfling: [
-    { saves: ['wis'], vs: 'vs frightened', source: 'Brave' },
-    { saves: ['con'], vs: 'vs poison', source: 'Stout Resilience' },
-  ],
-  Gnome:         [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
-  RockGnome:     [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
-  Warforged:     [{ saves: ['con'], vs: 'vs poison', source: 'Constructed Resilience' }],
-  Githzerai:     [{ saves: ['wis'], vs: 'vs charm & frightened', source: 'Mental Discipline' }],
+
+/** Racial save advantages for a race id — the accessor every consumer uses. */
+export function raceSaveAdvantagesOf(raceId: string): RaceSaveAdvantage[] {
+  return RACE_BY_ID[raceId]?.saveAdvantages ?? []
 }

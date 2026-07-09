@@ -123,7 +123,7 @@ function bresenhamLine(
   return cells
 }
 
-export const SPELLS: SpellEntry[] = [
+export let SPELLS: SpellEntry[] = [
   // ── Cantrips (level 0) ────────────────────────────────────────────────────
   { id: 'fire-bolt',        name: 'Fire Bolt',          level: 0, school: 'Evocation',     castingTime: '1 action', range: '120ft', components: 'V, S', duration: 'Instantaneous', concentration: false, description: 'You hurl a mote of fire at a creature or object. Make a ranged spell attack. On a hit, deal 1d10 fire damage. A flammable object hit by this spell ignites. Damage increases to 2d10 at 5th level, 3d10 at 11th, and 4d10 at 17th.', classes: ['Sorcerer', 'Wizard', 'Artificer'], aoeShape: 'single', attackType: 'attack-roll', damageType: 'fire' },
   { id: 'ray-of-frost',     name: 'Ray of Frost',       level: 0, school: 'Evocation',     castingTime: '1 action', range: '60ft',  components: 'V, S', duration: 'Instantaneous', concentration: false, description: "A frigid beam of blue-white light streaks toward a creature. Make a ranged spell attack. On a hit, deal 1d8 cold damage and reduce the target's speed by 10ft until the start of your next turn. Damage scales at 5th, 11th, and 17th levels.", classes: ['Sorcerer', 'Wizard'], aoeShape: 'single', attackType: 'attack-roll', damageType: 'cold' },
@@ -356,7 +356,7 @@ export const SPELLS: SpellEntry[] = [
   { id: 'true-resurrection', name: 'True Resurrection', level: 9, school: 'Necromancy', castingTime: '1 hour', range: 'Touch', components: 'V, S, M (diamonds worth 25000gp, consumed)', duration: 'Instantaneous', concentration: false, description: 'You touch a creature that has been dead for no longer than 200 years and that died for any reason except old age. If the creature\'s soul is free and willing, the creature is restored to life with all its hit points. This spell neutralizes any poisons and cures all diseases, magical or otherwise. It closes all wounds. It restores missing body parts. It even heals artificial limbs.', classes: ['Cleric', 'Druid'], vizCategory: 'heal', vizDamageType: 'heal' },
 ]
 
-export const SPELL_BY_ID = Object.fromEntries(SPELLS.map(s => [s.id, s])) as Record<string, SpellEntry>
+export let SPELL_BY_ID = Object.fromEntries(SPELLS.map(s => [s.id, s])) as Record<string, SpellEntry>
 
 /**
  * True if a spell's effect lasts only until the start of the caster's next turn
@@ -380,9 +380,17 @@ export function isBuffConditionSpell(spell: Pick<SpellEntry, 'vizCategory' | 'at
 }
 
 /** All buff-condition spells, sorted by level then name — used by the Conditions "add buff" picker. */
-export const BUFF_CONDITION_SPELLS = SPELLS
+export let BUFF_CONDITION_SPELLS = SPELLS
   .filter(isBuffConditionSpell)
   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+
+export function setSpellsData(items: SpellEntry[]): void {
+  SPELLS = items
+  SPELL_BY_ID = Object.fromEntries(items.map(s => [s.id, s])) as Record<string, SpellEntry>
+  BUFF_CONDITION_SPELLS = items
+    .filter(isBuffConditionSpell)
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+}
 
 export type BuffCategory = NonNullable<SpellEntry['buffCategory']>
 export type BuffTarget = NonNullable<SpellEntry['buffTarget']>

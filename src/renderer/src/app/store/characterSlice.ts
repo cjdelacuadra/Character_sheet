@@ -18,6 +18,7 @@ import { racialActionUsesOf } from '@/domain/character/compat'
 import { migrateCharacterV14 } from '@/domain/character/migrations'
 import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv, mergeCustomGearIntoCatalog } from '@/shared/data/equipment/equipmentLoader'
+import { loadContentCatalogs } from '@/shared/data/contentCatalogs'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 
@@ -366,6 +367,7 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     try {
       await loadEquipmentFromCsv()
       await loadSummonTemplatesFromDisk()
+      await loadContentCatalogs()
 
       const allIds = await ipcService.list()
       const charIds = allIds.filter(id => id !== '__customItems__')

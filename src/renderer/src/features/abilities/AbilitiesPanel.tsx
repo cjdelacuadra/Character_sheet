@@ -3,7 +3,7 @@ import type { Character, AbilityScore, AbilityScores } from '@/entities/characte
 import type { Skill } from '@/shared/data/skills'
 import { SKILLS } from '@/shared/data/skills'
 import { mod, computeACFull, computeInitiativeFull, computeMaxHP, computeEquipmentStats, computeConditionModifiers, effectiveAbilityBonus } from '@/shared/data/charCalculations'
-import { RACE_BY_ID, RACE_SAVE_ADVANTAGES } from '@/shared/data/raceData'
+import { RACE_BY_ID, raceSaveAdvantagesOf } from '@/shared/data/raceData'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
 import styles from './AbilitiesPanel.module.css'
 
@@ -143,7 +143,7 @@ export function AbilitiesPanel({ character: char, update, selectedDetail, onSele
           const equipBonus = equipStats.savingThrowBonus[ab] ?? 0
           const abilBonus = abilityDelta[ab] ?? 0
           const hasEquipAdv = equipStats.advantage.savingThrows.includes(ab)
-          const racialAdv = (RACE_SAVE_ADVANTAGES[char.race] ?? []).filter(adv => adv.saves.includes(ab))
+          const racialAdv = raceSaveAdvantagesOf(char.race).filter(adv => adv.saves.includes(ab))
           const hasAdv = hasEquipAdv || racialAdv.length > 0
           const condDelta = condMods.saveDeltas[ab] ?? 0
           const advTooltip = [

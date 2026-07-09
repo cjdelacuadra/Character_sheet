@@ -13,7 +13,7 @@ export interface FeatDef {
   grantsResources?: Record<string, number>
 }
 
-export const FEATS: FeatDef[] = [
+export let FEATS: FeatDef[] = [
   {
     id: 'alert',
     name: 'Alert',
@@ -317,4 +317,9 @@ export const FEATS: FeatDef[] = [
   },
 ]
 
-export const FEAT_BY_ID = Object.fromEntries(FEATS.map(f => [f.id, f])) as Record<string, FeatDef>
+export let FEAT_BY_ID = Object.fromEntries(FEATS.map(f => [f.id, f])) as Record<string, FeatDef>
+
+export function setFeatsData(items: FeatDef[]): void {
+  FEATS = items
+  FEAT_BY_ID = Object.fromEntries(items.map(f => [f.id, f])) as Record<string, FeatDef>
+}

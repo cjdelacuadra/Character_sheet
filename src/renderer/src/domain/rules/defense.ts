@@ -59,7 +59,10 @@ export function computeAC(char: ACInput): number {
   const raceDef = RACE_BY_ID[char.race]
   const subclassDef = char.subclass ? SUBCLASS_BY_ID[char.subclass] : undefined
   const unarmoredFormulas: number[] = [10 + dexMod]
-  if (raceDef?.naturalAC) unarmoredFormulas.push(raceDef.naturalAC(char.abilityScores))
+  if (raceDef?.naturalAC) {
+    const { base, addDex, addWis } = raceDef.naturalAC
+    unarmoredFormulas.push(base + (addDex ? mod(char.abilityScores.dex) : 0) + (addWis ? mod(char.abilityScores.wis) : 0))
+  }
   if (subclassDef?.unarmoredAC) unarmoredFormulas.push(subclassDef.unarmoredAC(dexMod, conMod, wisMod))
   const unarmoredDefense = UNARMORED_DEFENSE[char.classId]
   if (unarmoredDefense) unarmoredFormulas.push(unarmoredDefense(dexMod, conMod, wisMod))

@@ -80,7 +80,10 @@ export function computeAC(char: {
   const raceDef = RACE_BY_ID[race]
   const subclassDef = subclass ? SUBCLASS_BY_ID[subclass] : undefined
   const unarmoredFormulas: number[] = [10 + dexMod]
-  if (raceDef?.naturalAC) unarmoredFormulas.push(raceDef.naturalAC(abilityScores))
+  if (raceDef?.naturalAC) {
+    const { base, addDex, addWis } = raceDef.naturalAC
+    unarmoredFormulas.push(base + (addDex ? mod(abilityScores.dex) : 0) + (addWis ? mod(abilityScores.wis) : 0))
+  }
   if (subclassDef?.unarmoredAC) unarmoredFormulas.push(subclassDef.unarmoredAC(dexMod, conMod, wisMod))
   if (classId === 'Barbarian') unarmoredFormulas.push(10 + dexMod + conMod)
   else if (classId === 'Monk')  unarmoredFormulas.push(10 + dexMod + wisMod)
