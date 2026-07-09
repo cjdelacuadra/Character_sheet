@@ -62,12 +62,12 @@
   {
     "id": "sharpshooter",
     "name": "Sharpshooter",
-    "description": "Attacking at long range doesn't impose disadvantage. Ranged attack rolls against targets in half or three-quarters cover ignore the cover bonus. Before a ranged attack, take −5 to the roll to deal +10 damage."
+    "description": "Attacking at long range doesn't impose disadvantage. Ranged attack rolls against targets in half or three-quarters cover ignore the cover bonus. Before a ranged attack, take \u22125 to the roll to deal +10 damage."
   },
   {
     "id": "greatWeaponMaster",
     "name": "Great Weapon Master",
-    "description": "On a critical hit or after killing a creature with a melee weapon, make one melee weapon attack as a bonus action. Before a melee attack with a heavy weapon, take −5 to the roll to deal +10 damage."
+    "description": "On a critical hit or after killing a creature with a melee weapon, make one melee weapon attack as a bonus action. Before a melee attack with a heavy weapon, take \u22125 to the roll to deal +10 damage."
   },
   {
     "id": "actor",
@@ -376,29 +376,5 @@
     "freeCastSpells": [
       "detect-thoughts"
     ]
-  },
-  {
-    "id": "test-feat",
-    "name": "test Feat",
-    "description": "",
-    "abilityBonus": {
-      "str": 1,
-      "dex": 1,
-      "con": 1
-    },
-    "abilityChoice": [
-      "int",
-      "wis"
-    ],
-    "grantsResources": {
-      "test Resource": 1
-    },
-    "stats": {
-      "bonusDamage": {
-        "dice": "1d6",
-        "dmgType": "fire",
-        "appliesTo": "all"
-      }
-    }
   }
 ]
