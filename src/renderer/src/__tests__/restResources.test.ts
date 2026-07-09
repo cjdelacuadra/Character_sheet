@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { applyRestToResources } from '@/domain/rules/resources'
+import { FEATS, setFeatsData } from '@/shared/data/featsData'
 
 const scores = { str: 10, dex: 10, con: 10, int: 14, wis: 10, cha: 10 }
+const ORIGINAL_FEATS = [...FEATS]
+
+afterEach(() => {
+  setFeatsData(ORIGINAL_FEATS)
+})
 
 describe('domain/rules/resources — data-driven rest recovery', () => {
   it('BattleMaster Superiority Dice recover on short rest via def, not a class branch', () => {
@@ -36,6 +42,30 @@ describe('domain/rules/resources — data-driven rest recovery', () => {
     }
     expect(applyRestToResources({ ...char, classId: 'Fighter' }, 'short')['Feat:misty-step'].used).toBe(1)
     expect(applyRestToResources({ ...char, classId: 'Fighter' }, 'long')['Feat:misty-step'].used).toBe(0)
+  })
+
+  it('feat free-casts with short recharge recover on short rest while long-only spells stay spent', () => {
+    setFeatsData([...ORIGINAL_FEATS, {
+      id: 'test-short-caster',
+      name: 'Test Short Caster',
+      description: 'test',
+      grantedSpells: ['misty-step', 'invisibility'],
+      freeCastSpells: ['misty-step', 'invisibility'],
+      freeCastRecharge: { 'misty-step': 'short' },
+    }])
+    const next = applyRestToResources({
+      classId: 'Fighter',
+      level: 4,
+      abilityScores: scores,
+      feats: ['test-short-caster'],
+      resources: {
+        'Feat:misty-step': { used: 1, total: 1 },
+        'Feat:invisibility': { used: 1, total: 1 },
+      },
+    }, 'short')
+
+    expect(next['Feat:misty-step'].used).toBe(0)
+    expect(next['Feat:invisibility'].used).toBe(1)
   })
 
   it('homebrew resources on any class survive a short rest and reset on long (no class cage)', () => {

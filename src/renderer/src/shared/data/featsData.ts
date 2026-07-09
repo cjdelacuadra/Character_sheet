@@ -1,14 +1,36 @@
 import type { AccessoryStats } from '@/shared/data/equipment/types'
-import type { AbilityScores } from '@/entities/character/types'
+import type { AbilityScores, Character } from '@/entities/character/types'
+import type { Skill } from './skills'
+
+export type FeatTrigger =
+  'passive' | 'action' | 'bonus' | 'reaction' | 'on-attack' | 'on-hit' |
+  'on-damaged' | 'once-per-turn'
 
 export interface FeatDef {
   id: string
   name: string
   description: string
+  trigger?: FeatTrigger
   abilityBonus?: Partial<AbilityScores>
   abilityChoice?: (keyof AbilityScores)[]
   grantedSpells?: string[]
   freeCastSpells?: string[]
+  freeCastRecharge?: Record<string, 'short' | 'long'>
+  grantsProficiencies?: {
+    skills?: Skill[]
+    savingThrows?: (keyof AbilityScores)[]
+    weapons?: string[]
+  }
+  prerequisites?: {
+    classes?: string[]
+    races?: string[]
+    feats?: string[]
+    abilities?: Partial<AbilityScores>
+  }
+  grantsChoices?: Array<{
+    kind: 'fighting-style' | 'maneuvers' | 'metamagic'
+    count: number
+  }>
   /** Resource pools this feat grants (name → amount). Added to an existing
    *  pool's total, or created; removed symmetrically when the feat is dropped. */
   grantsResources?: Record<string, number>
@@ -164,6 +186,7 @@ export let FEATS: FeatDef[] = [
     name: 'Martial Adept',
     description: 'Learn two maneuvers from the Battle Master archetype. Gain one superiority die (d6) that recharges on a short or long rest.',
     grantsResources: { 'Superiority Dice': 1 },
+    grantsChoices: [{ kind: 'maneuvers', count: 2 }],
   },
   {
     id: 'mediumArmorMaster',
@@ -268,6 +291,12 @@ export let FEATS: FeatDef[] = [
     description: 'Prerequisite: proficiency with a martial weapon. Learn one Fighting Style option from the Fighter class. Whenever you gain a level, you can replace this style with another Fighter Fighting Style.',
   },
   {
+    id: 'fightingInitiate',
+    name: 'Fighting Initiate',
+    description: 'You have martial training that allows you to choose one Fighting Style option from the fighter class.',
+    grantsChoices: [{ kind: 'fighting-style', count: 1 }],
+  },
+  {
     id: 'gunner',
     name: 'Gunner',
     description: '+1 DEX. Gain proficiency with firearms. Ignore the loading property of firearms. Being within 5 ft of a hostile creature doesn\'t impose disadvantage on your ranged attack rolls.',
@@ -278,6 +307,7 @@ export let FEATS: FeatDef[] = [
     name: 'Metamagic Adept',
     description: 'Prerequisite: Spellcasting or Pact Magic feature. Learn two Metamagic options from the Sorcerer class. Gain 2 sorcery points to spend only on those Metamagic options; these points are regained on a long rest. (Modeled as +2 to the shared Sorcery Points pool.)',
     grantsResources: { 'Sorcery Points': 2 },
+    grantsChoices: [{ kind: 'metamagic', count: 2 }],
   },
   {
     id: 'piercer',
@@ -321,6 +351,65 @@ export let FEATS: FeatDef[] = [
 ]
 
 export let FEAT_BY_ID = Object.fromEntries(FEATS.map(f => [f.id, f])) as Record<string, FeatDef>
+
+export type GrantedSpellMode = 'none' | 'short' | 'long'
+
+export function setGrantedSpellMode(feat: FeatDef, spellId: string, mode: GrantedSpellMode): FeatDef {
+  const grantedSpells = [...new Set([...(feat.grantedSpells ?? []), spellId])]
+  const freeCastSpells = new Set(feat.freeCastSpells ?? [])
+  const freeCastRecharge = { ...(feat.freeCastRecharge ?? {}) }
+
+  if (mode === 'none') {
+    freeCastSpells.delete(spellId)
+    delete freeCastRecharge[spellId]
+  } else {
+    freeCastSpells.add(spellId)
+    if (mode === 'short') freeCastRecharge[spellId] = 'short'
+    else delete freeCastRecharge[spellId]
+  }
+
+  return {
+    ...feat,
+    grantedSpells,
+    freeCastSpells: freeCastSpells.size ? [...freeCastSpells] : undefined,
+    freeCastRecharge: Object.keys(freeCastRecharge).length ? freeCastRecharge : undefined,
+  }
+}
+
+const ABILITY_LABELS: Record<keyof AbilityScores, string> = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' }
+
+export function featPrerequisitesMet(
+  char: Pick<Character, 'classId' | 'race' | 'feats' | 'abilityScores'>,
+  feat: FeatDef,
+): { met: boolean; missing: string[] } {
+  const missing: string[] = []
+  const prerequisites = feat.prerequisites
+  if (!prerequisites) return { met: true, missing }
+
+  if (prerequisites.classes?.length && !prerequisites.classes.includes(char.classId)) {
+    missing.push(...prerequisites.classes.map(classId => `class ${classId}`))
+  }
+  if (prerequisites.races?.length && !prerequisites.races.includes(char.race)) {
+    missing.push(...prerequisites.races.map(race => `race ${race}`))
+  }
+  for (const featId of prerequisites.feats ?? []) {
+    if (!char.feats.includes(featId)) missing.push(`feat ${FEAT_BY_ID[featId]?.name ?? featId}`)
+  }
+  for (const [ability, minimum] of Object.entries(prerequisites.abilities ?? {}) as [keyof AbilityScores, number][]) {
+    if (char.abilityScores[ability] < minimum) missing.push(`${ABILITY_LABELS[ability]} ${minimum}`)
+  }
+
+  return { met: missing.length === 0, missing }
+}
+
+export function featChoiceCount(feats: string[], kind: 'fighting-style' | 'maneuvers' | 'metamagic'): number {
+  return feats.reduce((sum, featId) => {
+    const choices = FEAT_BY_ID[featId]?.grantsChoices ?? []
+    return sum + choices
+      .filter(choice => choice.kind === kind)
+      .reduce((inner, choice) => inner + choice.count, 0)
+  }, 0)
+}
 
 export function setFeatsData(items: FeatDef[]): void {
   FEATS = items

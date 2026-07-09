@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 vi.mock('@/services/ipc', () => ({
   ipcService: {
@@ -14,11 +14,18 @@ import type { StateCreator } from 'zustand'
 import type { CharacterSlice } from '@/app/store/characterSlice'
 import { createCharacterSlice } from '@/app/store/characterSlice'
 import { computeACFull, computeInitiativeFull } from '@/shared/data/charCalculations'
+import { FEATS, setFeatsData } from '@/shared/data/featsData'
 import { makeChar } from './helpers'
 
 function makeStore() {
   return createStore<CharacterSlice>(createCharacterSlice as unknown as StateCreator<CharacterSlice, [], [], CharacterSlice>)
 }
+
+const ORIGINAL_FEATS = [...FEATS]
+
+afterEach(() => {
+  setFeatsData(ORIGINAL_FEATS)
+})
 
 describe('updateCharacter', () => {
   it('merges patch into character', () => {
@@ -241,6 +248,45 @@ describe('applyPendingAsi', () => {
 })
 
 describe('addFeat/removeFeat', () => {
+  it('applies and removes feat-granted skill and save proficiencies', () => {
+    setFeatsData([...ORIGINAL_FEATS, {
+      id: 'test-proficient',
+      name: 'Test Proficient',
+      description: 'test',
+      grantsProficiencies: { skills: ['stealth'], savingThrows: ['wis'] },
+    }])
+    const store = makeStore()
+    const char = makeChar({ classId: 'Fighter', skillProficiencies: {}, savingThrowProficiencies: ['str', 'con'] })
+    store.getState().addCharacter(char)
+
+    store.getState().addFeat(char.id, 'test-proficient')
+    let updated = store.getState().characters[char.id]
+    expect(updated.skillProficiencies.stealth).toBe('proficient')
+    expect(updated.savingThrowProficiencies).toContain('wis')
+
+    store.getState().removeFeat(char.id, 'test-proficient')
+    updated = store.getState().characters[char.id]
+    expect(updated.skillProficiencies.stealth).toBeUndefined()
+    expect(updated.savingThrowProficiencies).not.toContain('wis')
+  })
+
+  it('keeps a class saving throw proficiency when removing a feat that also grants it', () => {
+    setFeatsData([...ORIGINAL_FEATS, {
+      id: 'test-save-overlap',
+      name: 'Test Save Overlap',
+      description: 'test',
+      grantsProficiencies: { savingThrows: ['con'] },
+    }])
+    const store = makeStore()
+    const char = makeChar({ classId: 'Fighter', savingThrowProficiencies: ['str', 'con'] })
+    store.getState().addCharacter(char)
+
+    store.getState().addFeat(char.id, 'test-save-overlap')
+    store.getState().removeFeat(char.id, 'test-save-overlap')
+
+    expect(store.getState().characters[char.id].savingThrowProficiencies).toContain('con')
+  })
+
   it('adds a fixed ability feat and dedupes repeat adds', () => {
     const store = makeStore()
     const char = makeChar({ abilityScores: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } })

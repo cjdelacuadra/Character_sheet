@@ -14,7 +14,7 @@ import { portentDiceCount, wildShapeLimit } from '@/domain/rules/casterFeatures'
 import { rollDie } from '@/domain/dice'
 import { mod, effectiveAbilityScore, computeSpeedFull } from '@/shared/data/charCalculations'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
-import { FEATS } from '@/shared/data/featsData'
+import { FEATS, featChoiceCount } from '@/shared/data/featsData'
 import { FIGHTING_STYLES, FIGHTING_STYLE_BY_ID } from '@/shared/data/fightingStylesData'
 import { SUBCLASSES, SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { INVOCATIONS, maxInvocations } from '@/shared/data/invocationsData'
@@ -726,7 +726,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
   const isMartialAdept = selectedFeature.name === 'Martial Adept'
   if (isMartialAdept) {
     const classKnownCount = char.subclass === 'BattleMaster' ? maneuversKnown(char.level) : 0
-    const limit = classKnownCount + 2
+    const limit = classKnownCount + featChoiceCount(char.feats, 'maneuvers')
     const known = maneuversKnownOf(char)
     const supRes = char.resources['Superiority Dice']
     const toggleManeuver = (id: string) => {
@@ -781,7 +781,7 @@ export function FeatureDetails({ character: char, update, feature: selectedFeatu
     // Sorcerer class progression is the RAW default; Metamagic Adept adds
     // two more picks for anyone (feat access, no class gate).
     const classKnown = char.classId === 'Sorcerer' ? metamagicKnownCount(char.level) : 0
-    const limit = classKnown + (char.feats.includes('metamagic-adept') ? 2 : 0)
+    const limit = classKnown + featChoiceCount(char.feats, 'metamagic')
     const spRes = char.resources['Sorcery Points']
     const spRemaining = spRes ? spRes.total - spRes.used : 0
     const toggleKnown = (id: string) => {

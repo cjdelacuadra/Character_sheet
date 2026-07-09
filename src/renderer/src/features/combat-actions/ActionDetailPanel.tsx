@@ -8,6 +8,7 @@ import { canDualWield, computeAttackAdvantage, computeSpellAttackBonus, getAvail
 import { mod, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
+import { featChoiceCount } from '@/shared/data/featsData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { MANEUVERS, MANEUVER_BY_ID, MANEUVER_PROGRESSION, maneuversKnown } from '@/shared/data/maneuversData'
 import { ARCANE_SHOTS, ARCANE_SHOT_BY_ID, ARCANE_SHOT_PROGRESSION, arcaneShotsKnown } from '@/shared/data/arcaneShotsData'
@@ -867,7 +868,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                 </div>
               )
             })()}
-            {(char.subclass === 'BattleMaster' || char.feats.includes('martialAdept') || maneuversKnownOf(char).length > 0) && (() => {
+            {(char.subclass === 'BattleMaster' || featChoiceCount(char.feats, 'maneuvers') > 0 || maneuversKnownOf(char).length > 0) && (() => {
               const isBattleMaster = char.subclass === 'BattleMaster'
               const fallbackTotal = isBattleMaster ? (char.level >= 15 ? 6 : char.level >= 7 ? 5 : 4) : 1
               const superiorityDice = char.resources['Superiority Dice'] ?? { used: 0, total: fallbackTotal }
@@ -877,7 +878,7 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
               const leftDice = Math.max(0, totalDice - usedDice)
               const dc = 8 + char.proficiencyBonus + Math.max(mod(char.abilityScores.str), mod(char.abilityScores.dex))
               const classKnownCount = char.subclass === 'BattleMaster' ? maneuversKnown(char.level) : 0
-              const known = classKnownCount + (char.feats.includes('martialAdept') ? 2 : 0)
+              const known = classKnownCount + featChoiceCount(char.feats, 'maneuvers')
               const chosen = maneuversKnownOf(char)
               const active = activeManeuverOf(char)
               return (

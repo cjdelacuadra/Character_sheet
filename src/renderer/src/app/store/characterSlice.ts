@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { TurnSlice } from './turnSlice'
 import type { AbilityScore, Character, AbilityScores, Equipment, Weapon } from '@/entities/character/types'
+import type { Skill } from '@/shared/data/skills'
 import type { ActiveSummon, ActiveSummonRuntime, SummonBase } from '@/entities/summon/types'
 import type { GearEquipmentItem } from '@/shared/data/equipment/types'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
@@ -44,6 +45,14 @@ function removeBuffState(char: Character, spellIds: string[]): Character['buffSt
   const next = { ...(char.buffStates ?? {}) }
   for (const spellId of spellIds) delete next[spellId]
   return next
+}
+
+function remainingFeatGrantsSkill(feats: string[], skill: Skill): boolean {
+  return feats.some(featId => FEAT_BY_ID[featId]?.grantsProficiencies?.skills?.includes(skill))
+}
+
+function remainingFeatGrantsSave(feats: string[], save: AbilityScore): boolean {
+  return feats.some(featId => FEAT_BY_ID[featId]?.grantsProficiencies?.savingThrows?.includes(save))
 }
 
 export interface CharacterSlice {
@@ -251,6 +260,15 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       }
     }
 
+    const skillProficiencies = { ...char.skillProficiencies }
+    for (const skill of def.grantsProficiencies?.skills ?? []) {
+      if (skillProficiencies[skill] === undefined) skillProficiencies[skill] = 'proficient'
+    }
+    const savingThrowProficiencies = [...char.savingThrowProficiencies]
+    for (const save of def.grantsProficiencies?.savingThrows ?? []) {
+      if (!savingThrowProficiencies.includes(save)) savingThrowProficiencies.push(save)
+    }
+
     const featChoices = { ...(char.featChoices ?? {}) }
     if (def.abilityChoice && opts?.abilityChoice) {
       abilityScores[opts.abilityChoice] = Math.min(20, abilityScores[opts.abilityChoice] + 1)
@@ -266,6 +284,8 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       feats,
       abilityScores,
       featChoices,
+      skillProficiencies,
+      savingThrowProficiencies,
       armorClass: computeACFull(withFeat),
       initiative: computeInitiativeFull(withFeat),
       hitPoints: { ...char.hitPoints, max: newMaxHP, current: Math.max(0, char.hitPoints.current + hpDiff) },
@@ -342,6 +362,21 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     if (featId === 'crusher') patch.crusherCritAdvantage = false
     if (featId === 'spellSniper' || featId === 'spell-sniper') patch.spellSniperDoubleRange = false
     if (featId === 'mountedCombatant') patch.mountedCombatantFlags = false
+
+    if (def?.grantsProficiencies) {
+      const skillProficiencies = { ...char.skillProficiencies }
+      for (const skill of def.grantsProficiencies.skills ?? []) {
+        if (skillProficiencies[skill] === 'proficient' && !remainingFeatGrantsSkill(feats, skill)) {
+          delete skillProficiencies[skill]
+        }
+      }
+      const classSaves = CLASS_BY_ID[char.classId]?.savingThrows ?? []
+      const savingThrowProficiencies = char.savingThrowProficiencies.filter(save =>
+        !(def.grantsProficiencies?.savingThrows?.includes(save) && !classSaves.includes(save) && !remainingFeatGrantsSave(feats, save))
+      )
+      patch.skillProficiencies = skillProficiencies
+      patch.savingThrowProficiencies = savingThrowProficiencies
+    }
 
     if (def?.grantsResources) {
       const resources = { ...char.resources }

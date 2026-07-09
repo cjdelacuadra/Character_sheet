@@ -14,6 +14,7 @@ import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
 import { computeEquipmentStats, mod, withLiveWeaponDef } from '@/shared/data/charCalculations'
 import { combineDiceExpr } from '../dice'
 import { collectActiveEffects } from '../collect'
@@ -48,6 +49,7 @@ export function isProficientWithWeapon(char: AttackInput, weapon: Weapon): boole
     ...(classDef?.weaponProficiencies ?? []),
     ...(raceDef?.bonusWeaponProficiencies ?? []),
     ...(subclassDef?.extraWeaponProficiencies ?? []),
+    ...char.feats.flatMap(featId => FEAT_BY_ID[featId]?.grantsProficiencies?.weapons ?? []),
   ]
   const weaponDef = WEAPONS.find(wd => wd.name === weapon.name)
   if (!weaponDef) return true  // custom weapon: assume proficient
@@ -55,8 +57,8 @@ export function isProficientWithWeapon(char: AttackInput, weapon: Weapon): boole
   const nameLower = weapon.name.toLowerCase()
   return effectiveProfs.some(prof => {
     const p = prof.toLowerCase()
-    if (p === 'simple weapons') return weaponDef.proficiencyCategory === 'Simple'
-    if (p === 'martial weapons') return weaponDef.proficiencyCategory === 'Martial'
+    if (p === 'simple' || p === 'simple weapons') return weaponDef.proficiencyCategory === 'Simple'
+    if (p === 'martial' || p === 'martial weapons') return weaponDef.proficiencyCategory === 'Martial'
     return p === nameLower || p === nameLower + 's'
   })
 }

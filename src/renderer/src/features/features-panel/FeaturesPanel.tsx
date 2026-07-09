@@ -4,7 +4,7 @@ import { getClassFeatures, type FeatureEntry } from '@/shared/data/classFeatures
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { RACE_BY_ID } from '@/shared/data/raceData'
-import { FEATS, FEAT_BY_ID } from '@/shared/data/featsData'
+import { FEATS, FEAT_BY_ID, featPrerequisitesMet, type FeatTrigger } from '@/shared/data/featsData'
 import { SPELLS } from '@/shared/data/spellData'
 import { BACKGROUNDS } from '@/shared/data/backgrounds'
 import { computePreparedSpellCount } from '@/domain/rules'
@@ -29,6 +29,16 @@ const FIGHTING_STYLE_DATA: Record<string, { label: string; desc: string }> = {
   greatWeaponFighting: { label: 'Great Weapon Fighting', desc: 'When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll.' },
   protection:          { label: 'Protection',          desc: 'When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield.' },
   twoWeaponFighting:   { label: 'Two-Weapon Fighting', desc: 'When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack.' },
+}
+
+const FEAT_TRIGGER_LABELS: Record<Exclude<FeatTrigger, 'passive'>, string> = {
+  action: 'Action',
+  bonus: 'Bonus',
+  reaction: 'Reaction',
+  'on-attack': 'On attack',
+  'on-hit': 'On hit',
+  'on-damaged': 'Damaged',
+  'once-per-turn': '1/turn',
 }
 
 const SUBCLASS_FEATURE_NAMES = new Set([
@@ -67,6 +77,7 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
   const [featAbilityChoice, setFeatAbilityChoice] = useState<AbilityScore | ''>('')
   const [featSpellIdsText, setFeatSpellIdsText] = useState('')
   const [featSpellClass, setFeatSpellClass] = useState('')
+  const [ignoreFeatPrerequisites, setIgnoreFeatPrerequisites] = useState(false)
 
   const customFeatures = char.customFeatures ?? []
   const selectedFeat = selectedFeatId ? FEAT_BY_ID[selectedFeatId] : undefined
@@ -84,7 +95,8 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
     magicCantrips: featSpellClass ? SPELLS.filter(s => s.level === 0 && s.classes.includes(featSpellClass)) : [],
     magicFirst: featSpellClass ? SPELLS.filter(s => s.level === 1 && s.classes.includes(featSpellClass)) : [],
   }
-  const featCanSave = !!selectedFeat && (!selectedFeat.abilityChoice || !!featAbilityChoice)
+  const selectedPrereqs = selectedFeat ? featPrerequisitesMet(char, selectedFeat) : { met: true, missing: [] }
+  const featCanSave = !!selectedFeat && (ignoreFeatPrerequisites || selectedPrereqs.met) && (!selectedFeat.abilityChoice || !!featAbilityChoice)
 
   function addFeature() {
     const name = newName.trim()
@@ -105,6 +117,7 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
     setFeatAbilityChoice('')
     setFeatSpellIdsText('')
     setFeatSpellClass('')
+    setIgnoreFeatPrerequisites(false)
     setFeatSearch('')
     setFeatOpen(false)
   }
@@ -250,16 +263,35 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
             autoFocus
             onChange={e => setFeatSearch(e.target.value)}
           />
+          <label className={styles.featIgnorePrereq}>
+            <input
+              type="checkbox"
+              checked={ignoreFeatPrerequisites}
+              onChange={e => setIgnoreFeatPrerequisites(e.target.checked)}
+            />
+            Ignore prerequisites
+          </label>
           <select
             className={styles.addInput}
             value={selectedFeatId}
             onChange={e => { setSelectedFeatId(e.target.value); setFeatAbilityChoice(''); setFeatSpellIdsText(''); setFeatSpellClass('') }}
           >
             <option value="">Choose feat</option>
-            {featMatches.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            {featMatches.map(f => {
+              const prereq = featPrerequisitesMet(char, f)
+              const disabled = !ignoreFeatPrerequisites && !prereq.met
+              return (
+                <option key={f.id} value={f.id} disabled={disabled} title={prereq.missing.join(', ')}>
+                  {disabled ? `${f.name} (${prereq.missing.join(', ')})` : f.name}
+                </option>
+              )
+            })}
           </select>
           {selectedFeat && (
             <span className={styles.featPickerDesc}>{selectedFeat.description}</span>
+          )}
+          {selectedFeat && !selectedPrereqs.met && !ignoreFeatPrerequisites && (
+            <span className={styles.featPickerDesc}>Missing: {selectedPrereqs.missing.join(', ')}</span>
           )}
           {selectedFeat?.abilityChoice && (
             <select
@@ -397,6 +429,8 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
         <div className={styles.featureList}>
           {features.map((f, i) => {
             const isSelected = selectedFeature?.name === f.name && selectedFeature?.level === f.level
+            const featTrigger = f.source === 'feat' && f.featId ? FEAT_BY_ID[f.featId]?.trigger : undefined
+            const featTriggerLabel = featTrigger && featTrigger !== 'passive' ? FEAT_TRIGGER_LABELS[featTrigger] : null
             return (
               <div key={i} className={`${styles.featureCard} ${isSelected ? styles.featureCardSel : ''}`}>
                 <button className={styles.featureHead} onClick={() => onSelectFeature(isSelected ? null : f)}>
@@ -416,6 +450,7 @@ export function FeaturesPanel({ character: char, update, addFeat, removeFeat, se
                     <span className={f.source === 'race' ? styles.badgeRace : f.source === 'custom' ? styles.badgeCustom : f.source === 'feat' ? styles.badgeFeat : styles.badgeClass}>
                       {f.source === 'race' ? 'RACE' : f.source === 'custom' ? 'CUSTOM' : f.source === 'feat' ? 'FEAT' : 'CLASS'}
                     </span>
+                    {featTriggerLabel && <span className={styles.featTriggerChip}>{featTriggerLabel}</span>}
                     {f.level > 0 && <span>Lvl {f.level}</span>}
                   </span>
                 </button>

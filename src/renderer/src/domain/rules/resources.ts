@@ -8,6 +8,7 @@
  * RECOVERY_RULES entry matches its key. Nothing is gated on class identity.
  */
 import type { AbilityScores } from '@/entities/character/types'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
 import { getResourceDefaults, getResourceDefaultDefinition } from '@/shared/data/resourceDefaults'
 
 export type RestKind = 'short' | 'long'
@@ -40,6 +41,7 @@ interface RestInput {
   level: number
   abilityScores: AbilityScores
   resources: ResourcePool
+  feats?: string[]
 }
 
 /**
@@ -73,6 +75,14 @@ export function applyRestToResources(char: RestInput, rest: RestKind): ResourceP
   }
 
   for (const key of Object.keys(next)) {
+    if (key.startsWith('Feat:')) {
+      const spellId = key.slice('Feat:'.length)
+      const recoversOnShort = (char.feats ?? []).some(featId => FEAT_BY_ID[featId]?.freeCastRecharge?.[spellId] === 'short')
+      if (recoversOnShort) {
+        next[key] = { ...next[key], used: 0 }
+        continue
+      }
+    }
     const rule = RECOVERY_RULES.find(r => (r.key ? r.key === key : r.prefix ? key.startsWith(r.prefix) : false))
     if (rule) {
       if (rule.recoverOn === 'short') {

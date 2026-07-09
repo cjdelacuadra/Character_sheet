@@ -8,6 +8,7 @@ import {
 import * as legacyRules from '@/domain/rules'
 import * as newSpellcasting from '@/domain/rules/spellcasting'
 import { SPELL_BY_ID } from '@/shared/data/spellData'
+import { featChoiceCount } from '@/shared/data/featsData'
 import { makeChar } from './helpers'
 import {
   CREATE_SLOT_COST, canCreateSlot, canConvertSlot, convertSlotToPoints,
@@ -33,6 +34,10 @@ describe('metamagic catalog', () => {
     expect(metamagicKnownCount(3)).toBe(2)
     expect(metamagicKnownCount(10)).toBe(3)
     expect(metamagicKnownCount(17)).toBe(4)
+  })
+
+  it('Metamagic Adept keeps the generalized +2 known option bonus', () => {
+    expect(metamagicKnownCount(2) + featChoiceCount(['metamagic-adept'], 'metamagic')).toBe(2)
   })
 })
 
