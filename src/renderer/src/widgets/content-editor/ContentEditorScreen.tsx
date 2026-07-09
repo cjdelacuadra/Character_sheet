@@ -4,7 +4,7 @@ import { CatalogShell, type CatalogAdapter } from '@/features/content-editor/Cat
 import { JsonForm } from '@/features/content-editor/JsonForm'
 import {
   featsAdapter, conditionsAdapter, racesAdapter, actionsAdapter,
-  spellsAdapter, buffsAdapter, summonsAdapter,
+  spellsAdapter, buffsAdapter, summonsAdapter, beastsAdapter,
 } from '@/features/content-editor/adapters'
 import type { ActionDef } from '@/shared/data/actionsData'
 import { SHOP_CATALOGUE } from '@/shared/data/equipment/catalogue'
@@ -15,10 +15,11 @@ import { ConditionEditorForm } from '@/features/content-editor/forms/ConditionEd
 import { ActionEditorForm } from '@/features/content-editor/forms/ActionEditorForm'
 import { RaceEditorForm } from '@/features/content-editor/forms/RaceEditorForm'
 import { SpellEditorForm } from '@/features/content-editor/forms/SpellEditorForm'
+import { BeastEditorForm } from '@/features/content-editor/forms/BeastEditorForm'
 import styles from '@/features/content-editor/ContentEditor.module.css'
 
 const VIEWS = [
-  'Feats', 'Equipment', 'Spells', 'Summons', 'Conditions', 'Buffs', 'Actions', 'Races',
+  'Feats', 'Equipment', 'Spells', 'Summons', 'Wild Shape', 'Conditions', 'Buffs', 'Actions', 'Races',
 ] as const
 type ViewKey = typeof VIEWS[number]
 
@@ -201,6 +202,10 @@ export function ContentEditorScreen() {
               renderForm={(draft, setDraft) => <SpellEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
           )}
           {view === 'Summons' && <SummonsView />}
+          {view === 'Wild Shape' && (
+            <CatalogShell adapter={beastsAdapter}
+              renderForm={(draft, setDraft) => <BeastEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />
+          )}
           {view === 'Conditions' && (
             <CatalogShell adapter={conditionsAdapter}
               renderForm={(draft, setDraft) => <ConditionEditorForm key={draft.id} draft={draft} onChange={setDraft} />} />

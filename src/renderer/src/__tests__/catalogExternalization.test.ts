@@ -9,6 +9,7 @@ import { computeSpeed } from '@/domain/rules/mobility'
 import { computeSpeedFull } from '@/shared/data/charCalculations'
 import { makeChar } from './helpers'
 import { buildAttackRows } from '@/features/combat-actions/attackRows'
+import { statsToRows, rowsToStats } from '@/features/content-editor/statBlock'
 
 // Parity gates for Phase 1 catalog externalization: behavior pinned BEFORE
 // converting naturalAC to data, folding save advantages into RaceDef, and
@@ -65,6 +66,12 @@ describe('feat/race passive stat wiring (both engines)', () => {
 
     expect(computeSpeedFull(feated) - computeSpeedFull(base)).toBe(10)
     expect(computeSpeed(v14(feated)) - computeSpeed(v14(base))).toBe(10)
+  })
+
+  it('acBonus round-trips through the stat-row encoding (AC buff wiring)', () => {
+    const rows = statsToRows({ acBonus: 2, speedBonus: 10 })
+    expect(rows).toContainEqual({ key: 'acBonus', value: 2 })
+    expect(rowsToStats(rows).acBonus).toBe(2)
   })
 
   it('feat bonus damage surfaces as an always-on attack-table rider row', () => {

@@ -5,7 +5,8 @@ import type { Condition } from '@/entities/condition/types'
 import { RACES, RACE_BY_ID, type RaceDef } from '@/shared/data/raceData'
 import { ACTIONS, ACTION_BY_ID, type ActionDef } from '@/shared/data/actionsData'
 import { SPELLS, SPELL_BY_ID, isBuffConditionSpell, type SpellEntry } from '@/shared/data/spellData'
-import { featsCatalog, conditionsCatalog, racesCatalog, actionsCatalog, spellsCatalog } from '@/shared/data/contentCatalogs'
+import { featsCatalog, conditionsCatalog, racesCatalog, actionsCatalog, spellsCatalog, beastsCatalog } from '@/shared/data/contentCatalogs'
+import { WILD_SHAPE_BEASTS, type WildShapeBeast } from '@/shared/data/wildShapeBeasts'
 import { SUMMON_TEMPLATES, SUMMON_TEMPLATE_BY_ID } from '@/shared/data/summons/summonTemplates'
 import { addSummonTemplate, updateSummonTemplate, deleteSummonTemplate } from '@/shared/data/summons/summonLoader'
 import type { SummonTemplate } from '@/entities/summon/types'
@@ -70,4 +71,14 @@ export const summonsAdapter: CatalogAdapter<SummonTemplate> = {
   }),
   save: e => (SUMMON_TEMPLATE_BY_ID[e.id] ? updateSummonTemplate(e) : addSummonTemplate(e)),
   remove: id => deleteSummonTemplate(id),
+}
+
+export const beastsAdapter: CatalogAdapter<WildShapeBeast> = {
+  list: () => [...WILD_SHAPE_BEASTS]
+    .sort((a, b) => a.cr - b.cr || a.name.localeCompare(b.name))
+    .map(b => ({ id: b.id, name: b.name, tag: `CR ${b.cr}` })),
+  get: id => WILD_SHAPE_BEASTS.find(b => b.id === id),
+  blank: () => ({ id: 'new-beast', name: 'New Beast', cr: 0.25, hp: 10, ac: 12, speed: '30 ft', attacks: [] }),
+  save: e => beastsCatalog.save(e),
+  remove: id => beastsCatalog.remove(id),
 }

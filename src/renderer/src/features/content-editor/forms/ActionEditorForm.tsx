@@ -1,5 +1,6 @@
 import type { ActionDef } from '@/shared/data/actionsData'
 import { CLASSES } from '@/shared/data/classData'
+import { knownResourceNames } from '../resourceNames'
 import { Section, TextField, TextAreaField, SelectField, NumberField, CheckboxField, Row } from '../formFields'
 import styles from '../ContentEditor.module.css'
 
@@ -31,9 +32,13 @@ export function ActionEditorForm({ draft, onChange }: Props) {
       />
       <NumberField label="Min level" value={draft.requiresLevel} onChange={requiresLevel => set({ requiresLevel })} min={1} max={20} />
       <Row label="Resource">
+        <datalist id="known-resource-names-action">
+          {knownResourceNames().map(n => <option key={n} value={n} />)}
+        </datalist>
         <input
           className={styles.formInput}
           value={draft.resourceKey ?? ''}
+          list="known-resource-names-action"
           placeholder="resource name (Ki, Rage, Sorcery Points…)"
           onChange={e => set({ resourceKey: e.target.value || undefined })}
         />

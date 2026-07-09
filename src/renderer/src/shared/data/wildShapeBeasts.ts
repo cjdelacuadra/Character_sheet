@@ -24,7 +24,7 @@ export interface WildShapeBeast {
   multiattack?: string
 }
 
-export const WILD_SHAPE_BEASTS: WildShapeBeast[] = [
+export let WILD_SHAPE_BEASTS: WildShapeBeast[] = [
   // ── CR 1/4 ──────────────────────────────────────────────────────────────
   { id: 'wolf', name: 'Wolf', cr: 0.25, hp: 11, ac: 13, speed: '40 ft',
     attacks: [{ name: 'Bite', toHit: 4, dmg: '2d4+2', dmgType: 'piercing', note: 'DC 11 STR save or prone' }] },
@@ -112,3 +112,7 @@ export const WILD_SHAPE_BEASTS: WildShapeBeast[] = [
       { name: 'Stomp', toHit: 10, dmg: '4d10+7', dmgType: 'bludgeoning', note: 'prone targets only' },
     ] },
 ]
+
+export function setWildShapeBeastsData(items: WildShapeBeast[]): void {
+  WILD_SHAPE_BEASTS = items
+}

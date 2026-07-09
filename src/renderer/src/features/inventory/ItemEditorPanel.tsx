@@ -115,7 +115,8 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const [editRarity, setEditRarity] = useState<string>(fullDef?.rarity ?? shopItem?.rarity ?? 'common')
   const [enchant,    setEnchant]    = useState(fullDef?.enchantmentBonus ?? 0)
   const [statRows,   setStatRows]   = useState<StatRow[]>(() => {
-    const rows = statsToRows(fullDef && 'stats' in fullDef ? fullDef.stats : undefined)
+    // acBonus is edited through the panel's dedicated AC Bonus field, not a stat row.
+    const rows = statsToRows(fullDef && 'stats' in fullDef ? fullDef.stats : undefined).filter(r => r.key !== 'acBonus')
     // Weapons keep to-hit / bonus-damage / crit-range on the def itself —
     // surface those native fields as selector rows so there is ONE editing
     // path and no duplicated sections.
@@ -404,7 +405,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     }
   }
 
-  const availableToAdd = STAT_OPTIONS.filter(o => !statRows.some(r => r.key === o.key))
+  const availableToAdd = STAT_OPTIONS.filter(o => o.key !== 'acBonus' && !statRows.some(r => r.key === o.key))
 
   return (
     <div className={styles.panel}>

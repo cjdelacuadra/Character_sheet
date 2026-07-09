@@ -20,6 +20,7 @@ import { CONDITIONS } from '@/shared/data/conditionsData'
 import { RACES } from '@/shared/data/raceData'
 import { ACTIONS } from '@/shared/data/actionsData'
 import { SPELLS } from '@/shared/data/spellData'
+import { WILD_SHAPE_BEASTS } from '@/shared/data/wildShapeBeasts'
 
 interface Item { id: string; name: string; value?: number }
 
@@ -71,6 +72,7 @@ describe('catalog JSON round-trip fidelity', () => {
     ['races', RACES],
     ['actions', ACTIONS],
     ['spells', SPELLS],
+    ['wildShapeBeasts', WILD_SHAPE_BEASTS],
   ] as const)('%s entries are plain serializable data', (_name, catalog) => {
     const back = JSON.parse(JSON.stringify(catalog))
     expect(back).toEqual(catalog)

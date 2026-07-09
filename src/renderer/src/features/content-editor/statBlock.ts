@@ -14,6 +14,7 @@ import type { Skill } from '@/shared/data/skills'
 export interface StatRow { key: string; value: number }
 
 export const STAT_OPTIONS: { key: string; label: string; adv: boolean; complex?: boolean }[] = [
+  { key: 'acBonus',          label: 'AC Bonus',          adv: false },
   { key: 'toHitBonus',       label: 'To-Hit Bonus',      adv: false, complex: true },
   { key: 'speedBonus',       label: 'Speed Bonus',       adv: false },
   { key: 'bonusDamage',      label: 'Bonus Damage',      adv: false, complex: true },
@@ -74,6 +75,7 @@ export function labelOf(key: string): string {
 export function statsToRows(stats: AccessoryStats | undefined): StatRow[] {
   if (!stats) return []
   const rows: StatRow[] = []
+  if (stats.acBonus) rows.push({ key: 'acBonus', value: stats.acBonus })
   if (stats.toHitBonus || stats.toHitDice) rows.push({ key: 'toHitBonus', value: 0 })
   if (stats.speedBonus) rows.push({ key: 'speedBonus', value: stats.speedBonus })
   for (const [ab, v] of Object.entries(stats.abilityBonus ?? {}))
@@ -100,6 +102,8 @@ export function rowsToStats(rows: StatRow[]): AccessoryStats {
   for (const row of rows) {
     if (row.key === 'toHitBonus') {
       // Complex row — dice/flat/applies merged by the caller.
+    } else if (row.key === 'acBonus') {
+      s.acBonus = row.value
     } else if (row.key === 'speedBonus') {
       s.speedBonus = row.value
     } else if (row.key.startsWith('abset_')) {
