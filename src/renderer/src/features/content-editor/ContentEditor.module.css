@@ -1,0 +1,240 @@
+/* Content Editor — hub screen, nav rail, catalog shell. Tokens from global.css. */
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.title {
+  font-size: 20px;
+  margin: 0;
+  flex: 1;
+}
+
+.backBtn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.backBtn:hover { border-color: var(--accent); }
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.nav {
+  width: 170px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.navBtn {
+  text-align: left;
+  padding: 9px 18px;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.navBtn:hover { color: var(--text-primary); }
+.navBtnActive {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+  font-weight: 600;
+}
+
+.view {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ── Catalog shell: list | detail ─────────────────────────────────────── */
+
+.list {
+  width: 250px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.listTools {
+  display: flex;
+  gap: 6px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.search:focus { outline: none; border-color: var(--accent); }
+
+.newBtn {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.newBtn:hover { border-color: var(--accent); }
+
+.entries {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.entry:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.entrySelected { color: var(--accent); font-weight: 600; background: rgba(var(--accent-rgb), 0.08); }
+
+.entryName { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.entryTag {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.detailBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  min-height: 0;
+}
+
+.detailEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.detailActions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.actionBtn {
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+}
+.actionBtn:hover { border-color: var(--accent); }
+.actionBtn:disabled { opacity: 0.4; cursor: default; }
+
+.saveBtn { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.deleteBtn { color: var(--danger); margin-left: auto; }
+.deleteBtn:hover { border-color: var(--danger); }
+
+.statusMsg { align-self: center; font-size: 12px; color: var(--text-muted); }
+
+/* ── Generic JSON fallback form ───────────────────────────────────────── */
+
+.jsonArea {
+  width: 100%;
+  min-height: 380px;
+  resize: vertical;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+.jsonArea:focus { outline: none; border-color: var(--accent); }
+
+.jsonError { color: var(--danger); font-size: 12px; margin-top: 6px; }
+
+/* ── Tabs (Actions view) ──────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tabActive { color: var(--accent); font-weight: 600; border-color: var(--accent); }

@@ -26,7 +26,7 @@ const ABILITY_LABELS: Record<AbilityScore, string> = { str: 'STR', dex: 'DEX', c
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8]
 
 export function CharacterSelectScreen() {
-  const { characters, setActiveCharacter, addCharacter, deleteCharacter } = useAppStore()
+  const { characters, setActiveCharacter, addCharacter, deleteCharacter, setContentEditorOpen } = useAppStore()
   const { theme, toggle } = useTheme()
   const [showCreate, setShowCreate] = useState(false)
   const characterList = Object.values(characters)
@@ -39,6 +39,7 @@ export function CharacterSelectScreen() {
           <button className={styles.themeBtn} onClick={toggle} title="Toggle theme">
             {theme === 'dark' ? '☀ Light' : '◑ Dark'}
           </button>
+          <button className={styles.themeBtn} onClick={() => setContentEditorOpen(true)} title="Edit feats, equipment, spells, and other content catalogs">✎ Content Editor</button>
           <button className={styles.createBtn} onClick={() => setShowCreate(true)}>+ New Character</button>
         </div>
       </header>

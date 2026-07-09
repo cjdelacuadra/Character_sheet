@@ -83,6 +83,10 @@ export interface CharacterSlice {
   customItems: Record<string, GearEquipmentItem>
   addCustomItem: (def: GearEquipmentItem) => void
   removeCustomItem: (id: string) => void
+
+  /** Content Editor hub (edit mode) — reachable from the character-select screen. */
+  contentEditorOpen: boolean
+  setContentEditorOpen: (open: boolean) => void
 }
 
 
@@ -175,6 +179,9 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
     set({ customItems: rest })
     ipcService.saveCustomItems(rest as Record<string, unknown>)
   },
+
+  contentEditorOpen: false,
+  setContentEditorOpen: (open) => set({ contentEditorOpen: open }),
   loaded: false,
 
   setActiveCharacter: (id) => {
