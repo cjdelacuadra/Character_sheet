@@ -769,6 +769,7 @@ export function EquipmentLayout({ character: char, onOpenShop, onCloseShop, isSh
             itemId={inventorySelectedId}
             onClose={() => setInventorySelectedId(null)}
             onEquip={() => handleEquipInventoryItem(inventorySelectedId)}
+            readOnly
           />
         )}
 

@@ -61,9 +61,9 @@ export function SummonsPanel({ character: char, selectedSummonId, onSelectSummon
     )
   }
 
+  // Template management lives in the Content Editor; in-game only picks.
   const actions = [
     { label: '+ Summon', onClick: () => setModal('pick') },
-    { label: 'Catalog', onClick: () => setModal('manage') },
     ...(summons.length > 0 ? [{ label: 'Clear', onClick: onClearAll, title: 'Dismiss all summons' }] : []),
   ]
 

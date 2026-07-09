@@ -91,10 +91,10 @@ interface Props {
 
 export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   const customItems   = useAppStore(s => s.customItems)
-  const addCustomItem = useAppStore(s => s.addCustomItem)
   const removeCustomItem = useAppStore(s => s.removeCustomItem)
 
-  const [editMode,    setEditMode]    = useState(!readOnly)
+  // In-game mounts pass readOnly (pure viewer + equip); the Content Editor owns editing.
+  const editMode = !readOnly
   const [saveStatus,  setSaveStatus]  = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const shopItem = getShopItemById(itemId, customItems)
@@ -347,10 +347,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       if (isWeapon) {
         await saveWeaponDef(buildWeaponDef())
       } else if (isGear) {
-        const def = buildGearDef()
-        await saveGearDef(def)
-        // Keep the legacy custom-items copy in sync so both stores agree.
-        if (customItems[itemId]) addCustomItem(def)
+        await saveGearDef(buildGearDef())
       }
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
@@ -373,9 +370,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
       if (isWeapon) {
         await saveWeaponDef(buildWeaponDef(newId))
       } else if (isGear) {
-        const def = buildGearDef(newId)
-        await saveGearDef(def)
-        if (customItems[itemId]) addCustomItem(def)
+        await saveGearDef(buildGearDef(newId))
       }
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
@@ -773,11 +768,6 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
 
       {/* Actions */}
       <div className={styles.actions}>
-        {readOnly && (
-          <button className={styles.editBtn} onClick={() => setEditMode(e => !e)}>
-            {editMode ? 'Preview' : 'Edit'}
-          </button>
-        )}
         {editMode && !!fullDef && (
           <>
             <button
