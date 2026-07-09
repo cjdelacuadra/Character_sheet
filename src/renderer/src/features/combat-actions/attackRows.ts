@@ -5,6 +5,9 @@
  */
 import type { Character, Weapon, Equipment } from '@/entities/character/types'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
+import type { AccessoryStats } from '@/shared/data/equipment/types'
 import { CLASS_BY_ID } from '@/shared/data/classData'
 import { computeAttackBonus, computeSpellAttackBonus, isProficientWithWeapon, getSpecialAttacks, getWeaponSpecialAttacks, SPELL_ATTACK_IDS } from '@/domain/rules'
 import { mod, effectiveAbilityScore, withLiveWeaponDef } from '@/shared/data/charCalculations'
@@ -311,12 +314,27 @@ export function buildAttackRows(
     }
   }
 
-  // Equipment rows — one per equipped gear item that contributes to-hit and/or bonus damage
+  // Rider rows — one per stat block that contributes to-hit and/or bonus
+  // damage: equipped gear (attunement-gated), feats, and race. The
+  // equip-bonus- id prefix keeps these rows always-active in every table.
+  const riderSources: { id: string; name: string; stats: AccessoryStats }[] = []
+  const attunedIds = char.attunedItemIds ?? []
   for (const slotKey of GEAR_SLOTS) {
     const itemId = char.equipment[slotKey]
     if (!itemId || typeof itemId !== 'string') continue
-    const stats = GEAR_BY_ID[itemId]?.stats
-    if (!stats) continue
+    const gear = GEAR_BY_ID[itemId]
+    if (!gear?.stats) continue
+    if (gear.requiresAttunement && !attunedIds.includes(itemId)) continue
+    riderSources.push({ id: `equip-bonus-${slotKey}`, name: gear.name, stats: gear.stats })
+  }
+  for (const featId of char.feats ?? []) {
+    const feat = FEAT_BY_ID[featId]
+    if (feat?.stats) riderSources.push({ id: `equip-bonus-feat-${featId}`, name: feat.name, stats: feat.stats })
+  }
+  const raceDef = RACE_BY_ID[char.race]
+  if (raceDef?.stats) riderSources.push({ id: 'equip-bonus-race', name: raceDef.label, stats: raceDef.stats })
+
+  for (const { id: riderId, name: riderName, stats } of riderSources) {
     const toHit = stats.toHitBonus ?? 0
     const toHitDice = stats.toHitDice ?? null
     let bonusDmg: string | null = null
@@ -344,8 +362,8 @@ export function buildAttackRows(
       (appliesMelee && appliesRanged) ? 'both' :
       appliesRanged ? 'ranged' : 'melee'
     rows.push({
-      id: `equip-bonus-${slotKey}`,
-      name: GEAR_BY_ID[itemId]!.name,
+      id: riderId,
+      name: riderName,
       toHit: toHit !== 0 ? toHit : null,
       toHitDice,
       dmg: null,

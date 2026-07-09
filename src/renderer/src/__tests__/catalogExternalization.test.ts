@@ -8,6 +8,7 @@ import { computeEquipmentStats, effectiveAbilityScore } from '@/shared/data/char
 import { computeSpeed } from '@/domain/rules/mobility'
 import { computeSpeedFull } from '@/shared/data/charCalculations'
 import { makeChar } from './helpers'
+import { buildAttackRows } from '@/features/combat-actions/attackRows'
 
 // Parity gates for Phase 1 catalog externalization: behavior pinned BEFORE
 // converting naturalAC to data, folding save advantages into RaceDef, and
@@ -64,6 +65,23 @@ describe('feat/race passive stat wiring (both engines)', () => {
 
     expect(computeSpeedFull(feated) - computeSpeedFull(base)).toBe(10)
     expect(computeSpeed(v14(feated)) - computeSpeed(v14(base))).toBe(10)
+  })
+
+  it('feat bonus damage surfaces as an always-on attack-table rider row', () => {
+    setFeatsData([...ORIGINAL_FEATS, {
+      id: 'test-flamer', name: 'Flamer', description: 'test',
+      stats: { bonusDamage: { dice: '1d6', dmgType: 'fire', appliesTo: 'all' }, toHitBonus: 1 },
+    }])
+    const base = makeChar({ schemaVersion: 13 })
+    const char = { ...base, feats: [...base.feats, 'test-flamer'] }
+    const weapon = { id: 'w1', name: 'Longsword', atkBonus: 0, damage: '1d8', damageType: 'slashing', rangeType: 'Melee' as const }
+
+    const rider = buildAttackRows({ ...char, weapons: [weapon] }, weapon)
+      .find(r => r.id === 'equip-bonus-feat-test-flamer')
+    expect(rider).toBeTruthy()
+    expect(rider!.bonusDmg).toBe('1d6')
+    expect(rider!.bonusDmgType).toBe('fire')
+    expect(rider!.toHit).toBe(1)
   })
 
   it('race stats fold: skill bonus and ability floor apply', () => {

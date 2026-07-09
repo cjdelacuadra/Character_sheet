@@ -2,6 +2,8 @@
 import type { Character, Weapon } from '@/entities/character/types'
 import { WEAPONS, type WeaponDef } from '@/shared/data/equipment/weapons'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
+import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import { canDualWield, computeAttackAdvantage, computeSpellAttackBonus, getAvailableActions, getSpecialAttacks, computeCritThreshold, critExtraDice, computeAttackCount } from '@/domain/rules'
 import { mod, computeSpeedFull } from '@/shared/data/charCalculations'
 import { consumeOneShotBuff } from '@/features/buffs/buffRuntime'
@@ -604,6 +606,15 @@ export function ActionDetailPanel({ character: char, update, selectedAction, onS
                     gearCritMods.push(critMod)
                   }
                 }
+              }
+              // Feat/race passive wiring can carry crit range too.
+              for (const featId of char.feats ?? []) {
+                const critMod = Object.values(FEAT_BY_ID[featId]?.stats?.critModifier ?? {})[0]
+                if (critMod) gearCritMods.push(critMod)
+              }
+              {
+                const critMod = Object.values(RACE_BY_ID[char.race]?.stats?.critModifier ?? {})[0]
+                if (critMod) gearCritMods.push(critMod)
               }
 
               const renderTable = (

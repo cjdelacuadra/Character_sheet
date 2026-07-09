@@ -1,0 +1,373 @@
+[
+  {
+    "id": "attack",
+    "generic": true,
+    "name": "Attack",
+    "type": "Action",
+    "short": "Make one melee or ranged attack.",
+    "full": "Make one melee weapon attack, ranged weapon attack, or unarmed strike. When you have Extra Attack, you can attack multiple times instead."
+  },
+  {
+    "id": "dash",
+    "generic": true,
+    "name": "Dash",
+    "type": "Action",
+    "short": "Gain extra movement equal to your speed.",
+    "full": "You gain extra movement for the current turn equal to your speed (after modifiers). With 30ft speed and Dash, you can move up to 60ft this turn."
+  },
+  {
+    "id": "dodge",
+    "generic": true,
+    "name": "Dodge",
+    "type": "Action",
+    "short": "Attackers have disadvantage; Dex saves at advantage.",
+    "full": "Until the start of your next turn, any attack roll made against you has disadvantage if you can see the attacker, and you make Dexterity saving throws with advantage. Lost if incapacitated or speed drops to 0."
+  },
+  {
+    "id": "help",
+    "generic": true,
+    "name": "Help",
+    "type": "Action",
+    "short": "Ally gains advantage on next ability check or attack.",
+    "full": "Lend your aid to another creature. The creature you help gains advantage on the next ability check for the task you assist with, or you can aid a friendly creature attacking an enemy within 5ft of you."
+  },
+  {
+    "id": "hide",
+    "generic": true,
+    "name": "Hide",
+    "type": "Action",
+    "short": "Attempt to hide (Stealth vs passive Perception).",
+    "full": "Make a Dexterity (Stealth) check in an attempt to hide. You can't hide from a creature that can see you clearly. If successful, you gain the benefits of being hidden until you give away your position."
+  },
+  {
+    "id": "ready",
+    "generic": true,
+    "name": "Ready",
+    "type": "Action",
+    "short": "Choose a trigger and reaction to take when it occurs.",
+    "full": "Decide what perceivable circumstance will trigger your reaction, then choose the action you will take in response. When the trigger occurs, take your reaction immediately after, or ignore it."
+  },
+  {
+    "id": "search",
+    "generic": true,
+    "name": "Search",
+    "type": "Action",
+    "short": "Devote attention to finding something.",
+    "full": "Devote your attention to finding something. The DM might have you make a Wisdom (Perception) or Intelligence (Investigation) check depending on the search."
+  },
+  {
+    "id": "use-object",
+    "generic": true,
+    "name": "Use Object",
+    "type": "Action",
+    "short": "Use an object that requires your action.",
+    "full": "When an object requires your action for its use, you take the Use an Object action. Normally you interact with one object for free as part of your move or action."
+  },
+  {
+    "id": "grapple",
+    "generic": true,
+    "name": "Grapple",
+    "type": "Action",
+    "short": "Str (Athletics) vs Str (Athletics) or Dex (Acrobatics).",
+    "full": "Make a Strength (Athletics) check contested by the target's Strength (Athletics) or Dexterity (Acrobatics). If you succeed, the target is grappled — its speed becomes 0."
+  },
+  {
+    "id": "shove",
+    "generic": true,
+    "name": "Shove",
+    "type": "Action",
+    "short": "Push 5ft away or knock prone.",
+    "full": "Using the Attack action, make a Str (Athletics) check contested by the target's Str (Athletics) or Dex (Acrobatics). On success, push the target 5ft away or knock it prone."
+  },
+  {
+    "id": "disengage",
+    "generic": true,
+    "name": "Disengage",
+    "type": "Action",
+    "short": "Your movement does not provoke opportunity attacks.",
+    "full": "Until the end of your turn, your movement does not provoke opportunity attacks. You can still move and take other actions normally."
+  },
+  {
+    "id": "escape-grapple",
+    "generic": true,
+    "name": "Escape Grapple",
+    "type": "Action",
+    "short": "Str/Dex check vs grappler's Str (Athletics).",
+    "full": "Make a Strength (Athletics) or Dexterity (Acrobatics) check contested by the grappler's Strength (Athletics). On a success you escape the grappled condition."
+  },
+  {
+    "id": "mount-dismount",
+    "generic": true,
+    "name": "Mount / Dismount",
+    "type": "Bonus Action",
+    "short": "Climb onto or off a willing creature (costs half speed).",
+    "full": "Once during your move, you can mount a creature within 5ft of you, or dismount from it. Doing so costs an amount of movement equal to half your speed."
+  },
+  {
+    "id": "opportunity-attack",
+    "generic": true,
+    "name": "Opportunity Attack",
+    "type": "Reaction",
+    "short": "When a hostile creature moves out of your reach.",
+    "full": "When a hostile creature that you can see moves out of your reach, you can use your reaction to make one melee attack against that creature. The attack occurs right before it leaves your reach."
+  },
+  {
+    "id": "readied-action",
+    "generic": true,
+    "name": "Readied Action",
+    "type": "Reaction",
+    "short": "When your Ready trigger occurs, take your prepared action.",
+    "full": "When the trigger condition you declared with Ready occurs, you can take your reaction to perform the readied action — or choose to ignore it. If you readied a spell, it is released."
+  },
+  {
+    "id": "second-wind",
+    "name": "Second Wind",
+    "type": "Bonus Action",
+    "classOnly": "Fighter",
+    "requiresLevel": 1,
+    "resourceKey": "Second Wind",
+    "resourceCost": 1,
+    "short": "Regain 1d10 + fighter level HP.",
+    "full": "On your turn, as a bonus action, regain HP equal to 1d10 + your fighter level. Recharges on short or long rest."
+  },
+  {
+    "id": "action-surge",
+    "name": "Action Surge",
+    "type": "Action",
+    "classOnly": "Fighter",
+    "requiresLevel": 2,
+    "resourceKey": "Action Surge",
+    "resourceCost": 1,
+    "short": "Take one additional action this turn.",
+    "full": "On your turn, take one additional action on top of your regular action and a possible bonus action. Recharges on short or long rest."
+  },
+  {
+    "id": "extra-attack",
+    "name": "Extra Attack",
+    "type": "Free",
+    "classOnly": "Fighter",
+    "requiresLevel": 5,
+    "short": "Attack twice when you take the Attack action.",
+    "full": "Beginning at 5th level, when you take the Attack action on your turn, you can attack twice instead of once. This increases to three attacks at level 11 and four at level 20."
+  },
+  {
+    "id": "indomitable",
+    "name": "Indomitable",
+    "type": "Reaction",
+    "classOnly": "Fighter",
+    "requiresLevel": 9,
+    "resourceKey": "Indomitable",
+    "resourceCost": 1,
+    "short": "Reroll a failed saving throw.",
+    "full": "You can reroll a saving throw that you fail. If you do so, you must use the new roll. You can use this feature once between long rests (twice at level 13, three times at level 17)."
+  },
+  {
+    "id": "rage",
+    "name": "Rage",
+    "type": "Bonus Action",
+    "classOnly": "Barbarian",
+    "requiresLevel": 1,
+    "resourceKey": "Rage",
+    "resourceCost": 1,
+    "short": "Enter a rage for 1 min (+damage, resistance to B/P/S, Str advantage).",
+    "full": "On your turn, enter a rage as a bonus action. While raging: advantage on Str checks/saves, +2 damage on Str attacks (scales with level), resistance to bludgeoning/piercing/slashing. Lasts 1 minute. Recharges on long rest."
+  },
+  {
+    "id": "bardic-inspiration",
+    "name": "Bardic Inspiration",
+    "type": "Bonus Action",
+    "classOnly": "Bard",
+    "requiresLevel": 1,
+    "resourceKey": "Bardic Inspiration",
+    "resourceCost": 1,
+    "short": "Grant an ally a d6 inspiration die (scales with level).",
+    "full": "As a bonus action, choose a creature other than yourself within 60ft who can hear you. That creature gains a Bardic Inspiration die (d6 → d8 → d10 → d12) they can add to one ability check, attack roll, or saving throw within 10 minutes."
+  },
+  {
+    "id": "channel-divinity",
+    "name": "Channel Divinity",
+    "type": "Action",
+    "classOnly": "Cleric",
+    "requiresLevel": 2,
+    "resourceKey": "Channel Divinity",
+    "resourceCost": 1,
+    "short": "Use a divine power (varies by domain).",
+    "full": "Choose a Channel Divinity option available to you based on your divine domain. All clerics have Turn Undead; your domain grants additional options. Recharges on short rest."
+  },
+  {
+    "id": "channel-divinity-paladin",
+    "name": "Channel Divinity",
+    "type": "Action",
+    "classOnly": "Paladin",
+    "requiresLevel": 3,
+    "resourceKey": "Channel Divinity",
+    "resourceCost": 1,
+    "short": "Use your Sacred Oath power (varies by oath).",
+    "full": "Your oath grants two Channel Divinity options at 3rd level. You must finish a short or long rest to use your Channel Divinity again."
+  },
+  {
+    "id": "divine-intervention",
+    "name": "Divine Intervention",
+    "type": "Action",
+    "classOnly": "Cleric",
+    "requiresLevel": 10,
+    "resourceKey": "Divine Intervention",
+    "resourceCost": 1,
+    "short": "Call on your deity for aid. Roll d100 ≤ cleric level to succeed.",
+    "full": "Implore your deity's aid. Roll a percentile die. If the roll is equal to or lower than your cleric level, your deity intervenes. At level 20, the intervention always succeeds. On success this feature can't be used again for 7 days. On failure, try again after a long rest."
+  },
+  {
+    "id": "wild-shape",
+    "name": "Wild Shape",
+    "type": "Action",
+    "classOnly": "Druid",
+    "requiresLevel": 2,
+    "resourceKey": "Wild Shape",
+    "resourceCost": 1,
+    "short": "Transform into a beast you've seen (CR ≤ ¼ at level 2).",
+    "full": "Magically assume the shape of a beast you've seen before. At level 2: CR ≤ ¼, no flying/swimming speed. At level 4: CR ≤ ½. You retain mental stats, class features, and languages. Lasts 1 hr per 2 druid levels. Recharges on short or long rest."
+  },
+  {
+    "id": "flurry-of-blows",
+    "name": "Flurry of Blows",
+    "type": "Bonus Action",
+    "classOnly": "Monk",
+    "requiresLevel": 2,
+    "resourceKey": "Ki",
+    "resourceCost": 1,
+    "short": "After Attack action: make 2 unarmed strikes. (1 Ki)",
+    "full": "Immediately after you take the Attack action on your turn, spend 1 ki point to make two unarmed strikes as a bonus action."
+  },
+  {
+    "id": "patient-defense",
+    "name": "Patient Defense",
+    "type": "Bonus Action",
+    "classOnly": "Monk",
+    "requiresLevel": 2,
+    "resourceKey": "Ki",
+    "resourceCost": 1,
+    "short": "Take the Dodge action as a bonus action. (1 Ki)",
+    "full": "Spend 1 ki point to take the Dodge action as a bonus action on your turn."
+  },
+  {
+    "id": "step-of-the-wind",
+    "name": "Step of the Wind",
+    "type": "Bonus Action",
+    "classOnly": "Monk",
+    "requiresLevel": 2,
+    "resourceKey": "Ki",
+    "resourceCost": 1,
+    "short": "Disengage or Dash as bonus action; jump distance doubled. (1 Ki)",
+    "full": "Spend 1 ki point to take the Disengage or Dash action as a bonus action on your turn, and your jump distance is doubled until the end of the turn."
+  },
+  {
+    "id": "stunning-strike",
+    "name": "Stunning Strike",
+    "type": "Free",
+    "classOnly": "Monk",
+    "requiresLevel": 5,
+    "resourceKey": "Ki",
+    "resourceCost": 1,
+    "short": "On hit: target Con save or stunned until next turn. (1 Ki)",
+    "full": "When you hit a creature with a melee weapon attack, spend 1 ki point to attempt a stunning strike. The target must succeed on a Constitution saving throw (DC 8 + Prof + Wis mod) or be stunned until the start of your next turn."
+  },
+  {
+    "id": "divine-smite",
+    "name": "Divine Smite",
+    "type": "Free",
+    "classOnly": "Paladin",
+    "requiresLevel": 2,
+    "short": "On hit: expend spell slot → 2d8 + 1d8/slot level radiant dmg.",
+    "full": "When you hit a creature with a melee weapon attack, you can expend one spell slot to deal radiant damage. The extra damage is 2d8 for a 1st-level slot, +1d8 for each slot level above 1st (max 5d8). Undead/fiends take an extra 1d8."
+  },
+  {
+    "id": "lay-on-hands",
+    "name": "Lay on Hands",
+    "type": "Action",
+    "classOnly": "Paladin",
+    "requiresLevel": 1,
+    "resourceKey": "Lay on Hands",
+    "resourceCost": 5,
+    "short": "Restore HP from your healing pool (5 per resource unit).",
+    "full": "Touch a creature to restore any number of HP from your Lay on Hands pool (5 × paladin level total per long rest). Alternatively, spend 5 HP worth to cure one disease or neutralize one poison affecting the creature."
+  },
+  {
+    "id": "sneak-attack",
+    "name": "Sneak Attack",
+    "type": "Free",
+    "classOnly": "Rogue",
+    "requiresLevel": 1,
+    "short": "Once per turn: +Xd6 dmg when you have advantage or an ally is adjacent.",
+    "full": "Once per turn, deal extra damage equal to your Sneak Attack dice (scales per 2 levels) when you have advantage OR when an ally is adjacent to the target and you don't have disadvantage. Requires a finesse or ranged weapon."
+  },
+  {
+    "id": "cunning-action",
+    "name": "Cunning Action",
+    "type": "Bonus Action",
+    "classOnly": "Rogue",
+    "requiresLevel": 2,
+    "short": "Dash, Disengage, or Hide as a bonus action.",
+    "full": "Your quick thinking allows you to take the Dash, Disengage, or Hide action as a bonus action on each of your turns."
+  },
+  {
+    "id": "steady-aim",
+    "name": "Steady Aim",
+    "type": "Bonus Action",
+    "classOnly": "Rogue",
+    "requiresLevel": 3,
+    "short": "Advantage on your next attack this turn; speed becomes 0.",
+    "description": "You give yourself advantage on your next attack roll on this turn. Usable only if you have not moved this turn; afterward your speed is 0 until the end of the turn.",
+    "full": "You give yourself advantage on your next attack roll on this turn. Usable only if you have not moved this turn; afterward your speed is 0 until the end of the turn."
+  },
+  {
+    "id": "uncanny-dodge",
+    "name": "Uncanny Dodge",
+    "type": "Reaction",
+    "classOnly": "Rogue",
+    "requiresLevel": 5,
+    "short": "Halve damage from one attack you can see.",
+    "full": "When an attacker you can see hits you with an attack, use your reaction to halve the attack's damage against you."
+  },
+  {
+    "id": "metamagic",
+    "name": "Metamagic",
+    "type": "Free",
+    "classOnly": "Sorcerer",
+    "requiresLevel": 3,
+    "resourceKey": "Sorcery Points",
+    "resourceCost": 1,
+    "short": "Modify a spell with Sorcery Points (1–3 pts depending on option).",
+    "full": "When you cast a spell, spend sorcery points to apply a metamagic option. Careful (1pt), Distant (1pt), Empowered (1pt), Extended (1pt), Heightened (3pt), Quickened (2pt), Subtle (1pt), Twinned (spell level in pts). You chose 2 options at level 3."
+  },
+  {
+    "id": "arcane-recovery",
+    "name": "Arcane Recovery",
+    "type": "Action",
+    "classOnly": "Wizard",
+    "requiresLevel": 1,
+    "resourceKey": "Arcane Recovery",
+    "resourceCost": 1,
+    "short": "Short rest: recover spell slots (total levels ≤ ½ wizard level).",
+    "full": "Once per day after a short rest, choose expended spell slots to recover. The combined level of the recovered slots must be equal to or lower than half your wizard level (rounded up). No slot of 6th level or higher can be recovered."
+  },
+  {
+    "id": "flash-of-genius",
+    "name": "Flash of Genius",
+    "type": "Reaction",
+    "classOnly": "Artificer",
+    "requiresLevel": 7,
+    "resourceKey": "Flash of Genius",
+    "resourceCost": 1,
+    "short": "Add your INT modifier to an ability check or save within 30ft.",
+    "full": "When you or a creature you can see within 30ft makes an ability check or saving throw, use your reaction to add your Intelligence modifier to the roll (minimum +1). Uses = your Intelligence modifier (minimum 1) per long rest."
+  },
+  {
+    "id": "eldritch-blast",
+    "name": "Eldritch Blast",
+    "type": "Action",
+    "classOnly": "Warlock",
+    "requiresLevel": 1,
+    "short": "Cantrip: 1d10 force dmg. Beams scale: 1 at level 1 → 4 at level 17.",
+    "full": "A beam of crackling energy streaks toward a creature within 120ft. Make a ranged spell attack. On a hit: 1d10 force damage. Creates additional beams at 5th (×2), 11th (×3), and 17th (×4) level. Each beam can target the same or different creatures."
+  }
+]
