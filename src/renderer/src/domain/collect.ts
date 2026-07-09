@@ -14,7 +14,7 @@ import { computeEquipmentStats } from '@/shared/data/charCalculations'
 import type { SourcedEffect } from './effects'
 
 type EffectSources = Pick<Character, 'equipment' | 'abilityScores'> &
-  Partial<Pick<Character, 'activeBuffSpells' | 'conditionIds' | 'buffStates' | 'weapons' | 'attunedItemIds'>>
+  Partial<Pick<Character, 'activeBuffSpells' | 'conditionIds' | 'buffStates' | 'weapons' | 'attunedItemIds' | 'feats' | 'race'>>
 
 export function collectActiveEffects(char: EffectSources): SourcedEffect[] {
   return [
@@ -92,7 +92,7 @@ export function collectConditionEffects(char: Pick<EffectSources, 'conditionIds'
 }
 
 /** Equipped gear stats → Effects (bonuses, advantage grants, damage riders). */
-export function collectEquipmentEffects(char: Pick<Character, 'equipment' | 'abilityScores'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] }): SourcedEffect[] {
+export function collectEquipmentEffects(char: Pick<Character, 'equipment' | 'abilityScores'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds']; feats?: Character['feats']; race?: Character['race'] }): SourcedEffect[] {
   const stats = computeEquipmentStats(char)
   const src = { sourceId: 'equipment', sourceLabel: 'Equipment', sourceType: 'gear' as const }
   const out: SourcedEffect[] = []

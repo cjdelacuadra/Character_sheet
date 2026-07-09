@@ -5,6 +5,7 @@ import { GEAR_BY_ID } from './equipment/gear'
 import { WEAPON_BY_ID } from './equipment/weapons'
 import { CLASS_BY_ID, HIT_DIE_AVERAGE } from './classData'
 import { RACE_BY_ID } from './raceData'
+import { FEAT_BY_ID } from './featsData'
 import { SUBCLASS_BY_ID } from './subclassData'
 import { SPELL_BY_ID } from './spellData'
 import { CONDITION_BY_ID } from './conditionsData'
@@ -313,11 +314,13 @@ const GEAR_SLOTS: Array<keyof Equipment> = [
 ]
 
 /**
- * Aggregates D&D 5e equipment bonus stats across all equipped gear (armor +
- * accessories) and — when `weapons` is provided — the equipped weapons'
- * stat blocks (weapons can carry the same stats as gear).
+ * Aggregates every passive stat block on the character: equipped gear (armor +
+ * accessories), equipped weapons' stat blocks, and — when `feats`/`race` are
+ * provided — feat and racial wiring (FeatDef.stats / RaceDef.stats). One
+ * aggregator, so floors/bonuses/riders reach both calculation paths the same
+ * way regardless of their source.
  */
-export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] }): EquipmentStats {
+export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds']; feats?: Character['feats']; race?: Character['race'] }): EquipmentStats {
   const result: EquipmentStats = {
     acBonus: 0,
     toHitBonus: 0,
@@ -406,6 +409,14 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { wea
     if (def.requiresAttunement && !attuned.includes(w.id)) continue
     fold(def.stats, def.name)
   }
+  for (const featId of char.feats ?? []) {
+    const feat = FEAT_BY_ID[featId]
+    if (feat?.stats) fold(feat.stats, feat.name)
+  }
+  if (char.race) {
+    const race = RACE_BY_ID[char.race]
+    if (race?.stats) fold(race.stats, race.label)
+  }
 
   return result
 }
@@ -416,7 +427,7 @@ export function computeEquipmentStats(char: Pick<Character, 'equipment'> & { wea
  * wearer's score is already equal or higher.
  */
 export function effectiveAbilityScore(
-  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] },
+  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds']; feats?: Character['feats']; race?: Character['race'] },
   ability: AbilityScore,
 ): number {
   const stats = computeEquipmentStats(char)
@@ -434,7 +445,7 @@ const ABILITY_KEYS: AbilityScore[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
  * (Gauntlets of Ogre Power pattern) reach AC, initiative, saves, and skills.
  */
 export function effectiveAbilityBonus(
-  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds'] },
+  char: Pick<Character, 'abilityScores' | 'equipment'> & { weapons?: Character['weapons']; attunedItemIds?: Character['attunedItemIds']; feats?: Character['feats']; race?: Character['race'] },
 ): Partial<Record<AbilityScore, number>> {
   const out: Partial<Record<AbilityScore, number>> = {}
   for (const ab of ABILITY_KEYS) {

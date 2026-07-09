@@ -6,6 +6,7 @@ import { mod, effectiveAbilityScore } from '@/shared/data/charCalculations'
 import { GEAR_BY_ID } from '@/shared/data/equipment/gear'
 import { WEAPON_BY_ID } from '@/shared/data/equipment/weapons'
 import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { RACE_BY_ID } from '@/shared/data/raceData'
 import styles from './DetailPanel.module.css'
 
 function fmtMod(n: number) { return n >= 0 ? `+${n}` : String(n) }
@@ -54,6 +55,12 @@ function equippedStatBlocks(char: Character): { name: string; stats: AccessorySt
     if (def.requiresAttunement && !attuned.includes(w.id)) continue
     out.push({ name: def.name, stats: def.stats })
   }
+  for (const featId of char.feats ?? []) {
+    const feat = FEAT_BY_ID[featId]
+    if (feat?.stats) out.push({ name: feat.name, stats: feat.stats })
+  }
+  const race = RACE_BY_ID[char.race]
+  if (race?.stats) out.push({ name: race.label, stats: race.stats })
   return out
 }
 
