@@ -14,7 +14,8 @@
         "dmgType": "piercing",
         "note": "DC 11 STR save or prone"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "panther",
@@ -35,9 +36,10 @@
         "toHit": 4,
         "dmg": "1d4+2",
         "dmgType": "slashing",
-        "note": "Pounce: 20 ft charge → DC 12 STR or prone + free bite"
+        "note": "Pounce: 20 ft charge \u2192 DC 12 STR or prone + free bite"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-frog",
@@ -54,7 +56,8 @@
         "dmgType": "piercing",
         "note": "grapple DC 11"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "black-bear",
@@ -77,7 +80,8 @@
         "dmg": "2d4+2",
         "dmgType": "slashing"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "crocodile",
@@ -94,7 +98,8 @@
         "dmgType": "piercing",
         "note": "grapple DC 12"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "warhorse",
@@ -110,7 +115,8 @@
         "dmg": "2d6+4",
         "dmgType": "bludgeoning"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "brown-bear",
@@ -133,7 +139,8 @@
         "dmg": "2d6+4",
         "dmgType": "slashing"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "dire-wolf",
@@ -150,7 +157,8 @@
         "dmgType": "piercing",
         "note": "DC 13 STR save or prone"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-eagle",
@@ -173,7 +181,8 @@
         "dmg": "2d6+3",
         "dmgType": "slashing"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-octopus",
@@ -190,7 +199,8 @@
         "dmgType": "bludgeoning",
         "note": "grapple DC 16, restrained"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "tiger",
@@ -211,9 +221,10 @@
         "toHit": 5,
         "dmg": "1d8+3",
         "dmgType": "slashing",
-        "note": "Pounce: 20 ft charge → DC 13 STR or prone + free bite"
+        "note": "Pounce: 20 ft charge \u2192 DC 13 STR or prone + free bite"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "polar-bear",
@@ -236,7 +247,8 @@
         "dmg": "2d6+5",
         "dmgType": "slashing"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-constrictor-snake",
@@ -259,7 +271,8 @@
         "dmgType": "bludgeoning",
         "note": "grapple DC 16, restrained"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "saber-toothed-tiger",
@@ -280,9 +293,10 @@
         "toHit": 6,
         "dmg": "2d6+5",
         "dmgType": "slashing",
-        "note": "Pounce: 20 ft charge → DC 14 STR or prone + free bite"
+        "note": "Pounce: 20 ft charge \u2192 DC 14 STR or prone + free bite"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "killer-whale",
@@ -298,7 +312,8 @@
         "dmg": "5d6+4",
         "dmgType": "piercing"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-scorpion",
@@ -323,7 +338,8 @@
         "dmgType": "piercing",
         "note": "+ DC 12 CON: 4d10 poison (half on save)"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "elephant",
@@ -338,7 +354,7 @@
         "toHit": 8,
         "dmg": "3d8+6",
         "dmgType": "piercing",
-        "note": "Trampling Charge: 20 ft → DC 12 STR or prone + free stomp"
+        "note": "Trampling Charge: 20 ft \u2192 DC 12 STR or prone + free stomp"
       },
       {
         "name": "Stomp",
@@ -347,7 +363,8 @@
         "dmgType": "bludgeoning",
         "note": "prone targets only"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "giant-crocodile",
@@ -372,7 +389,8 @@
         "dmgType": "bludgeoning",
         "note": "DC 16 STR save or prone (targets not grappled)"
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "mammoth",
@@ -387,7 +405,7 @@
         "toHit": 10,
         "dmg": "4d8+7",
         "dmgType": "piercing",
-        "note": "Trampling Charge: 20 ft → DC 18 STR or prone + free stomp"
+        "note": "Trampling Charge: 20 ft \u2192 DC 18 STR or prone + free stomp"
       },
       {
         "name": "Stomp",
@@ -396,6 +414,7 @@
         "dmgType": "bludgeoning",
         "note": "prone targets only"
       }
-    ]
+    ],
+    "source": "PHB"
   }
 ]

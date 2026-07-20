@@ -16,7 +16,8 @@
       "+1 to all ability scores"
     ],
     "size": "medium",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "PHB"
   },
   {
     "id": "VariantHuman",
@@ -31,7 +32,8 @@
       "One feat of choice"
     ],
     "size": "medium",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "PHB"
   },
   {
     "id": "Elf",
@@ -63,7 +65,8 @@
       "Shortbow",
       "Longbow"
     ],
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "WoodElf",
@@ -90,7 +93,8 @@
       "Mask of the Wild"
     ],
     "size": "medium",
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "Dwarf",
@@ -123,7 +127,8 @@
       "Light Hammer",
       "Warhammer"
     ],
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "MountainDwarf",
@@ -149,7 +154,8 @@
       "Armor proficiency (light, medium)"
     ],
     "size": "medium",
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "Halfling",
@@ -175,7 +181,8 @@
       "Naturally Stealthy"
     ],
     "size": "small",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "PHB"
   },
   {
     "id": "HalfElf",
@@ -200,7 +207,8 @@
       "Skill Versatility (+2 skill proficiencies of choice)"
     ],
     "size": "medium",
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "HalfOrc",
@@ -227,7 +235,8 @@
         "maxUses": 1,
         "description": "When reduced to 0 HP but not killed outright, you can drop to 1 HP instead."
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "Gnome",
@@ -260,7 +269,8 @@
         "minor-illusion"
       ]
     },
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "Tiefling",
@@ -287,7 +297,8 @@
         "darkness"
       ]
     },
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "Dragonborn",
@@ -311,9 +322,10 @@
         "cost": "action",
         "recharge": "short",
         "maxUses": 1,
-        "description": "Exhale destructive energy in a 15-ft cone or 5×30-ft line (per ancestry). Each creature makes a Dex or Con save (DC 8 + CON mod + prof). Damage: 2d6 (L1–5), 3d6 (6–10), 4d6 (11–15), 5d6 (16+); half on success."
+        "description": "Exhale destructive energy in a 15-ft cone or 5\u00d730-ft line (per ancestry). Each creature makes a Dex or Con save (DC 8 + CON mod + prof). Damage: 2d6 (L1\u20135), 3d6 (6\u201310), 4d6 (11\u201315), 5d6 (16+); half on success."
       }
-    ]
+    ],
+    "source": "PHB"
   },
   {
     "id": "StoutHalfling",
@@ -346,7 +358,8 @@
       "Stout Resilience (advantage vs poison saves, resistance to poison damage)"
     ],
     "size": "small",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "PHB"
   },
   {
     "id": "RockGnome",
@@ -370,11 +383,12 @@
     "traits": [
       "Darkvision 60ft",
       "Gnome Cunning (advantage INT/WIS/CHA saves vs magic)",
-      "Artificer's Lore (+2× prof bonus on History checks for magic/alchemical/technological items)",
+      "Artificer's Lore (+2\u00d7 prof bonus on History checks for magic/alchemical/technological items)",
       "Tinker (construct tiny clockwork devices)"
     ],
     "size": "small",
-    "darkvisionRange": 60
+    "darkvisionRange": 60,
+    "source": "PHB"
   },
   {
     "id": "Drow",
@@ -413,7 +427,8 @@
         "darkness"
       ]
     },
-    "darkvisionRange": 120
+    "darkvisionRange": 120,
+    "source": "SCAG"
   },
   {
     "id": "Aasimar",
@@ -446,7 +461,8 @@
         "selfHeal": "level",
         "description": "Touch a creature to restore hit points equal to your level (applied to yourself here)."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Kenku",
@@ -462,7 +478,8 @@
       "Mimicry (perfectly copy sounds heard; Insight/Investigation DC 14 to detect)"
     ],
     "size": "medium",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "VGtM"
   },
   {
     "id": "Tabaxi",
@@ -487,7 +504,8 @@
         "cost": "free",
         "description": "Double your speed until the end of the turn when you move on your turn. Usable again once you spend a turn moving 0 feet."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Lizardfolk",
@@ -521,7 +539,8 @@
         "grantsTempHp": "conmod",
         "description": "Make a special bite unarmed strike (1d6 + STR piercing). On a hit you also gain temporary HP equal to your CON modifier (min 1)."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Tortle",
@@ -579,7 +598,8 @@
       "addDex": true
     },
     "size": "medium",
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "ERLW"
   },
   {
     "id": "Githyanki",
@@ -592,7 +612,7 @@
     "traits": [
       "Decadent Mastery (proficiency in 1 language, skill, or tool)",
       "Martial Prodigy (light & medium armor proficiency, shortsword & longsword & greatsword proficiency)",
-      "Githyanki Psionics (Mage Hand cantrip; Jump; Misty Step — using INT)"
+      "Githyanki Psionics (Mage Hand cantrip; Jump; Misty Step \u2014 using INT)"
     ],
     "size": "medium",
     "racialSpells": {
@@ -606,7 +626,8 @@
         "misty-step"
       ]
     },
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "MTF"
   },
   {
     "id": "Githzerai",
@@ -627,7 +648,7 @@
     },
     "traits": [
       "Mental Discipline (advantage vs charmed & frightened)",
-      "Githzerai Psionics (Mage Hand cantrip; Shield; Detect Thoughts — using WIS)",
+      "Githzerai Psionics (Mage Hand cantrip; Shield; Detect Thoughts \u2014 using WIS)",
       "Psychic Defense (unarmored AC = 10 + DEX mod + WIS mod)"
     ],
     "naturalAC": {
@@ -647,7 +668,8 @@
         "detect-thoughts"
       ]
     },
-    "darkvisionRange": 0
+    "darkvisionRange": 0,
+    "source": "MTF"
   },
   {
     "id": "Aarakocra",
@@ -670,7 +692,8 @@
         "cost": "passive",
         "description": "You have a flying speed of 50 feet. You can't use this while wearing medium or heavy armor."
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "Goliath",
@@ -696,7 +719,8 @@
         "maxUses": "prof",
         "description": "When you take damage, reduce it by 1d12 + your CON modifier."
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "Orc",
@@ -732,7 +756,8 @@
         "maxUses": 1,
         "description": "When reduced to 0 HP but not killed outright, drop to 1 HP instead."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Goblin",
@@ -765,7 +790,8 @@
         "cost": "bonus",
         "description": "Take the Disengage or Hide action as a bonus action on each of your turns."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Bugbear",
@@ -791,7 +817,8 @@
         "cost": "passive",
         "description": "If you surprise a creature and hit it on your first turn of combat, the attack deals an extra 2d6 damage."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "Firbolg",
@@ -818,7 +845,8 @@
         "maxUses": 1,
         "description": "Magically turn invisible until the start of your next turn or until you attack, make a damage roll, or force a saving throw."
       }
-    ]
+    ],
+    "source": "VGtM"
   },
   {
     "id": "AirGenasi",
@@ -844,7 +872,8 @@
         "maxUses": 1,
         "description": "Cast Levitate on yourself, requiring no material components."
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "EarthGenasi",
@@ -869,7 +898,8 @@
         "maxUses": 1,
         "description": "Cast Pass Without Trace, requiring no material components."
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "FireGenasi",
@@ -901,7 +931,8 @@
         "minLevel": 3,
         "description": "Cast Burning Hands, requiring no material components."
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "WaterGenasi",
@@ -929,7 +960,8 @@
         "minLevel": 3,
         "description": "Cast Create or Destroy Water, requiring no material components. (At will: Shape Water cantrip.)"
       }
-    ]
+    ],
+    "source": "EEPC"
   },
   {
     "id": "Eladrin",
@@ -957,7 +989,8 @@
         "maxUses": 1,
         "description": "Magically teleport up to 30 feet to an unoccupied space you can see."
       }
-    ]
+    ],
+    "source": "MTF"
   },
   {
     "id": "ShifterBeasthide",
@@ -982,9 +1015,10 @@
         "recharge": "short",
         "maxUses": "prof",
         "grantsTempHp": "prof+prof",
-        "description": "For 1 minute, gain temporary hit points (≈2× proficiency bonus) and a +1 bonus to AC while shifted."
+        "description": "For 1 minute, gain temporary hit points (\u22482\u00d7 proficiency bonus) and a +1 bonus to AC while shifted."
       }
-    ]
+    ],
+    "source": "ERLW"
   },
   {
     "id": "ShifterLongtooth",
@@ -1009,9 +1043,10 @@
         "recharge": "short",
         "maxUses": "prof",
         "grantsTempHp": "prof+prof",
-        "description": "For 1 minute, gain temporary hit points (≈2× proficiency bonus). While shifted you can make a bite attack as a bonus action (1d6 + STR piercing)."
+        "description": "For 1 minute, gain temporary hit points (\u22482\u00d7 proficiency bonus). While shifted you can make a bite attack as a bonus action (1d6 + STR piercing)."
       }
-    ]
+    ],
+    "source": "ERLW"
   },
   {
     "id": "ShifterSwiftstride",
@@ -1036,9 +1071,10 @@
         "recharge": "short",
         "maxUses": "prof",
         "grantsTempHp": "prof+prof",
-        "description": "For 1 minute, gain temporary hit points (≈2× proficiency bonus) and +10 ft speed. While shifted you can move up to 10 ft as a reaction when a creature ends its turn within 5 ft."
+        "description": "For 1 minute, gain temporary hit points (\u22482\u00d7 proficiency bonus) and +10 ft speed. While shifted you can move up to 10 ft as a reaction when a creature ends its turn within 5 ft."
       }
-    ]
+    ],
+    "source": "ERLW"
   },
   {
     "id": "ShifterWildhunt",
@@ -1063,8 +1099,9 @@
         "recharge": "short",
         "maxUses": "prof",
         "grantsTempHp": "prof+prof",
-        "description": "For 1 minute, gain temporary hit points (≈2× proficiency bonus). While shifted you have advantage on Wisdom checks and no attacker has advantage against you."
+        "description": "For 1 minute, gain temporary hit points (\u22482\u00d7 proficiency bonus). While shifted you have advantage on Wisdom checks and no attacker has advantage against you."
       }
-    ]
+    ],
+    "source": "ERLW"
   }
 ]

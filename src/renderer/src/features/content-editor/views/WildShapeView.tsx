@@ -6,18 +6,14 @@ import { WILD_SHAPE_BEASTS, type WildShapeBeast } from '@/shared/data/wildShapeB
 import { formatCR } from '../groupHelpers'
 import styles from '../ContentEditor.module.css'
 
-const SOURCES = ['All', 'PHB', 'TCoE', 'Custom'] as const
-
-function beastSource(b: WildShapeBeast): string {
-  return b.source ?? 'PHB'
-}
-
+/** Wild Shape view: just CR + source — source options built from whatever's actually in the data. */
 export function WildShapeView() {
   const [cr, setCr] = useState('')
-  const [source, setSource] = useState<typeof SOURCES[number]>('All')
-  const [customSearch, setCustomSearch] = useState('')
+  const [source, setSource] = useState('')
 
   const crOptions = [...new Set(WILD_SHAPE_BEASTS.map(b => b.cr))].sort((a, b) => a - b)
+  const sources = ['All', ...new Set(WILD_SHAPE_BEASTS.map(b => b.source ?? 'PHB'))]
+    .sort((a, b) => (a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)))
   const byId = Object.fromEntries(WILD_SHAPE_BEASTS.map(b => [b.id, b]))
 
   const adapter: CatalogAdapter<WildShapeBeast> = {
@@ -26,13 +22,7 @@ export function WildShapeView() {
       const beast = byId[e.id]
       if (!beast) return true
       if (cr && String(beast.cr) !== cr) return false
-      const s = beastSource(beast)
-      if (source === 'PHB' || source === 'TCoE') {
-        if (s !== source) return false
-      } else if (source === 'Custom') {
-        if (s === 'PHB' || s === 'TCoE') return false
-        if (customSearch && !s.toLowerCase().includes(customSearch.toLowerCase())) return false
-      }
+      if (source && source !== 'All' && (beast.source ?? 'PHB') !== source) return false
       return true
     }),
   }
@@ -46,21 +36,9 @@ export function WildShapeView() {
             <option value="">All CRs</option>
             {crOptions.map(c => <option key={c} value={c}>CR {formatCR(c)}</option>)}
           </select>
-          <select
-            className={styles.filterSelect}
-            value={source}
-            onChange={e => setSource(e.target.value as typeof SOURCES[number])}
-          >
-            {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+          <select className={styles.filterSelect} value={source || 'All'} onChange={e => setSource(e.target.value)}>
+            {sources.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          {source === 'Custom' && (
-            <input
-              className={styles.filterSelect}
-              placeholder="search source…"
-              value={customSearch}
-              onChange={e => setCustomSearch(e.target.value)}
-            />
-          )}
         </>
       }
       renderForm={(draft, setDraft) => <BeastEditorForm key={draft.id} draft={draft} onChange={setDraft} />}
