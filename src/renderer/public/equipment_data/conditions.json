@@ -382,9 +382,17 @@
       },
       {
         "affects": "other",
-        "description": "Speed doubled; +2 AC; ADV on DEX saves; one extra limited action.",
+        "description": "ADV on DEX saves; one extra limited action.",
         "mechanic": {
           "kind": "flag"
+        }
+      },
+      {
+        "affects": "speed",
+        "description": "",
+        "mechanic": {
+          "kind": "speedMultiplier",
+          "value": 2
         }
       }
     ]
