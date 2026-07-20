@@ -18,6 +18,7 @@ export function BeastEditorForm({ draft, onChange }: Props) {
     <div>
       <TextField label="Id" value={draft.id} onChange={id => set({ id })} />
       <TextField label="Name" value={draft.name} onChange={name => set({ name })} />
+      <TextField label="Source" value={draft.source ?? ''} onChange={v => set({ source: v || undefined })} placeholder="PHB (default), TCoE, custom..." />
       <Row label="CR">
         <input
           className={`${styles.formInput} ${styles.formInputSm}`}

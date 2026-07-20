@@ -12,7 +12,7 @@ import { addSummonTemplate, updateSummonTemplate, deleteSummonTemplate } from '@
 import type { SummonTemplate } from '@/entities/summon/types'
 
 export const featsAdapter: CatalogAdapter<FeatDef> = {
-  list: () => FEATS.map(f => ({ id: f.id, name: f.name })),
+  list: () => [...FEATS].sort((a, b) => a.name.localeCompare(b.name)).map(f => ({ id: f.id, name: f.name })),
   get: id => FEAT_BY_ID[id],
   blank: () => ({ id: 'new-feat', name: 'New Feat', description: '' }),
   save: e => featsCatalog.save(e),

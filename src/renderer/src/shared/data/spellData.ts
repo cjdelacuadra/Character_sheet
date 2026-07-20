@@ -358,6 +358,8 @@ export let SPELLS: SpellEntry[] = [
 
 export let SPELL_BY_ID = Object.fromEntries(SPELLS.map(s => [s.id, s])) as Record<string, SpellEntry>
 
+export const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation'] as const
+
 /**
  * True if a spell's effect lasts only until the start of the caster's next turn
  * (e.g. Booming Blade, Green-Flame Blade) — detected from the duration text, so it

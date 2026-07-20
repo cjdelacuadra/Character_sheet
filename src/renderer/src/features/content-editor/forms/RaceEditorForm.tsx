@@ -18,6 +18,7 @@ export function RaceEditorForm({ draft, onChange }: Props) {
     <div>
       <TextField label="Id" value={draft.id} onChange={id => set({ id })} />
       <TextField label="Label" value={draft.label} onChange={label => set({ label })} />
+      <TextField label="Source" value={draft.source ?? ''} onChange={v => set({ source: v || undefined })} placeholder="PHB (default), VGtM, custom..." />
       <SelectField
         label="Size" value={draft.size}
         onChange={size => set({ size: size as RaceDef['size'] })}

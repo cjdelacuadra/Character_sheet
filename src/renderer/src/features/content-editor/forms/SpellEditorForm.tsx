@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { SpellEntry } from '@/shared/data/spellData'
+import { SCHOOLS } from '@/shared/data/spellData'
 import { Section, TextField, TextAreaField, SelectField, NumberField, CheckboxField, Row } from '../formFields'
 import styles from '../ContentEditor.module.css'
 
-const SCHOOLS = ['Abjuration', 'Conjuration', 'Divination', 'Enchantment', 'Evocation', 'Illusion', 'Necromancy', 'Transmutation']
 const DAMAGE_TYPES = ['slashing', 'piercing', 'bludgeoning', 'fire', 'cold', 'lightning', 'thunder', 'acid', 'poison', 'necrotic', 'radiant', 'psychic', 'force']
 
 interface Props {

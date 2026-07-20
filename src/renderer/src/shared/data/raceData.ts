@@ -24,6 +24,8 @@ export interface RacialAction {
 export interface RaceDef {
   id: string
   label: string
+  /** Rulebook this race comes from (PHB, VGtM, MToF, ...). Unset = PHB. */
+  source?: string
   speed: number
   /** bonus applied to ability scores at creation */
   abilityBonus: Partial<AbilityScores>

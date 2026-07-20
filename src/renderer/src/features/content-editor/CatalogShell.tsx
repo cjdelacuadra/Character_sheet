@@ -19,6 +19,8 @@ export interface CatalogAdapter<T extends { id: string }> {
 interface Props<T extends { id: string }> {
   adapter: CatalogAdapter<T>
   renderForm: (draft: T, setDraft: (next: T) => void) => ReactNode
+  /** Optional filter controls rendered under the search row, above the entry list. */
+  filterBar?: ReactNode
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props<T extends { id: string }> {
  * The catalogs are module-level mutable arrays, so a version bump after
  * each mutation is all the refresh the list needs.
  */
-export function CatalogShell<T extends { id: string }>({ adapter, renderForm }: Props<T>) {
+export function CatalogShell<T extends { id: string }>({ adapter, renderForm, filterBar }: Props<T>) {
   const [, setVersion] = useState(0)
   const bump = () => setVersion(v => v + 1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -91,6 +93,7 @@ export function CatalogShell<T extends { id: string }>({ adapter, renderForm }: 
           />
           <button className={styles.newBtn} onClick={handleNew}>+ New</button>
         </div>
+        {filterBar && <div className={styles.filterBar}>{filterBar}</div>}
         <div className={styles.entries}>
           {entries.map(e => (
             <button

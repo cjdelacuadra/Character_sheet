@@ -87,9 +87,13 @@ interface Props {
   onClose: () => void
   readOnly?: boolean
   onEquip?: () => void
+  /** Set when itemId is not (yet) in any catalog — forces which shape the blank form takes. */
+  newItemKind?: ShopItemKind
+  /** Called after a successful Save/Save As so a hosting list can refresh. */
+  onSaved?: () => void
 }
 
-export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
+export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip, newItemKind, onSaved }: Props) {
   const customItems   = useAppStore(s => s.customItems)
   const removeCustomItem = useAppStore(s => s.removeCustomItem)
 
@@ -102,11 +106,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
   // and the catalog copy is the one every stat computation reads.
   const fullDef = GEAR_BY_ID[itemId] ?? WEAPON_BY_ID[itemId] ?? customItems[itemId]
 
-  const isWeapon = !!fullDef && 'damageDie' in fullDef
-  const isGear   = !!fullDef && !isWeapon
+  const isWeapon = fullDef ? 'damageDie' in fullDef : newItemKind === 'weapon'
+  const isGear   = fullDef ? !isWeapon : (!!newItemKind && newItemKind !== 'weapon')
   const gearDef  = isGear   ? (fullDef as GearEquipmentItem)   : undefined
   const weapDef  = isWeapon ? (fullDef as WeaponEquipmentItem) : undefined
-  const kind     = fullDef?.kind ?? shopItem?.kind ?? 'ring'
+  const kind     = newItemKind ?? fullDef?.kind ?? shopItem?.kind ?? 'ring'
 
   // ── Common edit state ────────────────────────────────────────────────────
   const [editId,     setEditId]     = useState(itemId)
@@ -291,7 +295,13 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     return gear
   }
 
-  function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
+  const BLANK_WEAPON: WeaponEquipmentItem = {
+  id: '', name: '', kind: 'weapon', cost: 0,
+  damageDie: '1d6', damageType: 'slashing',
+  proficiencyCategory: 'Simple', rangeType: 'Melee', properties: [],
+}
+
+function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
     const critModifier: Partial<Record<'melee' | 'ranged' | 'spells' | 'martial' | 'all', number>> = {}
     if (statRows.some(r => r.key === 'critMod') && critModValue !== 0) {
       critModifier[critModAppliesTo] = critModValue
@@ -310,11 +320,11 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
     const hasToHit = statRows.some(r => r.key === 'toHitBonus')
 
     return {
-      ...weapDef!,
+      ...(weapDef ?? BLANK_WEAPON),
       // After the spread — the old def always carries a stats key (CSV codec
       // sets it even when undefined), which would clobber the fresh block.
       stats:              Object.keys(selectorStats).length > 0 ? selectorStats : undefined,
-      id:                 overrideId ?? weapDef!.id,
+      id:                 overrideId ?? editId,
       name:               editName,
       cost:               editCost,
       rarity:             editRarity as WeaponEquipmentItem['rarity'],
@@ -351,6 +361,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         await saveGearDef(buildGearDef())
       }
       setSaveStatus('saved')
+      onSaved?.()
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
       console.error('[ItemEditorPanel] save failed', err)
@@ -374,6 +385,7 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
         await saveGearDef(buildGearDef(newId))
       }
       setSaveStatus('saved')
+      onSaved?.()
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
       console.error('[ItemEditorPanel] save-as failed', err)
@@ -509,7 +521,24 @@ export function ItemEditorPanel({ itemId, onClose, readOnly, onEquip }: Props) {
                 {spriteFiles.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-          ) : (
+          ) : null}
+          {editMode && spriteFiles.length > 0 && (
+            <div className={styles.spriteGrid}>
+              {spriteFiles.map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`${styles.spriteThumb} ${f === spriteFile ? styles.spriteThumbActive : ''}`}
+                  title={f}
+                  onClick={() => setSpriteFile(f)}
+                >
+                  <img src={`${SPRITE_PREFIX}${spriteFolder}${f}`} alt={f} loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
+          {!editMode && (
+
             <span className={styles.spriteHint} title={computedSprite}>
               {computedSprite.replace(SPRITE_PREFIX, '…/')}
             </span>

@@ -22,6 +22,8 @@ export interface WildShapeBeast {
   speed: string
   attacks: BeastAttack[]
   multiattack?: string
+  /** Rulebook this form comes from (PHB, TCoE, ...). Unset = PHB. */
+  source?: string
 }
 
 export let WILD_SHAPE_BEASTS: WildShapeBeast[] = [
