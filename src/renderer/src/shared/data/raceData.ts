@@ -61,6 +61,7 @@ export interface RaceDef {
 export let RACES: RaceDef[] = [
   {
     id: 'Human',
+    source: 'PHB',
     label: 'Human',
     speed: 30,
     abilityBonus: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 },
@@ -70,6 +71,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'VariantHuman',
+    source: 'PHB',
     label: 'Human (Variant)',
     speed: 30,
     abilityBonus: {},
@@ -81,6 +83,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Elf',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (High)',
     speed: 30,
@@ -92,6 +95,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'WoodElf',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (Wood)',
     speed: 35,
@@ -102,6 +106,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Dwarf',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
     label: 'Dwarf (Hill)',
     speed: 25,
@@ -114,6 +119,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'MountainDwarf',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Dwarven Resilience' }],
     label: 'Dwarf (Mountain)',
     speed: 25,
@@ -124,6 +130,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Halfling',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }],
     label: 'Halfling (Lightfoot)',
     speed: 25,
@@ -134,6 +141,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'HalfElf',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Half-Elf',
     speed: 30,
@@ -145,6 +153,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'HalfOrc',
+    source: 'PHB',
     label: 'Half-Orc',
     speed: 30,
     abilityBonus: { str: 2, con: 1 },
@@ -158,6 +167,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Gnome',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
     label: 'Gnome (Forest)',
     speed: 25,
@@ -169,6 +179,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Tiefling',
+    source: 'PHB',
     label: 'Tiefling',
     speed: 30,
     abilityBonus: { int: 1, cha: 2 },
@@ -179,6 +190,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Dragonborn',
+    source: 'PHB',
     label: 'Dragonborn',
     speed: 30,
     abilityBonus: { str: 2, cha: 1 },
@@ -192,6 +204,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'StoutHalfling',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs frightened', source: 'Brave' }, { saves: ['con'], vs: 'vs poison', source: 'Stout Resilience' }],
     label: 'Halfling (Stout)',
     speed: 25,
@@ -202,6 +215,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'RockGnome',
+    source: 'PHB',
     saveAdvantages: [{ saves: ['int', 'wis', 'cha'], vs: 'vs magic', source: 'Gnome Cunning' }],
     label: 'Gnome (Rock)',
     speed: 25,
@@ -212,6 +226,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Drow',
+    source: 'SCAG',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs charm', source: 'Fey Ancestry' }],
     label: 'Elf (Drow)',
     speed: 30,
@@ -223,6 +238,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Aasimar',
+    source: 'VGtM',
     label: 'Aasimar',
     speed: 30,
     abilityBonus: { wis: 1, cha: 2 },
@@ -237,6 +253,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Kenku',
+    source: 'VGtM',
     label: 'Kenku',
     speed: 30,
     abilityBonus: { dex: 2, wis: 1 },
@@ -246,6 +263,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Tabaxi',
+    source: 'VGtM',
     label: 'Tabaxi',
     speed: 30,
     abilityBonus: { dex: 2, cha: 1 },
@@ -259,6 +277,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Lizardfolk',
+    source: 'VGtM',
     label: 'Lizardfolk',
     speed: 30,
     abilityBonus: { con: 2, wis: 1 },
@@ -287,6 +306,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Warforged',
+    source: 'ERLW',
     saveAdvantages: [{ saves: ['con'], vs: 'vs poison', source: 'Constructed Resilience' }],
     label: 'Warforged',
     speed: 30,
@@ -298,6 +318,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Githyanki',
+    source: 'MTF',
     label: 'Githyanki',
     speed: 30,
     abilityBonus: { str: 2, int: 1 },
@@ -308,6 +329,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Githzerai',
+    source: 'MTF',
     saveAdvantages: [{ saves: ['wis'], vs: 'vs charm & frightened', source: 'Mental Discipline' }],
     label: 'Githzerai',
     speed: 30,
@@ -320,6 +342,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Aarakocra',
+    source: 'EEPC',
     label: 'Aarakocra',
     speed: 25,
     abilityBonus: { dex: 2, wis: 1 },
@@ -333,6 +356,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Goliath',
+    source: 'EEPC',
     label: 'Goliath',
     speed: 30,
     abilityBonus: { str: 2, con: 1 },
@@ -346,6 +370,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Orc',
+    source: 'VGtM',
     label: 'Orc',
     speed: 30,
     abilityBonus: { str: 2, con: 1 },
@@ -361,6 +386,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Goblin',
+    source: 'VGtM',
     label: 'Goblin',
     speed: 30,
     abilityBonus: { dex: 2, con: 1 },
@@ -376,6 +402,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Bugbear',
+    source: 'VGtM',
     label: 'Bugbear',
     speed: 30,
     abilityBonus: { str: 2, dex: 1 },
@@ -389,6 +416,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Firbolg',
+    source: 'VGtM',
     label: 'Firbolg',
     speed: 30,
     abilityBonus: { str: 1, wis: 2 },
@@ -402,6 +430,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'AirGenasi',
+    source: 'EEPC',
     label: 'Genasi (Air)',
     speed: 30,
     abilityBonus: { dex: 1, con: 2 },
@@ -415,6 +444,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'EarthGenasi',
+    source: 'EEPC',
     label: 'Genasi (Earth)',
     speed: 30,
     abilityBonus: { str: 1, con: 2 },
@@ -428,6 +458,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'FireGenasi',
+    source: 'EEPC',
     label: 'Genasi (Fire)',
     speed: 30,
     abilityBonus: { con: 2, int: 1 },
@@ -442,6 +473,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'WaterGenasi',
+    source: 'EEPC',
     label: 'Genasi (Water)',
     speed: 30,
     abilityBonus: { con: 2, wis: 1 },
@@ -455,6 +487,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'Eladrin',
+    source: 'MTF',
     label: 'Elf (Eladrin)',
     speed: 30,
     abilityBonus: { dex: 2, int: 1 },
@@ -468,6 +501,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'ShifterBeasthide',
+    source: 'ERLW',
     label: 'Shifter (Beasthide)',
     speed: 30,
     abilityBonus: { str: 1, con: 2 },
@@ -481,6 +515,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'ShifterLongtooth',
+    source: 'ERLW',
     label: 'Shifter (Longtooth)',
     speed: 30,
     abilityBonus: { str: 2, dex: 1 },
@@ -494,6 +529,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'ShifterSwiftstride',
+    source: 'ERLW',
     label: 'Shifter (Swiftstride)',
     speed: 30,
     abilityBonus: { dex: 2, cha: 1 },
@@ -507,6 +543,7 @@ export let RACES: RaceDef[] = [
   },
   {
     id: 'ShifterWildhunt',
+    source: 'ERLW',
     label: 'Shifter (Wildhunt)',
     speed: 30,
     abilityBonus: { dex: 1, wis: 2 },

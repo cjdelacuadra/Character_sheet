@@ -420,6 +420,7 @@ function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
   const availableToAdd = STAT_OPTIONS.filter(o => o.key !== 'acBonus' && !statRows.some(r => r.key === o.key))
 
   return (
+    <div className={styles.editorLayout}>
     <div className={styles.panel}>
       {/* Header */}
       <div className={styles.header}>
@@ -521,24 +522,7 @@ function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
                 {spriteFiles.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-          ) : null}
-          {editMode && spriteFiles.length > 0 && (
-            <div className={styles.spriteGrid}>
-              {spriteFiles.map(f => (
-                <button
-                  key={f}
-                  type="button"
-                  className={`${styles.spriteThumb} ${f === spriteFile ? styles.spriteThumbActive : ''}`}
-                  title={f}
-                  onClick={() => setSpriteFile(f)}
-                >
-                  <img src={`${SPRITE_PREFIX}${spriteFolder}${f}`} alt={f} loading="lazy" />
-                </button>
-              ))}
-            </div>
-          )}
-          {!editMode && (
-
+          ) : (
             <span className={styles.spriteHint} title={computedSprite}>
               {computedSprite.replace(SPRITE_PREFIX, '…/')}
             </span>
@@ -829,6 +813,25 @@ function buildWeaponDef(overrideId?: string): WeaponEquipmentItem {
           <button className={styles.equipBtn} onClick={onEquip}>Add to list</button>
         )}
       </div>
+    </div>
+    {editMode && spriteFiles.length > 0 && (
+      <div className={styles.spriteGridPanel}>
+        <div className={styles.spriteGridTitle}>{spriteFolder.replace(SPRITE_PREFIX, '').replace(/\/$/, '') || 'sprites'}</div>
+        <div className={styles.spriteGrid}>
+          {spriteFiles.map(f => (
+            <button
+              key={f}
+              type="button"
+              className={`${styles.spriteThumb} ${f === spriteFile ? styles.spriteThumbActive : ''}`}
+              title={f}
+              onClick={() => setSpriteFile(f)}
+            >
+              <img src={`${SPRITE_PREFIX}${spriteFolder}${f}`} alt={f} loading="lazy" />
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
     </div>
   )
 }

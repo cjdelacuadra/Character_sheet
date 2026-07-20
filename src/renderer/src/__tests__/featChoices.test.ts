@@ -5,7 +5,7 @@ describe('featChoiceCount', () => {
   it('sums generalized feat-granted choice counts', () => {
     expect(featChoiceCount(['martialAdept'], 'maneuvers')).toBe(2)
     expect(featChoiceCount(['metamagic-adept'], 'metamagic')).toBe(2)
-    expect(featChoiceCount(['fightingInitiate'], 'fighting-style')).toBe(1)
-    expect(FEAT_BY_ID.fightingInitiate.grantsChoices).toEqual([{ kind: 'fighting-style', count: 1 }])
+    expect(featChoiceCount(['fighting-initiate'], 'fighting-style')).toBe(1)
+    expect(FEAT_BY_ID['fighting-initiate'].grantsChoices).toEqual([{ kind: 'fighting-style', count: 1 }])
   })
 })
