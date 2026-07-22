@@ -65,7 +65,12 @@
       "Bash(powershell -Command ' *)",
       "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot2.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot saved'\\\\''')",
       "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot3.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot taken'\\\\''')",
-      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot4.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot'\\\\'' ')"
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Windows.Forms; $screen = [System.Windows.Forms.Screen]::PrimaryScreen; $bitmap = New-Object System.Drawing.Bitmap\\($screen.Bounds.Width, $screen.Bounds.Height\\); $graphics = [System.Drawing.Graphics]::FromImage\\($bitmap\\); $graphics.CopyFromScreen\\($screen.Bounds.Location, [System.Drawing.Point]::Empty, $screen.Bounds.Size\\); $bitmap.Save\\('\\\\''C:\\\\Users\\\\cjdelacuadra\\\\AppData\\\\Local\\\\Temp\\\\screenshot4.png'\\\\''\\); $bitmap.Dispose\\(\\); Write-Output '\\\\''Screenshot'\\\\'' ')",
+      "Bash(node \"C:/Users/cjdelacuadra/AppData/Local/Temp/gen_wiring.cjs\")"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ]
 }

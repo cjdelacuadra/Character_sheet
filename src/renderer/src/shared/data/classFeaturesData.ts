@@ -1,4 +1,11 @@
-export interface FeatureEntry { level: number; name: string; desc: string }
+import type { Effect } from '@/domain/effects'
+
+export interface FeatureEntry {
+  level: number
+  name: string
+  desc: string
+  effects?: Effect[]
+}
 
 export const CLASS_FEATURES_DATA: Record<string, FeatureEntry[]> = {
   Fighter: [

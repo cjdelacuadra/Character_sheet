@@ -1,6 +1,7 @@
 import { CLASSES } from '@/shared/data/classData'
 import { FEATS } from '@/shared/data/featsData'
 import { ACTIONS, type ActionDef } from '@/shared/data/actionsData'
+import { resourceDefaultPoolNames } from '@/shared/data/resourceDefaults'
 
 export type SpendActionMode = 'Action' | 'Bonus Action' | 'Reaction' | 'Inside attack' | 'Inside spell / other'
 
@@ -15,6 +16,14 @@ export function knownResourceNames(): string[] {
   for (const c of CLASSES) for (const r of c.resources ?? []) names.add(r.name)
   for (const f of FEATS) for (const name of Object.keys(f.grantsResources ?? {})) names.add(name)
   for (const a of ACTIONS) if (a.resourceKey) names.add(a.resourceKey)
+  return [...names].sort()
+}
+
+export function grantedResourceNames(): string[] {
+  const names = new Set<string>()
+  for (const c of CLASSES) for (const r of c.resources ?? []) names.add(r.name)
+  for (const name of resourceDefaultPoolNames()) names.add(name)
+  for (const f of FEATS) for (const name of Object.keys(f.grantsResources ?? {})) names.add(name)
   return [...names].sort()
 }
 

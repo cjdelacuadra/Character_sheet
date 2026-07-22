@@ -1,361 +1,187 @@
 ================================================================================
-FEAT EDITOR EXPANSION — WORK ORDER FOR CODEX
+WIRING PLAN — PHASES P0 + P1 ONLY — WORK ORDER FOR CODEX
 Repo: D&D 5e character companion (Electron + React 19 + Zustand 5 + TS), Windows.
-Date: 2026-07-09. Baseline commit: 92bda4a2c (main). 463 vitest tests green.
+Date: 2026-07-21.  Implements docs/wiring-plan.md §C, phases P0 and P1 ONLY.
+Companion context: implementation/audit.md.
 ================================================================================
+
+SCOPE (read this first)
+-----------------------
+This work order implements ONLY the two safe, no-behavior-change phases of
+docs/wiring-plan.md §C:
+  P0 = resourceKey startup assertion (dev-loud; no behaviour change).
+  P1 = add `effects?: Effect[]` to FeatureEntry (TYPE ONLY; no data; no migration).
+P2 (the five reference handlers) and P3+ (per-bucket batches) are OUT OF SCOPE
+here. The design decisions those phases need are RECORDED at the bottom
+("DECISIONS FOR FUTURE PHASES") so the next work order can proceed without
+re-litigating them — but do NOT implement them now.
 
 ## PROTOCOL
-
-- Implement deliverables A..G IN ORDER. Each must leave the tree green before
-  starting the next:  npm run typecheck  ·  npx vitest run  ·  npm run build  ·
-  npx eslint src electron   (0 errors; ~50 pre-existing warnings are OK).
+- Implement P0 then P1, IN ORDER. Each must leave the tree green before the next:
+  npm run typecheck · npx vitest run · npm run build · npx eslint src electron
+  (0 errors; pre-existing warnings OK).
 - Do NOT run any git commands. Leave all changes in the working tree.
+- Effect semantics / numbers come ONLY from on-disk desc/catalog data — never
+  invent 5e numbers from memory (not relevant to P0/P1, but keep the habit).
 - If a requirement is ambiguous or contradicts the code, DO NOT GUESS: append a
-  dated entry to implementation/codex_to_claude.md (timestamp · deliverable ·
-  file/symbol · precise description of the ambiguity) and continue with the
-  next deliverable. Deliverable G explicitly allows design judgment — for G,
-  log decisions you made instead of stopping.
-- Line numbers below were verified at the baseline commit but WILL drift —
-  re-grep for the quoted anchors before editing.
+  dated entry to implementation/codex_to_claude.md (timestamp · phase ·
+  file/symbol · the ambiguity) and continue.
+- Line numbers below were verified at HEAD (commit dcc0940443c8) but MAY drift —
+  re-grep the quoted anchors before editing.
 
-## CONVENTIONS THAT GOVERN EVERYTHING
+## CONVENTIONS THAT GOVERN EVERYTHING (from the repo)
+1. "No class cage": rules key off what a character HAS, never off class identity.
+2. Two calc paths are live and must agree (legacy charCalculations.ts +
+   domain/rules/index.ts; unified engine domain/rules/*.ts folding
+   domain/effects.ts via domain/collect.ts). (P0/P1 touch neither's math.)
+3. Content catalogs are JSON single-source, loaded by
+   shared/data/contentCatalogs.ts (createCatalogLoader). NEW OPTIONAL fields need
+   no migration — entries without them stay valid.
+4. Catalog tests mutate via setActionsData/... and restore in afterEach
+   (see __tests__/catalogExternalization.test.ts). Persistence tests mock
+   '@/services/ipc' AND '@/shared/lib/rendererLogger'
+   (see __tests__/contentCatalogs.test.ts).
 
-1. "No class cage": rules key off what a character HAS (feats, resources,
-   featureState), never off class identity. New gates must follow this.
-2. TWO calculation paths are live and must agree: the legacy path
-   (src/renderer/src/shared/data/charCalculations.ts + domain/rules/index.ts)
-   and the unified engine (domain/rules/*.ts folding domain/effects.ts via
-   domain/collect.ts). Any mechanic you wire must reach BOTH, with a parity
-   test. Grep existing parity tests in src/renderer/src/__tests__/.
-3. Content catalogs are JSON data files (single source of truth), loaded by
-   shared/data/contentCatalogs.ts (createCatalogLoader: first-run seed from TS
-   defaults, disk wins, new built-ins merge back). NEW OPTIONAL FIELDS on
-   FeatDef need no migration — entries without them stay valid. Never
-   hand-edit src/renderer/public/equipment_data/*.json; change the TS defaults
-   (shared/data/featsData.ts) and let seeding/merging handle disk.
-4. Tests that touch catalogs mutate via setFeatsData/setActionsData/... and
-   restore in afterEach (see __tests__/catalogExternalization.test.ts).
-   Tests that touch persistence mock '@/services/ipc' AND
-   '@/shared/lib/rendererLogger' (see __tests__/contentCatalogs.test.ts).
-5. Character mutations go through store actions in
-   src/renderer/src/app/store/characterSlice.ts (clone → recompute derived
-   stats → persist). Never mutate a character object in place.
-
-## KEY FILES (all under src/renderer/src unless noted)
-
-- shared/data/featsData.ts ......... FeatDef + FEATS + FEAT_BY_ID + setFeatsData
-- features/content-editor/forms/FeatEditorForm.tsx  (the form you extend)
-- features/content-editor/formFields.tsx  (Section/Row/Text/Number/Select/
-    Checkbox/AbilityBonusField/IdListField — reuse these; add new primitives
-    here if genuinely reusable)
-- features/content-editor/resourceNames.ts  (knownResourceNames())
-- features/content-editor/statBlock.ts + StatBlockEditor.tsx (stat wiring rows)
-- features/features-panel/FeaturesPanel.tsx  ("+ Add Feat" picker, feat cards)
-- app/store/characterSlice.ts  (addFeat ~l.231, removeFeat ~l.299)
-- domain/rules/resources.ts  (RECOVERY_RULES ~l.20, applyRestToResources ~l.52)
-- domain/rules/index.ts  (legacy isProficientWithWeapon ~l.160-170)
-- domain/rules/attacks.ts  (unified-engine isProficientWithWeapon twin ~l.50-62)
-- shared/data/actionsData.ts + features/content-editor/forms/ActionEditorForm.tsx
-- shared/data/spellData.ts  (SPELLS, SPELL_BY_ID; school strings match the
-    SCHOOLS list in features/content-editor/forms/SpellEditorForm.tsx)
-- shared/data/skills.ts (SKILLS), shared/data/classData.ts (CLASSES),
-  shared/data/raceData.ts (RACES, RACE_BY_ID)
-- features/combat-actions/ActionDetailPanel.tsx  (maneuvers picker gated on
-    `char.feats.includes('martialAdept')` ~l.870 and `+ 2` known at ~l.880)
-- features/combat-actions/FeatureDetails.tsx  (fighting-style picker ~l.81-130,
-    writes `update({ fightingStyle: ..., fightingStyleLocked: true })`)
 
 ================================================================================
-DELIVERABLE A — "#general": WHEN A FEAT TRIGGERS
+DELIVERABLE P0 — resourceKey startup assertion (fail loud in dev)
 ================================================================================
+GOAL (wiring-plan §C P0; audit §2 "soft gap" lines 50-55): every
+`ActionDef.resourceKey` must resolve to a real resource-pool name. Today it is a
+bare string match at read time, so a typo silently creates a dead action. Add a
+load-time assertion; no behaviour change for valid data.
 
-Type (featsData.ts):
-  export type FeatTrigger =
-    'passive' | 'action' | 'bonus' | 'reaction' | 'on-attack' | 'on-hit' |
-    'on-damaged' | 'once-per-turn'
-  FeatDef gains:  trigger?: FeatTrigger        // absent = passive
+WHY the existing helper is NOT the check:
+  resourceNames.ts:13 knownResourceNames() unions CLASS resources + FEAT
+  grantsResources + **ACTIONS' own resourceKeys** (line 17). Because it folds the
+  action keys back in, asserting `resourceKey ∈ knownResourceNames()` is circular
+  and always true. The assertion must test against a GRANT-ONLY universe.
 
-Editor (FeatEditorForm.tsx): a new "General" Section at the top (above
-"Mechanics") with one SelectField "Triggered" — options: (empty = passive),
-action, bonus action, reaction, on attack, on hit, when damaged, once per turn.
-Store `undefined` for passive/empty.
+STEP 1 — grant-only universe helper.
+  Add to features/content-editor/resourceNames.ts:
+    export function grantedResourceNames(): string[]
+  Union every source that actually SEEDS a resource pool (NOT actions):
+    - CLASSES[].resources[].name              (shared/data/classData.ts)
+    - subclass resources: SUBCLASS_RESOURCES + the inline subclass-gated pools
+      (Psionic Energy, Tides of Chaos, ...) in shared/data/resourceDefaults.ts
+      (export the pool NAMES from there if not already reachable; do not
+      duplicate the table).
+    - FEATS[].grantsResources keys            (shared/data/featsData.ts)
+    - Channel Divinity / channelDivinityData resource names
+      (domain/data/channelDivinityData.ts) IF it declares pools not already in
+      CLASSES resources.
+  Return the sorted, de-duped set.
+  VERIFY: run it and confirm EVERY current ACTIONS[].resourceKey resolves
+  (e.g. 'Ki','Rage','Second Wind','Action Surge','Channel Divinity','Superiority
+  Dice','Arcane Shot', ...). If a legitimate key does NOT resolve, its seeding
+  source is missing from the universe — ADD that source. If a key has genuinely
+  no source anywhere, that is exactly the bug this assertion catches: append it
+  to codex_to_claude.md and leave the assertion to flag it (do NOT delete data).
 
-Display: in FeaturesPanel.tsx, feat cards render a small chip with the trigger
-label when `trigger` is set and not 'passive'. Match the existing chip/badge
-styling used in that panel (grep its module.css for an existing badge class).
+STEP 2 — the assertion, run on catalog load.
+  File: shared/data/contentCatalogs.ts — loadContentCatalogs() (the Promise.all
+  over featsCatalog.load()..beastsCatalog.load(), lines ~29-34; called from
+  app/store/characterSlice.ts:412 `await loadContentCatalogs()`).
+  After the awaited loads resolve, call a new assertActionResourceKeys():
+    - Build a Set from grantedResourceNames().
+    - For every a of ACTIONS with a.resourceKey, collect any whose key ∉ set.
+    - DEV (import.meta.env.DEV): throw an Error listing the offending
+      action id → resourceKey pairs ("fail loud").
+    - PROD: log via '@/shared/lib/rendererLogger' (do NOT crash the app).
+  Keep this a pure function (export it) so the test can call it without loading.
 
-Engine: NONE — this field is informational in this iteration. Do not wire it.
+STEP 3 — test (wiring-plan §C P0 exit).
+  New/extended vitest: inject an ActionDef with a bogus resourceKey via
+  setActionsData([...ACTIONS, {id:'bad', name:'Bad', type:'Action',
+  resourceKey:'NOPE-not-a-pool', resourceCost:1, ...}]), assert
+  assertActionResourceKeys() throws (dev) / reports it; restore ACTIONS in
+  afterEach. Also assert the un-tampered catalog passes (no throw).
 
-Tests: none beyond typecheck (existing JSON round-trip test in
-contentCatalogs.test.ts already covers serialization).
+EXIT: assertion + a green vitest that a bad key is caught; typecheck/build/eslint
+green; NO behaviour change for the shipping catalog.
+
 
 ================================================================================
-DELIVERABLE B — "#resources ##spend": HOW A SPEND ACTION IS PAID
+DELIVERABLE P1 — FeatureEntry gains `effects?: Effect[]` (TYPE ONLY)
 ================================================================================
+GOAL (wiring-plan §C P1 + hard-rule 5): give FeatureEntry an optional structured
+effects field so future phases can attach computed Effects (and FLAG notes)
+without a save migration. This phase adds the TYPE ONLY — zero data, zero
+behaviour, no migration.
 
-Today FeatEditorForm.createSpendAction() always creates an Action-typed action.
-Replace the single "+ spend action" button per granted-resource row with a
-cluster: a <select> (styles.formSelect, narrow) + the button. Select options
-and the ActionDef they produce (name `Use ${name}`, id `spend-${slug}`,
-generic: true, resourceKey: name, resourceCost: 1):
-
-  'Action'        → type: 'Action'
-  'Bonus Action'  → type: 'Bonus Action'
-  'Reaction'      → type: 'Reaction'
-  'Inside attack' → type: 'Free', requiresAttackThisTurn: true,
-                    short: `On an attack: spend 1 ${name}.`
-  'Inside spell / other' → type: 'Free',
-                    short: `Spend 1 ${name} as part of another effect.`
-
-Default selection 'Action'. Keep the existing "action created" feedback and the
-`isSpent` hiding logic. The Actions view (ActionEditorForm) already lets the
-user refine everything afterwards — do not duplicate its fields here.
-
-Tests: one unit test that the produced ActionDef for 'Inside attack' carries
-type 'Free' + requiresAttackThisTurn true. Extract the option→ActionDef mapping
-into a small exported pure helper (e.g. buildSpendAction(name, mode)) in
-features/content-editor/resourceNames.ts or a sibling module so the test does
-not render React.
-
-================================================================================
-DELIVERABLE C — "#proficiencies": FEATS GRANT PROFICIENCIES
-================================================================================
-
-Type (featsData.ts):
-  FeatDef gains:
-    grantsProficiencies?: {
-      skills?: Skill[]                 // from shared/data/skills.ts
-      savingThrows?: AbilityScore[]
-      weapons?: string[]               // weapon names ('longsword') or the
-                                       // categories 'Martial' | 'Simple'
+EDIT: shared/data/classFeaturesData.ts line 1.
+  Current:
+    export interface FeatureEntry { level: number; name: string; desc: string }
+  New:
+    import type { Effect } from '@/domain/effects'
+    export interface FeatureEntry {
+      level: number; name: string; desc: string
+      effects?: Effect[]   // optional + computed ⇒ no migration; absent = declared-only
     }
-  (Armor proficiencies are OUT OF SCOPE — log a codex_to_claude.md note if you
-  believe they are needed.)
+  Notes:
+    - FeatureEntry is the SINGLE type used for BOTH class features and subclass
+      features (subclassData.ts subclassFeatures: FeatureEntry[]), so this one
+      edit covers all 535 subclass entries + class features.
+    - Use `import type` (type-only) to avoid a runtime import cycle
+      classFeaturesData ↔ domain/effects. VERIFY no circular-import error after
+      the change (typecheck + build). If domain/effects.ts imports
+      classFeaturesData transitively, log to codex_to_claude.md and keep the
+      field typed as `Effect[]` via a local re-export instead of editing further.
+    - Do NOT populate effects on any entry in this phase. Do NOT change
+      subclassData.ts / classFeaturesData data rows.
 
-Editor (FeatEditorForm.tsx): new "Proficiencies" Section with three rows:
-  - Skills: IdListField validated against a Record built from SKILLS keys.
-  - Saving throws: 6 checkboxes (reuse the abilityChoice checkbox pattern).
-  - Weapons: comma text input, hint "weapon names, or Martial / Simple".
+EXIT (wiring-plan §C P1 exit): type compiles; zero data change; no migration;
+tree green (typecheck/vitest/build/eslint). Existing JSON round-trip tests still
+pass unchanged (optional field, absent everywhere).
 
-Character wiring (characterSlice.ts):
-  addFeat: after the existing abilityBonus handling —
-    - for each granted skill: if char.skillProficiencies[skill] is undefined,
-      set it to 'proficient' (never downgrade an existing 'expert').
-    - for each granted save: push into savingThrowProficiencies if absent.
-  removeFeat must reverse conservatively:
-    - remove a granted skill only if its current value is exactly 'proficient'
-      AND no OTHER remaining feat grants it (class skill choices are stored in
-      the same map, so also skip removal if you cannot prove the feat granted
-      it — acceptable approximation: remove unless another remaining feat
-      grants it; log this simplification in codex_to_claude.md).
-    - remove a granted save only if it is not in
-      CLASS_BY_ID[char.classId].savingThrows and no other remaining feat
-      grants it.
-
-Weapon proficiency (BOTH engines — this is rules math):
-  domain/rules/index.ts isProficientWithWeapon and its twin in
-  domain/rules/attacks.ts currently consult class proficiencies and the race's
-  bonusWeaponProficiencies. Add: any feat in char.feats whose
-  grantsProficiencies.weapons matches the weapon grants proficiency. Mirror the
-  EXISTING matching semantics in those functions exactly (category match on
-  'Martial'/'Simple', case-insensitive name match incl. plural 's' — read the
-  race branch and copy its comparison).
-
-Tests (new file or extend catalogExternalization.test.ts):
-  - addFeat applies skill + save proficiency; removeFeat reverses; a save that
-    is also a class save survives removeFeat.
-  - weapon proficiency parity: a test feat granting ['Martial'] makes a
-    non-proficient class proficient with a martial weapon in BOTH
-    isProficientWithWeapon implementations (import both, compare results, and
-    assert the to-hit difference equals proficiencyBonus in both
-    computeAttackBonus paths).
 
 ================================================================================
-DELIVERABLE D — "#stats: AC bonus amount" — VERIFY ONLY
+DECISIONS FOR FUTURE PHASES (P2+) — RECORDED, NOT IMPLEMENTED HERE
 ================================================================================
+The architect resolved docs/wiring-plan.md §D open questions as below. The NEXT
+work order (P2) should follow these; this order does NOT implement them.
 
-The AC Bonus stat row already exists (statBlock.ts STAT_OPTIONS 'acBonus';
-StatBlockEditor renders it as a simple editable number; engines fold it via
-computeEquipmentStats since commit e8640fb13/bb7240301; regression test
-'acBonus round-trips through the stat-row encoding' exists).
+- D1/D2 — R2 delivery + Divine Strike de-caging: canonical R2 = a PASSIVE
+  attack-table rider row (Sneak Attack style; once-per-turn via the existing
+  consumption map attackRows.ts:95), template getWeaponSpecialAttacks
+  domain/rules/index.ts:677/:688. De-cage Divine Strike to ANY character that has
+  the feature and RETIRE the bespoke Cleric-gated DivineStrikeTurnToggle
+  (ActionDetailPanel.tsx:82/:688/...). One pattern, no toggle.
+- D4 — R5a: make computeAttackAdvantage (index.ts:39) DATA-DRIVEN. Add an
+  advantage/disadvantage condition-effect mechanic kind and read
+  condition.effects[] instead of the hardcoded id list (kills the id cage).
+- D5 — R5b: BUILD computeAbilityAdvantage + the SkillSaveDetailPanel consumer
+  (mirror the attack-table adv badge). Model advantage/disadvantage BADGES ONLY;
+  floors ("treat d20 ≤ 9 as 10") and rerolls render as a FLAG note, not computed.
+- D3 — alert/R1: do NOT refactor the existing `alert` hardcode
+  (charCalculations.ts:228); wire NEW R1 features through the collect.ts fold
+  (consumers defense.ts:74/90 for AC, mobility.ts:36 for speed).
+- D6 — "Potent Spellcasting"-type outgoing spell-damage mods: FLAG for now
+  (they route via computeSpellDamage, not the weapon-special-attack path); revisit
+  as a future R2-spell sub-bucket.
+- D7 — FLAG granularity: FLAG effects are {kind:'flag', note, flagType?} with an
+  OPTIONAL flagType enum (aura | incoming | party | narrative | action-economy)
+  for UI grouping; note stays free text.
+- D8 — companion/summon boundary: features that add damage to YOUR OWN attack
+  (e.g. Arcane Jolt) = R2; anything that is a SEPARATE creature's action/stat
+  block (Steel Defender, Ranger's Companion, Manifest Echo, drakes) = FLAG /
+  summon system.
+- Unchanged hard rules for P2+: one bucket per PR; every handler ships a vitest
+  asserting a concrete number; each PR cites the template file:line it copied;
+  semantics from on-disk desc only. P1 requires a HUMAN to ratify the B1–B4
+  triage and empty ESCALATE before P2 wiring begins.
 
-Task: VERIFY, do not rebuild. Run the app mentally through the code path:
-FeatEditorForm → StatBlockEditor add 'AC Bonus' row → number input editable →
-draft.stats.acBonus → save → computeACFull/defense.computeAC pick it up
-(existing parity test 'feat stats fold into AC and speed in both calculation
-paths'). If you find an actual defect (e.g. the row's value not editable, or
-the amount not persisting), fix it minimally and add a regression test. If it
-already works, write one line in codex_to_claude.md: "D verified, no defect".
-
-================================================================================
-DELIVERABLE E — "#prerequisites": CLASS / RACE / FEAT / STAT GATES
-================================================================================
-
-Type (featsData.ts):
-  FeatDef gains:
-    prerequisites?: {
-      classes?: string[]               // class ids (CLASSES[].id)
-      races?: string[]                 // race ids (RACES[].id)
-      feats?: string[]                 // feat ids
-      abilities?: Partial<AbilityScores>   // MINIMUM scores, e.g. { str: 13 }
-    }
-
-Pure helper (featsData.ts, exported):
-  featPrerequisitesMet(
-    char: Pick<Character, 'classId' | 'race' | 'feats' | 'abilityScores'>,
-    feat: FeatDef,
-  ): { met: boolean; missing: string[] }
-  - classes: met if char.classId is in the list (empty/absent = no gate).
-  - races: same for char.race.
-  - feats: every listed feat id must be in char.feats.
-  - abilities: char.abilityScores[ab] >= minimum for every entry.
-  - missing: human-readable strings ("class Fighter", "STR 13", "feat Lucky").
-
-Editor (FeatEditorForm.tsx): new "Prerequisites" Section:
-  - Classes: comma input with a datalist of CLASSES ids.
-  - Races: IdListField validated against RACE_BY_ID.
-  - Feats: IdListField validated against FEAT_BY_ID.
-  - Ability minimums: reuse AbilityBonusField (values are minimums; hint text
-    "minimum scores, empty = no requirement").
-
-Enforcement (FeaturesPanel.tsx "+ Add Feat" picker):
-  - Feats whose prerequisites are unmet render disabled/dimmed with the
-    missing list in the title tooltip.
-  - Add an "Ignore prerequisites" checkbox at the top of the picker that
-    re-enables everything (the app's no-class-cage escape hatch). Default
-    unchecked.
-
-Tests: featPrerequisitesMet unit matrix — class gate, race gate, feat gate,
-ability minimum met/unmet, absent prerequisites always met, missing[] wording.
 
 ================================================================================
-DELIVERABLE F — "##spells + ##free cast": GRANTED-SPELL PICKER & RECHARGE
+VERIFICATION (this order)
 ================================================================================
-
-Type (featsData.ts):
-  FeatDef keeps grantedSpells?: string[] and freeCastSpells?: string[]
-  (backward compatible) and gains:
-    freeCastRecharge?: Record<string, 'short' | 'long'>
-  Semantics: a granted spell has free-cast mode none|short|long.
-    none  → id in grantedSpells only.
-    long  → id ALSO in freeCastSpells (existing behavior; recharge on long
-            rest via the 'Feat:' prefix RECOVERY_RULE).
-    short → id in freeCastSpells AND freeCastRecharge[id] === 'short'.
-
-Editor (FeatEditorForm.tsx): REPLACE the two IdListFields ("Granted spells",
-"Free casts") with one "Granted spells" block:
-  - A search row: text input (name substring, case-insensitive) + a school
-    <select> ('All schools' + the 8 schools — reuse the SCHOOLS list from
-    SpellEditorForm or move it to a shared module) filtering SPELLS.
-  - A results list (cap 20, styled like the shell's entry rows) — clicking an
-    entry adds its id to grantedSpells (no duplicates).
-  - Below, one row per granted spell id: spell name (fall back to raw id if
-    unknown), a free-cast <select> [none | short rest | long rest], and a
-    remove ×. The select maps to the semantics above; keep the three fields
-    consistent on every change (an id removed from grantedSpells leaves
-    freeCastSpells/freeCastRecharge too).
-  Extract the mapping as a pure exported helper so it is testable, e.g.
-    setGrantedSpellMode(feat: FeatDef, spellId: string,
-                        mode: 'none'|'short'|'long'): FeatDef
-
-Recharge wiring (domain/rules/resources.ts applyRestToResources, short-rest
-branch ~l.75): BEFORE the generic RECOVERY_RULES lookup, special-case keys
-starting with 'Feat:':
-  - spellId = key.slice('Feat:'.length)
-  - if any feat in char.feats has freeCastRecharge[spellId] === 'short'
-    → recover fully ({ used: 0 }) and continue.
-  - else fall through (the existing 'Feat:' prefix rule keeps them long-only).
-  RestInput must gain feats (check its Pick — extend it and pass char.feats
-  from the two call sites in characterSlice shortRest/longRest; longRest
-  already resets everything so only the short-rest branch matters).
-  FEAT_BY_ID lookup from domain/rules/resources.ts is acceptable — the module
-  already imports catalog data (verify; if it would create an import cycle,
-  accept the feats' defs being passed pre-resolved and log the choice).
-
-addFeat already seeds `Feat:${spellId}` pools from freeCastSpells — unchanged.
-
-Tests:
-  - setGrantedSpellMode matrix (none→short→long→none keeps the three fields
-    consistent).
-  - applyRestToResources: with a test feat where spell A recharge short and
-    spell B long: short rest recovers Feat:A fully, leaves Feat:B used.
-
+- npm run typecheck · npx vitest run · npm run build · npx eslint src electron —
+  all green (pre-existing warnings OK).
+- P0: with the shipping catalog, loadContentCatalogs() does NOT throw; injecting
+  a bogus resourceKey via setActionsData makes assertActionResourceKeys() throw
+  (dev) and the test catches it.
+- P1: typecheck passes with `effects?: Effect[]` present and unused; no data file
+  changed; no new migration; round-trip catalog tests unchanged.
 ================================================================================
-DELIVERABLE G — "##sub feats": FEATS THAT GRANT A CLASS-OPTION CHOICE
-================================================================================
-
-(The user is "not sure here" — you have design latitude. Log every design
-decision in codex_to_claude.md instead of stopping.)
-
-Goal: a feat can grant a pick from an existing option catalog — the motivating
-example is Fighting Initiate (grants one Fighting Style). Martial Adept
-(2 maneuvers) and Metamagic Adept (2 metamagic options) already behave this
-way through HARDCODED feat-id checks; generalize the mechanism and keep their
-behavior byte-identical.
-
-Type (featsData.ts):
-  FeatDef gains:
-    grantsChoices?: Array<{
-      kind: 'fighting-style' | 'maneuvers' | 'metamagic'
-      count: number
-    }>
-
-Backfill the TS defaults in featsData.ts:
-  - martialAdept: grantsChoices: [{ kind: 'maneuvers', count: 2 }]
-  - the 'metamagic-adept' feat (featsData.ts ~l.277):
-    grantsChoices: [{ kind: 'metamagic', count: 2 }]
-  - NEW feat entry: id 'fightingInitiate', name 'Fighting Initiate',
-    description per PHB/TCoE ("You have martial training... choose one
-    Fighting Style option from the fighter class."),
-    grantsChoices: [{ kind: 'fighting-style', count: 1 }].
-
-Helper (featsData.ts): featChoiceCount(feats: string[], kind): number —
-sums count over the characters' feats' grantsChoices of that kind.
-
-Rewiring (write the pin-down tests FIRST, then refactor):
-  1. Maneuvers: ActionDetailPanel ~l.870 (`char.feats.includes('martialAdept')`
-     gate) and ~l.880 (`+ (char.feats.includes('martialAdept') ? 2 : 0)`)
-     → replace the id checks with featChoiceCount(char.feats, 'maneuvers')
-     (> 0 for the gate; add the count for known). Grep for OTHER martialAdept
-     id checks (FeatureDetails, compat.ts, domain/rules) and convert the ones
-     that express "grants maneuver picks/count"; leave unrelated ones.
-  2. Metamagic: same treatment for the metamagic-adept id checks (grep; the
-     known-count math lives near featureState['metamagic'] handling).
-  3. Fighting style: the picker UI exists in FeatureDetails.tsx ~l.81-130 but
-     is reached through class feature entries. Make FeaturesPanel feat cards
-     for feats with a 'fighting-style' grantsChoices open that picker: the
-     cleanest route given the existing pane router is to render the same
-     picker markup inside the feat card's detail (FeatureDetails is already
-     the feature-detail surface — check how selection feats like Martial
-     Adept surface their picker from the feat card today and mirror that
-     path). The chosen style must persist exactly as the class path does
-     (update({ fightingStyle, fightingStyleLocked: true })) so both engines'
-     existing fightingStyle reads (archery, dueling, TWF...) work unchanged.
-     If a character can end up with BOTH a class style and a feat style,
-     today's single `fightingStyle` field cannot hold two — v1 LIMITATION:
-     keep the single field, document in codex_to_claude.md, do not redesign
-     the schema.
-
-Pin-down tests (BEFORE refactor, must stay green after):
-  - maneuvers known count for a non-BattleMaster with martialAdept = 2 (find
-    the existing helper/POJO math used at ActionDetailPanel ~l.880 — if it is
-    inline JSX-only, extract just enough into a pure function to test it).
-  - metamagic known count with the adept feat unchanged (there is existing
-    metamagicKnownCount coverage in casterParity.test.ts — extend for the
-    feat bonus if not covered).
-New tests:
-  - featChoiceCount sums correctly; fightingInitiate grants 1 fighting-style.
-
-================================================================================
-ACCEPTANCE CHECKLIST (run after G)
-================================================================================
-
-- npm run typecheck → 0 errors
-- npx vitest run → all green (463 baseline + your new tests)
-- npm run build → success
-- npx eslint src electron → 0 errors
-- implementation/codex_to_claude.md contains: one entry per ambiguity/decision,
-  or explicit "no ambiguities" notes for A..G.
-- No git commands were run; bundled JSONs under public/equipment_data were not
-  hand-edited.
+END OF WORK ORDER
 ================================================================================

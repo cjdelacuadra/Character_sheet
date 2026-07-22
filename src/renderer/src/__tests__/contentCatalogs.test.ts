@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // In-memory content dir; each test controls what "disk" holds.
 const files = new Map<string, string>()
@@ -18,11 +18,18 @@ import { createCatalogLoader } from '@/shared/data/contentLoader'
 import { FEATS } from '@/shared/data/featsData'
 import { CONDITIONS } from '@/shared/data/conditionsData'
 import { RACES } from '@/shared/data/raceData'
-import { ACTIONS } from '@/shared/data/actionsData'
+import { ACTIONS, setActionsData } from '@/shared/data/actionsData'
 import { SPELLS } from '@/shared/data/spellData'
 import { WILD_SHAPE_BEASTS } from '@/shared/data/wildShapeBeasts'
+import { assertActionResourceKeys } from '@/shared/data/contentCatalogs'
 
 interface Item { id: string; name: string; value?: number }
+
+const ORIGINAL_ACTIONS = [...ACTIONS]
+
+afterEach(() => {
+  setActionsData(ORIGINAL_ACTIONS)
+})
 
 describe('createCatalogLoader', () => {
   let data: Item[] = []
@@ -78,3 +85,24 @@ describe('catalog JSON round-trip fidelity', () => {
     expect(back).toEqual(catalog)
   })
 })
+
+describe('assertActionResourceKeys', () => {
+  it('passes for the shipping action catalog', () => {
+    expect(() => assertActionResourceKeys()).not.toThrow()
+  })
+
+  it('throws in dev when an action references a resource pool that is never granted', () => {
+    setActionsData([...ACTIONS, {
+      id: 'bad',
+      name: 'Bad',
+      type: 'Action',
+      resourceKey: 'NOPE-not-a-pool',
+      resourceCost: 1,
+      short: 'Bad.',
+      full: 'Bad.',
+    }])
+
+    expect(() => assertActionResourceKeys()).toThrow('bad -> NOPE-not-a-pool')
+  })
+}
+)

@@ -11,6 +11,8 @@ const SUBCLASS_RESOURCES: Record<string, ResourceDef[]> = {
   ],
 }
 
+const INLINE_SUBCLASS_RESOURCE_NAMES = ['Psionic Energy', 'Tides of Chaos']
+
 function resolveTotal(
   scalingPer: string | undefined,
   scalingTable: Record<number, number> | undefined,
@@ -73,6 +75,13 @@ export function getResourceDefaults(
     result['Tides of Chaos'] = { used: 0, total: 1 }
   }
   return result
+}
+
+export function resourceDefaultPoolNames(): string[] {
+  return [
+    ...Object.values(SUBCLASS_RESOURCES).flatMap(resources => resources.map(resource => resource.name)),
+    ...INLINE_SUBCLASS_RESOURCE_NAMES,
+  ]
 }
 
 export function getResourceDefaultDefinition(classId: string, subclassId: string | undefined, name: string): ResourceDef | undefined {

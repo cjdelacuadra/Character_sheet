@@ -6,6 +6,8 @@ import { RACES, setRacesData, type RaceDef } from './raceData'
 import { ACTIONS, setActionsData, type ActionDef } from './actionsData'
 import { SPELLS, setSpellsData, type SpellEntry } from './spellData'
 import { WILD_SHAPE_BEASTS, setWildShapeBeastsData, type WildShapeBeast } from './wildShapeBeasts'
+import { grantedResourceNames } from '@/features/content-editor/resourceNames'
+import { logError } from '@/shared/lib/rendererLogger'
 
 // Built-in snapshots, captured at module init BEFORE any loader mutates the
 // live arrays — these are what first-run seeding and new-built-in merging use.
@@ -23,6 +25,18 @@ export const actionsCatalog    = createCatalogLoader('actions.json',    () => DE
 export const spellsCatalog     = createCatalogLoader('spells.json',     () => DEFAULT_SPELLS,     setSpellsData,     () => SPELLS)
 export const beastsCatalog     = createCatalogLoader('wildShapeBeasts.json', () => DEFAULT_BEASTS, setWildShapeBeastsData, () => WILD_SHAPE_BEASTS)
 
+export function assertActionResourceKeys(): void {
+  const granted = new Set(grantedResourceNames())
+  const missing = ACTIONS
+    .filter(action => action.resourceKey && !granted.has(action.resourceKey))
+    .map(action => `${action.id} -> ${action.resourceKey}`)
+  if (missing.length === 0) return
+
+  const message = `Action resourceKey values without granted resource pools: ${missing.join(', ')}`
+  if (import.meta.env.DEV) throw new Error(message)
+  logError('contentCatalogs.assertActionResourceKeys', message)
+}
+
 /** Load every externalized catalog (equipment CSVs and summons have their own loaders). */
 export async function loadContentCatalogs(): Promise<void> {
   await Promise.all([
@@ -33,4 +47,5 @@ export async function loadContentCatalogs(): Promise<void> {
     spellsCatalog.load(),
     beastsCatalog.load(),
   ])
+  assertActionResourceKeys()
 }
