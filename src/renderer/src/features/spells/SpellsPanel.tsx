@@ -81,7 +81,11 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   const spellAtkBonus = computeSpellAttackBonus(char)
   const attackAdvantage = computeAttackAdvantage(char)
   const isPreparedCaster = !!classDef?.prepareSpells
-  const isWizard = char.classId === 'Wizard'
+  // Spellbook casters learn spells into a book, then cast/prepare from it (Wizard, Scholar) — as
+  // opposed to preparing from the entire class list (Cleric, Druid). The signal is a class that
+  // has a spellsKnownTable AND uses a grimoire: the Wizard (known caster) and any prepared caster
+  // that also has a spellsKnownTable (the Scholar's "learn into spellbook, prepare a subset" model).
+  const usesSpellbook = char.classId === 'Wizard' || (isPreparedCaster && !!classDef?.spellsKnownTable)
   const knownCasterSwapNote = !isPreparedCaster && !!classDef?.spellsKnownTable
   const spellcastingAbility = subclassDef?.spellcastingAbility ?? classDef?.spellcastingAbility
   const prepareLimit = isPreparedCaster && spellcastingAbility
@@ -233,7 +237,8 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
   function computeLearnCost(spell: { level: number; school: string }): number {
     if (spell.level === 0) return 0
     const base = 50 * spell.level
-    if (!isWizard || !subclassDef) return base
+    // Specialty-school savant discount is a Wizard-subclass rule only (not the Scholar's spellbook).
+    if (char.classId !== 'Wizard' || !subclassDef) return base
     // Match School of X subclass to spell school (e.g., subclass "Evocation" ⇒ spells with school "Evocation")
     if (subclassDef.label.toLowerCase().includes(spell.school.toLowerCase())) return Math.floor(base / 2)
     return base
@@ -578,7 +583,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
     .sort(spellSort)
 
   const spellListClassId = subclassDef?.spellListClassId ?? char.classId
-  const preparedIds = isPreparedCaster && !isWizard
+  const preparedIds = isPreparedCaster && !usesSpellbook
     ? char.preparedSpellIds
         .filter(id => {
           const spell = SPELL_BY_ID[id]
@@ -846,7 +851,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
 
               {/* Section 2: Known / Spellbook (not prepared) — drop target */}
               <span className={styles.spellSubLabel}>
-                {isWizard ? 'Spellbook' : 'Known'} ({cantripsAndKnown.length})
+                {usesSpellbook ? 'Spellbook' : 'Known'} ({cantripsAndKnown.length})
               </span>
               {knownCasterSwapNote && (
                 <span className={styles.spellSubLabel} style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>
@@ -855,15 +860,15 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               )}
               <div
                 className={`${styles.spellList} ${dragOver === 'spellbook' || dragOver === 'known' ? styles.spellListDropActive : ''}`}
-                onDragOver={e => onSectionDragOver(e, isWizard ? 'spellbook' : 'known')}
+                onDragOver={e => onSectionDragOver(e, usesSpellbook ? 'spellbook' : 'known')}
                 onDragLeave={onSectionDragLeave}
-                onDrop={e => onSectionDrop(e, isWizard ? 'spellbook' : 'known')}
+                onDrop={e => onSectionDrop(e, usesSpellbook ? 'spellbook' : 'known')}
               >
                 {cantripsAndKnown.map(id => <SpellRow key={id} id={id} fromSection="known" />)}
                 {cantripsAndKnown.length === 0 && <div className={styles.emptyNote}>No other spells known.</div>}
               </div>
 
-              {!isWizard && (
+              {!usesSpellbook && (
                 <>
                   <div className={styles.spellSubDivider} />
                   <span className={styles.spellSubLabel}>Class Spells ({preparedClassSpellIds.length})</span>
@@ -900,7 +905,7 @@ export function SpellsPanel({ character: char, update, castingTimeFilter, onLear
               )}
 
               {/* Section 3: Learnable (Wizard + onLearnSpell) */}
-              {isWizard && onLearnSpell && (() => {
+              {usesSpellbook && onLearnSpell && (() => {
                 const knownIds = new Set(char.spellIds)
                 const allLearnable = SPELLS.filter(s =>
                   s.classes.includes(char.classId) &&

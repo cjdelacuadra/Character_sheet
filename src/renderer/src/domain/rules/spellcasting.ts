@@ -66,7 +66,7 @@ export function computeArcaneShotDC(char: CasterInput): number | null {
 export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {
   const abilityMod = mod(abilityScore)
   if (classId === 'Paladin') return Math.max(1, Math.floor(level / 2) + abilityMod)
-  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard' || classId === 'Artificer') {
+  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard' || classId === 'Artificer' || classId === 'Scholar') {
     return Math.max(1, level + abilityMod)
   }
   return 0

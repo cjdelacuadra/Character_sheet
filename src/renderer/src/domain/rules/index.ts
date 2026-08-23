@@ -3,12 +3,12 @@ import { mod, effectiveAbilityScore, computeEquipmentStats, withLiveWeaponDef } 
 import { ACTIONS, type ActionDef } from '@/shared/data/actionsData'
 export type { ActionDef } from '@/shared/data/actionsData'
 import { combineDiceExpr, critDiceExpr } from '@/shared/lib/diceExpr'
-import { CLASS_BY_ID, type ClassDef } from '@/shared/data/classData'
+import { CLASS_BY_ID, CLASSES, type ClassDef } from '@/shared/data/classData'
 import { SUBCLASS_BY_ID } from '@/shared/data/subclassData'
 import { WEAPONS } from '@/shared/data/equipment/weapons'
 import { defaultSpellSlots } from '@/shared/data/spellSlots'
 import { RACE_BY_ID } from '@/shared/data/raceData'
-import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { FEAT_BY_ID, FEATS } from '@/shared/data/featsData'
 import { computeUpcastDice, type SpellEntry } from '@/shared/data/spellData'
 import { fightingStyleOf, hasCrusherCrit, hasPiercerCrit, hexWarriorWeaponIdOf, invocationsOf, isRaging, wildShapeFormOf } from '@/domain/character/compat'
 
@@ -396,9 +396,28 @@ function destroyUndeadCRThreshold(level: number): string | null {
 }
 
 export function getAvailableActions(character: Character): ActionDef[] {
+  // Pools granted ONLY by feats (e.g. FFXIV role actions), i.e. never seeded by
+  // any class resource. An action that consumes such a pool must only appear
+  // when the character has a feat granting it — otherwise a bare `resourceKey`
+  // (no classOnly) would leak the action to everyone. Pools that a class also
+  // grants (e.g. Sorcery Points, which Metamagic Adept can top up) are excluded,
+  // so class actions keep their existing gating.
+  const classPoolNames = new Set<string>()
+  for (const c of CLASSES) for (const r of c.resources ?? []) classPoolNames.add(r.name)
+  const featOnlyPools = new Set<string>()
+  const characterFeatPools = new Set<string>()
+  for (const f of FEATS) {
+    for (const name of Object.keys(f.grantsResources ?? {})) {
+      if (!classPoolNames.has(name)) featOnlyPools.add(name)
+      if ((character.feats ?? []).includes(f.id)) characterFeatPools.add(name)
+    }
+  }
+
   const classActions = ACTIONS.filter(a => !a.generic).filter(a => {
     if (a.classOnly && a.classOnly !== character.classId) return false
     if (a.requiresLevel && character.level < a.requiresLevel) return false
+    // Gate feat-only-pool actions on actually having the granting feat.
+    if (a.resourceKey && featOnlyPools.has(a.resourceKey) && !characterFeatPools.has(a.resourceKey)) return false
     return true
   })
   const subclassCasts = character.subclass ? !!SUBCLASS_BY_ID[character.subclass]?.spellcastingAbility : false
@@ -538,8 +557,8 @@ export function getAvailableActions(character: Character): ActionDef[] {
 export function computePreparedSpellCount(classId: string, level: number, abilityScore: number): number {
   const abilityMod = mod(abilityScore)
   if (classId === 'Paladin') return Math.max(1, Math.floor(level / 2) + abilityMod)
-  // Cleric/Druid/Wizard/Artificer prepare (level + spellcasting modifier).
-  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard' || classId === 'Artificer') return Math.max(1, level + abilityMod)
+  // Cleric/Druid/Wizard/Artificer/Scholar prepare (level + spellcasting modifier).
+  if (classId === 'Cleric' || classId === 'Druid' || classId === 'Wizard' || classId === 'Artificer' || classId === 'Scholar') return Math.max(1, level + abilityMod)
   return 0
 }
 

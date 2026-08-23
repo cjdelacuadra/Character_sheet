@@ -97,6 +97,7 @@ describe('computePreparedSpellCount', () => {
   it('Wizard level 1, INT 16: level + mod = 4', () => expect(computePreparedSpellCount('Wizard', 1, 16)).toBe(4))
   it('Artificer level 5, INT 16: level + mod = 8 (was 0 before fix)', () => expect(computePreparedSpellCount('Artificer', 5, 16)).toBe(8))
   it('Paladin level 4, CHA 16: half-level + mod = 5', () => expect(computePreparedSpellCount('Paladin', 4, 16)).toBe(5))
+  it('Scholar level 3, INT 16: level + mod = 6 (matches compendium example)', () => expect(computePreparedSpellCount('Scholar', 3, 16)).toBe(6))
   it('non-preparer (Bard) returns 0', () => expect(computePreparedSpellCount('Bard', 5, 16)).toBe(0))
   it('floors at minimum 1 when mod is very negative', () => expect(computePreparedSpellCount('Cleric', 1, 6)).toBe(1)) // 1 + (-2) = -1 → 1
 })

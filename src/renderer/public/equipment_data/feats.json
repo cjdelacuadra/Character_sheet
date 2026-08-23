@@ -71,13 +71,13 @@
   {
     "id": "sharpshooter",
     "name": "Sharpshooter",
-    "description": "Attacking at long range doesn't impose disadvantage. Ranged attack rolls against targets in half or three-quarters cover ignore the cover bonus. Before a ranged attack, take \u22125 to the roll to deal +10 damage.",
+    "description": "Attacking at long range doesn't impose disadvantage. Ranged attack rolls against targets in half or three-quarters cover ignore the cover bonus. Before a ranged attack, take −5 to the roll to deal +10 damage.",
     "source": "PHB"
   },
   {
     "id": "greatWeaponMaster",
     "name": "Great Weapon Master",
-    "description": "On a critical hit or after killing a creature with a melee weapon, make one melee weapon attack as a bonus action. Before a melee attack with a heavy weapon, take \u22125 to the roll to deal +10 damage.",
+    "description": "On a critical hit or after killing a creature with a melee weapon, make one melee weapon attack as a bonus action. Before a melee attack with a heavy weapon, take −5 to the roll to deal +10 damage.",
     "source": "PHB"
   },
   {
@@ -435,5 +435,204 @@
       "detect-thoughts"
     ],
     "source": "TCoE"
+  },
+  {
+    "id": "ff-role-vanguard",
+    "source": "FFXIV",
+    "name": "Role of the Vanguard",
+    "abilityChoice": [
+      "str",
+      "con"
+    ],
+    "description": "You take on the tanking role. Increase STR or CON by 1 (max 20). Provoke (bonus action, prof/long rest): challenge a creature within 30ft — it has disadvantage on attacks against others until the start of your next turn. Rampart (reaction, 1/short rest): reduce damage you take by your proficiency bonus until the start of your next turn.",
+    "grantsResources": {
+      "Provoke": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Rampart": 1
+    }
+  },
+  {
+    "id": "ff-heart-vanguard",
+    "source": "FFXIV",
+    "name": "Heart of the Vanguard",
+    "abilityChoice": [
+      "str",
+      "con"
+    ],
+    "prerequisites": {
+      "feats": [
+        "ff-role-vanguard"
+      ]
+    },
+    "description": "Prerequisite: Role of the Vanguard. Increase STR or CON by 1 (max 20). Interject (reaction): when a creature casts a spell within 5ft, make a weapon attack; on a hit it makes a concentration save (DC 8 + STR/DEX mod + prof) or the spell fails. Reprisal (bonus action, prof/long rest): emit a 10ft aura reducing enemy damage by your proficiency bonus until the end of your next turn.",
+    "grantsResources": {
+      "Interject": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Reprisal": {
+        "flat": 0,
+        "profFactor": 1
+      }
+    }
+  },
+  {
+    "id": "ff-role-soothesayer",
+    "source": "FFXIV",
+    "name": "Role of the Soothesayer",
+    "abilityChoice": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "description": "You take on the healing role. Increase INT, WIS, or CHA by 1 (max 20). Cleric Stance (prof/long rest): convert a healing spell into radiant damage (+spellcasting modifier). Surecast (reaction, 1/long rest): when hit by an attack, pass on concentration checks and forced-movement saves until the start of your next turn.",
+    "grantsResources": {
+      "Cleric Stance": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Surecast": 1
+    }
+  },
+  {
+    "id": "ff-heart-soothesayer",
+    "source": "FFXIV",
+    "name": "Heart of the Soothesayer",
+    "abilityChoice": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "prerequisites": {
+      "feats": [
+        "ff-role-soothesayer"
+      ]
+    },
+    "description": "Prerequisite: Role of the Soothesayer. Increase INT, WIS, or CHA by 1 (max 20). Rescue (action, 1/long rest): teleport a willing creature within 60ft to within 5ft of you. Swiftcast (1/long rest): cast an action-cast spell as a bonus action.",
+    "grantsResources": {
+      "Rescue": 1,
+      "Swiftcast": 1
+    }
+  },
+  {
+    "id": "ff-role-destroyer",
+    "source": "FFXIV",
+    "name": "Role of the Destroyer",
+    "abilityChoice": [
+      "str",
+      "dex"
+    ],
+    "description": "You take on the melee DPS role. Increase STR or DEX by 1 (max 20). Arm's Length (reaction, prof/long rest): when targeted by a melee attack, impose disadvantage and prevent opportunity attacks against you until the end of your next turn. Recuperate (bonus action, 1/long rest): recover 2d4 + your character level hit points.",
+    "grantsResources": {
+      "Arm's Length": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Recuperate": 1
+    }
+  },
+  {
+    "id": "ff-heart-destroyer",
+    "source": "FFXIV",
+    "name": "Heart of the Destroyer",
+    "abilityChoice": [
+      "str",
+      "dex"
+    ],
+    "prerequisites": {
+      "feats": [
+        "ff-role-destroyer"
+      ]
+    },
+    "description": "Prerequisite: Role of the Destroyer. Increase STR or DEX by 1 (max 20). Feint (prof/long rest): on a melee hit, the target makes a CON save (DC 8 + prof + STR/DEX mod) or its damage is reduced by your proficiency bonus and it has disadvantage on attacks until the start of your next turn. True North (bonus action, 1/long rest): make all melee attack rolls with advantage until the start of your next turn.",
+    "grantsResources": {
+      "Feint": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "True North": 1
+    }
+  },
+  {
+    "id": "ff-role-magus",
+    "source": "FFXIV",
+    "name": "Role of the Magus",
+    "abilityChoice": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "description": "You take on the caster DPS role. Increase INT, WIS, or CHA by 1 (max 20). Swiftcast (1/long rest): cast an action-cast spell as a bonus action. Lucid Dreaming (1/long rest): when you cast a spell, double your proficiency bonus to that spell’s attack roll or save DC until the start of your next turn.",
+    "grantsResources": {
+      "Swiftcast": 1,
+      "Lucid Dreaming": 1
+    }
+  },
+  {
+    "id": "ff-heart-magus",
+    "source": "FFXIV",
+    "name": "Heart of the Magus",
+    "abilityChoice": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "prerequisites": {
+      "feats": [
+        "ff-role-magus"
+      ]
+    },
+    "description": "Prerequisite: Role of the Magus. Increase INT, WIS, or CHA by 1 (max 20). Addle (bonus action, prof/long rest): a creature within 30ft makes a WIS save (DC 8 + prof + spellcasting modifier) or its damage is reduced by your proficiency bonus and it has disadvantage on saves against your spells until the start of your next turn.",
+    "grantsResources": {
+      "Addle": {
+        "flat": 0,
+        "profFactor": 1
+      }
+    }
+  },
+  {
+    "id": "ff-role-sniper",
+    "source": "FFXIV",
+    "name": "Role of the Sniper",
+    "abilityChoice": [
+      "dex"
+    ],
+    "description": "You take on the ranged DPS role. Increase DEX by 1 (max 20). Arm's Length (reaction, prof/long rest): when targeted by a melee attack, impose disadvantage and prevent opportunity attacks against you until the end of your next turn. Peloton (bonus action, prof/long rest): you and allies within 30ft gain +10ft base movement until the start of your next turn.",
+    "grantsResources": {
+      "Arm's Length": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Peloton": {
+        "flat": 0,
+        "profFactor": 1
+      }
+    }
+  },
+  {
+    "id": "ff-heart-sniper",
+    "source": "FFXIV",
+    "name": "Heart of the Sniper",
+    "abilityChoice": [
+      "dex"
+    ],
+    "prerequisites": {
+      "feats": [
+        "ff-role-sniper"
+      ]
+    },
+    "description": "Prerequisite: Role of the Sniper. Increase DEX by 1 (max 20). Blunt Shot (reaction, prof/long rest): when a creature within 30ft begins casting, make a ranged attack; on a hit it makes a concentration save (DC 8 + DEX mod + prof) or the spell fails. Maiming Shot (prof/long rest): on a ranged hit, the target makes a CON save (DC 8 + prof + DEX mod) or its speed drops to 0 until the start of your next turn.",
+    "grantsResources": {
+      "Blunt Shot": {
+        "flat": 0,
+        "profFactor": 1
+      },
+      "Maiming Shot": {
+        "flat": 0,
+        "profFactor": 1
+      }
+    }
   }
 ]

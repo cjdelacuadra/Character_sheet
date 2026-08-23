@@ -239,12 +239,36 @@ export function FeatEditorForm({ draft, onChange }: Props) {
               set({ grantsResources: Object.fromEntries(entries) })
             }}
           />
-          <input
-            className={`${styles.formInput} ${styles.formInputSm}`}
-            type="number" min={1} max={20}
-            value={amount}
-            onChange={e => set({ grantsResources: { ...draft.grantsResources, [name]: Number(e.target.value) } })}
-          />
+          {(() => {
+            const flat = typeof amount === 'number' ? amount : (amount?.flat ?? 0)
+            const factor = typeof amount === 'number' ? 0 : (amount?.profFactor ?? 0)
+            // Store a plain number when there's no PB scaling, else the formula object.
+            const write = (nextFlat: number, nextFactor: number) =>
+              set({ grantsResources: {
+                ...draft.grantsResources,
+                [name]: nextFactor === 0 ? nextFlat : { flat: nextFlat, profFactor: nextFactor },
+              } })
+            return (
+              <>
+                <input
+                  className={`${styles.formInput} ${styles.formInputSm}`}
+                  type="number" min={0} max={20}
+                  title="Flat amount"
+                  value={flat}
+                  onChange={e => write(Number(e.target.value), factor)}
+                />
+                <span className={styles.formHint} style={{ whiteSpace: 'nowrap' }}>+</span>
+                <input
+                  className={`${styles.formInput} ${styles.formInputSm}`}
+                  type="number" min={0} max={4} step={1}
+                  title="× proficiency bonus"
+                  value={factor}
+                  onChange={e => write(flat, Number(e.target.value))}
+                />
+                <span className={styles.formHint} style={{ whiteSpace: 'nowrap' }}>× PB</span>
+              </>
+            )
+          })()}
           {!isSpent && name && (
             <>
               <select

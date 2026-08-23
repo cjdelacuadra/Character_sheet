@@ -28,6 +28,7 @@ export function SpellEditorForm({ draft, onChange }: Props) {
       <NumberField label="Level (0=cantrip)" value={draft.level} onChange={level => set({ level: level ?? 0 })} min={0} max={9} />
       <SelectField label="School" value={draft.school} onChange={school => set({ school: school as SpellEntry['school'] })}
         options={SCHOOLS.map(s => ({ value: s, label: s }))} />
+      <TextField label="Source" value={draft.source ?? ''} onChange={v => set({ source: v || undefined })} placeholder="PHB (default), TCoE, FFXIV, custom..." />
       <TextField label="Casting time" value={draft.castingTime} onChange={castingTime => set({ castingTime })} placeholder="1 action / 1 bonus action / 1 reaction" />
       <TextField label="Range" value={draft.range} onChange={range => set({ range })} placeholder="60ft / Touch / Self" />
       <TextField label="Components" value={draft.components} onChange={components => set({ components })} placeholder="V, S, M (…)" />

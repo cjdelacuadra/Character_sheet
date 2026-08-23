@@ -123,6 +123,36 @@ export const CLASS_FEATURES_DATA: Record<string, FeatureEntry[]> = {
     { level: 18, name: 'Magic Item Master', desc: 'You can attune to up to six magic items at once.' },
     { level: 20, name: 'Soul of Artifice', desc: '+1 to all saving throws per magic item you are attuned to. When reduced to 0 HP, you can use your reaction to end one infusion you’re benefitting from to drop to 1 HP instead.' },
   ],
+
+  // --- Final Fantasy XIV (FFXIV) — Warrior (Chapter 2) ---
+  Warrior: [
+    { level: 1, name: 'Berserk', desc: 'As a bonus action, enter a berserk trance for 1 minute (if not wearing heavy armor): advantage on STR checks/saves; melee STR attacks deal bonus damage equal to your Brutality Die (d4→d10 by level); resistance to bludgeoning/piercing/slashing. Uses per long rest scale 2→6 (Berserk resource). Berserk DC = 8 + prof + STR mod. Ends if you don\'t attack or take damage on your turn.' },
+    { level: 1, name: 'Unarmored Defense', desc: 'While wearing no armor, your AC equals 10 + DEX modifier + CON modifier. You can use a shield and still gain this benefit.' },
+    { level: 2, name: 'Fighting Style', desc: 'Adopt a fighting style: Defense (+1 AC in armor), Dueling (+2 damage with a one-handed melee weapon and no other weapons), Great Weapon Fighting (reroll 1s and 2s on two-handed melee damage), or Two-Weapon Fighting (add ability modifier to the second attack\'s damage).' },
+    { level: 2, name: 'Reckless Attack', desc: 'On your first attack of your turn, you can attack recklessly: gain advantage on melee STR attack rolls this turn, but attacks against you have advantage until your next turn.' },
+    { level: 3, name: 'Bestial Archetype', desc: 'Choose your inner-beast path: Beast of Defiance, Beast of Deliverance, or Unchained Beast. Grants features at 3rd, 6th, 10th, and 14th level.' },
+    { level: 5, name: 'Extra Attack', desc: 'You can attack twice, instead of once, whenever you take the Attack action on your turn.' },
+    { level: 7, name: 'Onslaught', desc: 'When you take the Dash action, you may make a melee weapon attack as a bonus action. This attack deals bonus damage equal to your CON modifier.' },
+    { level: 7, name: 'Tongue of Beasts', desc: 'You can cast Speak with Animals once; the use refreshes when you finish a long rest.' },
+    { level: 9, name: 'Raw Intuition', desc: 'When you take damage, as a reaction you may move 5 ft away from the source (no opportunity attacks) and reduce the damage by your Brutality Die + proficiency bonus. Usable once per long rest; twice at 13th, three times at 18th.' },
+    { level: 11, name: 'Overpower', desc: 'As an action, slam the ground: each creature within 10 ft makes a STR save vs your Berserk DC or takes thunder damage equal to your Brutality Die + STR mod + CON mod and is knocked prone (half and not prone on a success).' },
+    { level: 13, name: 'Vengeance', desc: 'When you take damage from a creature within 5 ft, use your reaction to make a melee weapon attack against it.' },
+    { level: 15, name: 'Shake It Off', desc: 'While berserking, when you make a save to resist a status condition (except Exhaustion, Incapacitated, Prone, Restrained, Unconscious) you may end Berserk to automatically succeed — decided after the roll, before the outcome is declared.' },
+    { level: 17, name: 'Beastly Reflexes', desc: 'While under the effect of Berserk, you can make two reactions per round.' },
+    { level: 18, name: 'Holmgang', desc: 'As a bonus action, or as a reaction when a creature damages you: until the end of your third turn after, you can\'t drop below 1 HP. Used as a bonus action, a 15-ft-radius ring of fire forms between you and a target within 30 ft; crossing it requires a WIS save vs your Berserk DC or take 4d8 fire and stop. Once per long rest.' },
+    { level: 20, name: 'Infuriate', desc: 'If you have no uses of Berserk left when you roll initiative, you instantly recover 2 uses of Berserk.' },
+  ],
+
+  // --- Final Fantasy XIV (FFXIV) — Scholar (Chapter 2). Full caster (INT, prepared) + pet. ---
+  Scholar: [
+    { level: 1, name: 'Spellcasting', desc: 'You cast Scholar spells using Intelligence. You have a spellbook of six 1st-level spells to start; prepare INT modifier + Scholar level spells after a long rest. Spell save DC = 8 + prof + INT mod. You use a grimoire as your arcane focus and can cast prepared spells with the ritual tag as rituals.' },
+    { level: 1, name: 'Tactics', desc: 'You have battle tactics usable a number of times equal to your proficiency bonus, recovered on a short or long rest (Tactics resource). Memorize a number of tactics equal to your INT modifier (min 1) from the Tactics list; change them on a long rest. Some tactics have level/specialization requirements.' },
+    { level: 2, name: 'Scholar Specialization', desc: 'Choose a specialization — Arcanist, Nymian, or Tactician — granting features at 2nd, 6th, 10th, and 14th level.' },
+    { level: 2, name: 'Aetherial Ally', desc: 'You summon an aetherial ally (a Carbuncle or a Nymian Fey) after a long rest; it obeys your commands and acts on your turn (Dodge unless you spend a bonus action, or sacrifice an attack, to command another action). If reduced to 0 HP its body lingers 1 minute; touch it and expend a 1st-level+ slot to revive it after 1 minute. You may summon a different ally on a long rest.' },
+    { level: 5, name: 'Aetherial Ally Improvement', desc: 'Your aetherial ally scales with your Scholar level (its HP, PB, and attack bonuses use your stats). See the Carbuncle / Nymian Fey stat blocks.' },
+    { level: 18, name: 'Quicksilver Summoning', desc: 'As an action, summon an aetherial ally. Usable once; recovers on a long rest.' },
+    { level: 20, name: 'Grand Design', desc: 'When you roll initiative, you recover half of your expended Tactics uses.' },
+  ],
 }
 
 export function getClassFeatures(classId: string, level: number): FeatureEntry[] {

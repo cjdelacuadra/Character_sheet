@@ -21,7 +21,7 @@ import { ipcService } from '@/services/ipc'
 import { loadEquipmentFromCsv, mergeCustomGearIntoCatalog } from '@/shared/data/equipment/equipmentLoader'
 import { loadContentCatalogs } from '@/shared/data/contentCatalogs'
 import type { AsiChoice } from '@/features/level-up/LevelUpModal'
-import { FEAT_BY_ID } from '@/shared/data/featsData'
+import { FEAT_BY_ID, resolveGrantedResourceAmount } from '@/shared/data/featsData'
 
 const ABILITY_SHORT: Record<string, string> = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' }
 function formatAsiChoice(choice: AsiChoice): string {
@@ -310,9 +310,13 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
       for (const spellId of featFreeCastIds) {
         resources[`Feat:${spellId}`] = resources[`Feat:${spellId}`] ?? { used: 0, total: 1 }
       }
-      // Feat-granted pools (Lucky, Metamagic Adept): add to an existing pool
-      // or create it, so the resource shows up with pips immediately.
-      for (const [resName, amount] of Object.entries(def.grantsResources ?? {})) {
+      // Feat-granted pools (Lucky, Metamagic Adept, FFXIV role actions): add to
+      // an existing pool or create it, so the resource shows up with pips
+      // immediately. Amounts may be proficiency-scaled formulas.
+      const pb = profBonus(char.level)
+      for (const [resName, rawAmount] of Object.entries(def.grantsResources ?? {})) {
+        const amount = resolveGrantedResourceAmount(rawAmount, pb)
+        if (amount <= 0) continue
         const existing = resources[resName]
         resources[resName] = existing
           ? { ...existing, total: existing.total + amount }
@@ -380,9 +384,11 @@ export const createCharacterSlice: StateCreator<CharacterSlice & TurnSlice, [], 
 
     if (def?.grantsResources) {
       const resources = { ...char.resources }
-      for (const [resName, amount] of Object.entries(def.grantsResources)) {
+      const pb = profBonus(char.level)
+      for (const [resName, rawAmount] of Object.entries(def.grantsResources)) {
+        const amount = resolveGrantedResourceAmount(rawAmount, pb)
         const existing = resources[resName]
-        if (!existing) continue
+        if (!existing || amount <= 0) continue
         const nextTotal = existing.total - amount
         if (nextTotal <= 0) delete resources[resName]
         else resources[resName] = { used: Math.min(existing.used, nextTotal), total: nextTotal }

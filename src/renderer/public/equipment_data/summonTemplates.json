@@ -2019,5 +2019,205 @@
       "cha": 11
     },
     "usesCasterPB": true
+  },
+  {
+    "id": "ff-carbuncle",
+    "name": "Carbuncle",
+    "type": "elemental",
+    "source": "class-feature",
+    "maxHp": 9,
+    "maxHpFormula": "5 + 4 × Scholar level (d6 Hit Dice = level)",
+    "ac": 12,
+    "speed": "30 ft",
+    "initiativeMod": 2,
+    "usesCasterPB": true,
+    "proficiencyBonus": 2,
+    "abilityScores": {
+      "str": 14,
+      "dex": 14,
+      "con": 15,
+      "int": 8,
+      "wis": 14,
+      "cha": 11
+    },
+    "attacks": [
+      {
+        "id": "gouge",
+        "name": "Gouge",
+        "toHit": "spell atk",
+        "damage": "1d6 + 2 + PB",
+        "damageType": "bludgeoning",
+        "notes": "reach 5 ft"
+      },
+      {
+        "id": "emerald-gust",
+        "name": "Emerald Gust (gem)",
+        "toHit": "spell atk",
+        "damage": "1d6 + 2 + PB",
+        "damageType": "thunder",
+        "notes": "ranged 30 ft; Emerald infusion"
+      }
+    ],
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "defaultNotes": "Aetheric Bond: add your PB to any check/save it makes. Gem special action varies (Emerald: ranged thunder; Ruby: +2 Gouge damage; Topaz: -2 Gouge damage, +2 AC until your next turn)."
+  },
+  {
+    "id": "ff-nymian-fey",
+    "name": "Nymian Fey",
+    "type": "fey",
+    "source": "class-feature",
+    "maxHp": 6,
+    "maxHpFormula": "3 + 3 × Scholar level (d4 Hit Dice = level)",
+    "ac": 13,
+    "speed": "30 ft",
+    "initiativeMod": 3,
+    "usesCasterPB": true,
+    "proficiencyBonus": 2,
+    "abilityScores": {
+      "str": 2,
+      "dex": 16,
+      "con": 10,
+      "int": 10,
+      "wis": 12,
+      "cha": 16
+    },
+    "attacks": [
+      {
+        "id": "unarmed",
+        "name": "Unarmed",
+        "toHit": "spell atk",
+        "damage": "1",
+        "damageType": "bludgeoning",
+        "notes": "reach 5 ft"
+      },
+      {
+        "id": "fey-bolt",
+        "name": "Fey Bolt",
+        "toHit": "spell atk",
+        "damage": "1d4 + 3 + PB",
+        "damageType": "radiant",
+        "notes": "ranged 30 ft"
+      }
+    ],
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "spells": [
+      "At will: blade ward, light",
+      "2/day: cure wounds, healing word",
+      "1/day: aid"
+    ],
+    "defaultNotes": "Aetheric Bond: add your PB to any check/save it makes. Aetheric Transference: may spend one of your slots to cast its spell. Fey Shield: grant a creature within 60 ft 1d4 + your spell mod temp HP until the Fey's next turn. Innate casting uses your spell save DC / attack bonus."
+  },
+  {
+    "id": "ff-proto-carbuncle",
+    "name": "Proto Carbuncle",
+    "type": "elemental",
+    "source": "class-feature",
+    "maxHp": 54,
+    "maxHpFormula": "50 + 4 × Scholar level",
+    "ac": 15,
+    "speed": "40 ft",
+    "initiativeMod": 2,
+    "usesCasterPB": true,
+    "proficiencyBonus": 2,
+    "abilityScores": {
+      "str": 18,
+      "dex": 14,
+      "con": 18,
+      "int": 8,
+      "wis": 14,
+      "cha": 11
+    },
+    "attacks": [
+      {
+        "id": "claws",
+        "name": "Claws",
+        "toHit": "spell atk",
+        "damage": "2d6 + 4 + PB",
+        "damageType": "slashing",
+        "notes": "reach 5 ft"
+      },
+      {
+        "id": "bite",
+        "name": "Bite",
+        "toHit": "spell atk",
+        "damage": "1d12 + 4 + PB",
+        "damageType": "piercing",
+        "notes": "reach 5 ft"
+      },
+      {
+        "id": "acidic-spit",
+        "name": "Acidic Spit",
+        "toHit": "spell atk",
+        "damage": "1d8 + 4 + PB",
+        "damageType": "acid",
+        "notes": "range 30 ft"
+      }
+    ],
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "defaultNotes": "Arcanist L14 transform (1 min). Immune to acid/poison and the poisoned condition; darkvision 60 ft; Magic Resistance; ignores difficult terrain. Venomous Mass (once/summon): 20-ft radius within 60 ft, DEX save vs your DC or 3d8 poison + 3d8 acid (half on success); area is difficult terrain, 2d4 acid to a creature starting its turn there."
+  },
+  {
+    "id": "ff-seraph",
+    "name": "Seraph",
+    "type": "elemental",
+    "source": "class-feature",
+    "maxHp": 18,
+    "maxHpFormula": "15 + 3 × Scholar level",
+    "ac": 14,
+    "speed": "30 ft (hover)",
+    "initiativeMod": 4,
+    "usesCasterPB": true,
+    "proficiencyBonus": 2,
+    "abilityScores": {
+      "str": 2,
+      "dex": 18,
+      "con": 14,
+      "int": 10,
+      "wis": 12,
+      "cha": 18
+    },
+    "attacks": [
+      {
+        "id": "unarmed",
+        "name": "Unarmed",
+        "toHit": "spell atk",
+        "damage": "1",
+        "damageType": "bludgeoning",
+        "notes": "reach 5 ft"
+      },
+      {
+        "id": "seraphic-bolt",
+        "name": "Seraphic Bolt",
+        "toHit": "spell atk",
+        "damage": "1d8 + 4 + PB",
+        "damageType": "radiant",
+        "notes": "ranged 30 ft"
+      }
+    ],
+    "actionEconomy": {
+      "actions": 1,
+      "bonusActions": 1,
+      "reactions": 1
+    },
+    "spells": [
+      "At will: blade ward, light",
+      "4/day: cure wounds, healing word",
+      "3/day: lesser restoration",
+      "2/day: mass healing word",
+      "1/day: revivify"
+    ],
+    "defaultNotes": "Nymian L14 transform (1 min). Aetheric Bond and Aetheric Transference as the Nymian Fey. Seraphic Shield: grant up to three creatures within 60 ft 2d4 + your spell mod temp HP until the Seraph's next turn. Innate casting uses your spell save DC / attack bonus."
   }
 ]

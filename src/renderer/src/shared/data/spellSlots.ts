@@ -111,7 +111,7 @@ const THIRD_CASTER: Record<number, number[]> = {
   19: [4,3,3,2,0,0,0,0,0],  20: [4,3,3,2,0,0,0,0,0],
 }
 
-const FULL_CASTERS   = new Set(['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer'])
+const FULL_CASTERS   = new Set(['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer', 'Scholar'])
 const HALF_CASTERS   = new Set(['Paladin', 'Ranger'])
 const THIRD_CASTERS  = new Set(['EldritchKnight', 'ArcaneTrickster'])
 

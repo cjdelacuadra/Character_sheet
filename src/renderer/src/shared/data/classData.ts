@@ -254,6 +254,54 @@ export const CLASSES: ClassDef[] = [
       { name: 'Flash of Genius', recoverOn: 'long', minLevel: 7, scalingPer: 'intmod' },
     ],
   },
+
+  // ---------------------------------------------------------------------------
+  // Final Fantasy XIV (FFXIV) classes — Chapter 2. Template vertical: Warrior
+  // (martial non-caster, structurally a Barbarian analog).
+  // ---------------------------------------------------------------------------
+  {
+    id: 'Warrior',
+    hitDie: 12,
+    savingThrows: ['str', 'con'],
+    armorProficiencies: ['light', 'medium', 'shields'],
+    weaponProficiencies: ['Simple weapons', 'Martial weapons'],
+    skillOptions: ['animalHandling', 'athletics', 'intimidation', 'insight', 'survival'],
+    skillCount: 2,
+    primaryAbility: 'str',
+    isSpellcaster: false,
+    asiLevels: [4, 8, 12, 16, 19],
+    // Berserk: uses per long rest, scaling 2→6 by the Warrior class table.
+    resources: [{
+      name: 'Berserk', recoverOn: 'long',
+      scalingTable: { 1:2, 2:2, 3:3, 4:3, 5:3, 6:4, 7:4, 8:4, 9:4, 10:4, 11:4, 12:5, 13:5, 14:5, 15:5, 16:5, 17:6, 18:6, 19:6, 20:6 },
+    }],
+  },
+  {
+    id: 'Scholar',
+    hitDie: 6,
+    savingThrows: ['int', 'wis'],
+    armorProficiencies: [],
+    weaponProficiencies: ['Daggers', 'Darts', 'Slings', 'Quarterstaffs', 'Light crossbows'],
+    skillOptions: ['arcana', 'history', 'insight', 'investigation', 'medicine', 'religion'],
+    skillCount: 2,
+    primaryAbility: 'int',
+    spellcastingAbility: 'int',
+    isSpellcaster: true,
+    prepareSpells: true,
+    cantripsKnownTable: { 1:3, 4:4, 10:5 },
+    // Spellbook caster like the Wizard: start with 6 spells at 1st level, add 2 each level.
+    // Combined with prepareSpells, this is the "learn into spellbook, prepare a subset" model.
+    spellsKnownTable: {
+      1:6, 2:8, 3:10, 4:12, 5:14, 6:16, 7:18, 8:20, 9:22, 10:24,
+      11:26, 12:28, 13:30, 14:32, 15:34, 16:36, 17:38, 18:40, 19:42, 20:44,
+    },
+    asiLevels: [4, 8, 12, 16, 19],
+    // Tactics: uses equal to proficiency bonus, recover on short/long rest.
+    resources: [{
+      name: 'Tactics', recoverOn: 'short',
+      scalingTable: { 1:2, 2:2, 3:2, 4:2, 5:3, 6:3, 7:3, 8:3, 9:4, 10:4, 11:4, 12:4, 13:5, 14:5, 15:5, 16:5, 17:6, 18:6, 19:6, 20:6 },
+    }],
+  },
 ]
 
 export const CLASS_BY_ID = Object.fromEntries(CLASSES.map(c => [c.id, c])) as Record<string, ClassDef>

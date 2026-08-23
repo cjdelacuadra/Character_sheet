@@ -1148,6 +1148,72 @@ export const SUBCLASSES: SubclassDef[] = [
       17: ['banishing-smite', 'mass-cure-wounds'],
     },
   },
+
+  // --- Final Fantasy XIV (FFXIV) — Warrior "Bestial Archetype" subclasses (unlock at level 3) ---
+  {
+    id: 'BeastOfDefiance', label: 'Beast of Defiance', classId: 'Warrior', unlocksAtLevel: 3,
+    description: 'Tame your inner beast and turn it to the protection of your allies, dominating the flow of battle with defensive maneuvers.',
+    subclassFeatures: [
+      { level: 3, name: 'Imposition', desc: 'While berserking, when a creature you can see attacks a target other than you within 5 ft of you, you can use your reaction to impose disadvantage on that attack roll.' },
+      { level: 6, name: "Storm's Path", desc: 'While berserking, when you hit a creature with a weapon attack you may declare this feature. The creature makes a CON save vs your Berserk DC; on a failure, for a number of rounds equal to your proficiency bonus, damage it deals is reduced by your Brutality Die. Once per Berserk trance.' },
+      { level: 10, name: 'Bestial Empathy', desc: 'You can cast Beast Sense once; the use refreshes when you finish a long rest.' },
+      { level: 14, name: 'Nascent Flash', desc: 'While berserking, as a bonus action, share your Inner Beast with a creature within 30 ft: it gains temporary HP equal to your Brutality Die. Until the end of your next turn, each time you land a weapon attack, you and that creature each recover HP equal to your Brutality Die + proficiency bonus. Your Berserk trance ends after using this feature.' },
+    ],
+  },
+  {
+    id: 'BeastOfDeliverance', label: 'Beast of Deliverance', classId: 'Warrior', unlocksAtLevel: 3,
+    description: 'Focus your inner beast into a precise, devastating force — a paragon of controlled destruction.',
+    subclassFeatures: [
+      { level: 3, name: 'Inner Release', desc: 'While berserking, your melee weapon attacks score a critical hit on a roll of 19 or 20. At 14th level this expands to 18-20.' },
+      { level: 6, name: "Storm's Eye", desc: 'While berserking, when you hit a creature with a weapon attack you may declare this feature. The creature makes a CON save vs your Berserk DC; on a failure, for a number of rounds equal to your proficiency bonus it is afflicted so that when it takes damage from a melee weapon attack it takes extra damage equal to your Brutality Die. Once per Berserk trance.' },
+      { level: 10, name: 'Bellow of the Beast', desc: 'When making an Intimidation check, you may expend one use of Berserk to gain advantage on the check and add your STR modifier to the roll.' },
+      { level: 14, name: 'Fell Cleave', desc: 'As a bonus action, the next melee weapon attack you land scores a critical hit and deals bonus damage equal to your CON modifier; if the attack would already crit, roll the extra crit damage a second time. If you leave Berserk before landing it, you lose the effect. Your Berserk trance ends after the attack lands and you can\'t use Berserk again until the start of your next turn.' },
+    ],
+  },
+  {
+    id: 'UnchainedBeast', label: 'Unchained Beast', classId: 'Warrior', unlocksAtLevel: 3,
+    description: 'Let your inner beast run free, blending brutal martial arts with weapon strikes.',
+    subclassFeatures: [
+      { level: 3, name: 'Bestial Brawling', desc: 'When you make an unarmed strike melee weapon attack, you may use your Brutality Die (as shown on the Warrior table) for its damage.' },
+      { level: 3, name: 'Raging Follow Through', desc: 'When you make a weapon attack with a two-handed weapon or an unarmed strike, you may use your bonus action to make an unarmed strike melee weapon attack.' },
+      { level: 6, name: 'Orogeny', desc: 'As an action, wildly lash out: make an unarmed strike against each of a number of creatures equal to your proficiency bonus within 5 ft of you. Once per Berserk trance.' },
+      { level: 10, name: 'Bestial Avatar', desc: 'Choose Acrobatics, Athletics, Stealth, or Survival; you gain proficiency in it. If already proficient, your proficiency bonus is doubled for checks with that skill.' },
+      { level: 14, name: 'Primal Scream', desc: 'Unleash a concussive wave: each creature in a 30-ft cone makes a CON save vs your Berserk DC, taking 6d6 thunder and -2 AC for a number of rounds equal to half your proficiency bonus (round up) on a failure, or half damage and no AC loss on a success. Your Berserk trance ends after using this feature.' },
+    ],
+  },
+
+  // --- Final Fantasy XIV (FFXIV) — Scholar specializations (unlock at level 2) ---
+  {
+    id: 'ScholarArcanist', label: 'Arcanist', classId: 'Scholar', unlocksAtLevel: 2,
+    description: 'Modern tacticians who summon carbuncles to defend them while they cast debilitating spells to wear foes down.',
+    subclassFeatures: [
+      { level: 2, name: 'Stabilized Aether', desc: 'Your aetherial ally deals bonus damage equal to your Intelligence modifier when it makes an attack.' },
+      { level: 6, name: 'Aether Sight', desc: 'You gain blindsight in a 10-ft radius around your aetherial ally.' },
+      { level: 10, name: 'Gemstone Summoner', desc: 'When you summon an aetherial ally, choose a gem benefit — Diamond (+2 AC), Moonstone (reaction: reduce damage to a friendly creature within 10 ft by your proficiency bonus), or Obsidian (the ally may make a second attack when it attacks).' },
+      { level: 14, name: 'Theoretical Origin', desc: 'Once per long rest, transform your Carbuncle into the Proto Carbuncle for 1 minute or until reduced to 0 HP. It keeps the lower of its current HP or its Proto max when it reverts.' },
+    ],
+  },
+  {
+    id: 'ScholarNymian', label: 'Nymian', classId: 'Scholar', unlocksAtLevel: 2,
+    description: 'Legendary healers of the lost city-state of Nym who summon nymian fey and let their allies fight recklessly without worry.',
+    subclassFeatures: [
+      { level: 2, name: 'Critical Heal', desc: 'When you cast a healing spell and one of its dice rolls its maximum, roll another die of the same size and add it to the HP recovered. Once per healing spell.' },
+      { level: 6, name: 'Nymian Healer', desc: 'When you use a spell of 1st level or higher to restore HP, the creature regains extra HP equal to your proficiency bonus + the spell\'s level.' },
+      { level: 10, name: 'Adloquiem', desc: 'When you cast a 1st-level+ healing spell, expend one Tactics use to ward the target with temporary HP equal to the HP recovered for 10 minutes; if a critical heal occurred, add temp HP equal to half the amount recovered.' },
+      { level: 14, name: 'Nymian Savior', desc: 'Once per long rest, transform your Nymian Fey into the Seraph for 1 minute or until reduced to 0 HP. It keeps the lower of its current HP or its Seraph max when it reverts.' },
+    ],
+  },
+  {
+    id: 'ScholarTactician', label: 'Tactician', classId: 'Scholar', unlocksAtLevel: 2,
+    description: 'Timeless practitioners of the art of war who use planning and insight to help their allies win the day.',
+    subclassFeatures: [
+      { level: 2, name: 'Field Commander', desc: 'You gain proficiency in light armor, shields, and simple and martial weapons; you may use your weapon as a casting focus for somatic components; you gain 1 extra HP per level (including 2nd). You may memorize additional tactics equal to your proficiency bonus.' },
+      { level: 2, name: 'Tactical Eye', desc: 'When you use the Help action to aid an ally in attacking, the target of that attack can be within 30 ft of you if it can see or hear you.' },
+      { level: 6, name: 'Strategic Preparation', desc: 'Spend 1 minute observing a creature outside combat to learn how two characteristics of your choice (ability scores, AC, current HP, class levels) compare to your own.' },
+      { level: 10, name: 'Chain Stratagem', desc: 'When an ally attacks a creature affected by your Help action, their attack scores a critical hit on a roll of 19 or 20.' },
+      { level: 14, name: 'Always Prepared', desc: 'As an action, swap one memorized tactic for another. Usable once; recovers on a long rest.' },
+    ],
+  },
 ]
 
 /**

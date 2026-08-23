@@ -6,6 +6,23 @@ export type FeatTrigger =
   'passive' | 'action' | 'bonus' | 'reaction' | 'on-attack' | 'on-hit' |
   'on-damaged' | 'once-per-turn'
 
+/** A granted resource pool size: either a fixed number, or a proficiency-scaled
+ *  formula resolving to `flat + profFactor * proficiencyBonus` (min 0). */
+export type GrantedResourceAmount = number | { flat?: number; profFactor?: number }
+
+/** Resolve a {@link GrantedResourceAmount} to a concrete pool size for a given
+ *  proficiency bonus. Plain numbers pass through; formulas evaluate
+ *  `flat + profFactor * profBonus`, clamped to a minimum of 0. */
+export function resolveGrantedResourceAmount(
+  amount: GrantedResourceAmount,
+  proficiencyBonus: number,
+): number {
+  if (typeof amount === 'number') return amount
+  const flat = amount.flat ?? 0
+  const factor = amount.profFactor ?? 0
+  return Math.max(0, flat + factor * proficiencyBonus)
+}
+
 export interface FeatDef {
   id: string
   name: string
@@ -34,8 +51,11 @@ export interface FeatDef {
     count: number
   }>
   /** Resource pools this feat grants (name → amount). Added to an existing
-   *  pool's total, or created; removed symmetrically when the feat is dropped. */
-  grantsResources?: Record<string, number>
+   *  pool's total, or created; removed symmetrically when the feat is dropped.
+   *  An amount is either a plain number, or a proficiency-scaled formula
+   *  `{ flat, profFactor }` resolving to `flat + profFactor * proficiencyBonus`
+   *  (e.g. FFXIV role actions usable "proficiency-bonus times per long rest"). */
+  grantsResources?: Record<string, GrantedResourceAmount>
   /** Passive wiring (AC, initiative, skills, …) — folded by both engines (Phase 5). */
   stats?: AccessoryStats
 }
@@ -398,6 +418,18 @@ export let FEATS: FeatDef[] = [
     grantedSpells: ['detect-thoughts'],
     freeCastSpells: ['detect-thoughts'],
   },
+
+  // --- Final Fantasy XIV Role Action Feats (Chapter 4). PB-scaled pools via grantsResources {profFactor}. ---
+  { id: "ff-role-vanguard", source: "FFXIV", name: "Role of the Vanguard", description: "You take on the tanking role. Increase STR or CON by 1 (max 20). Provoke (bonus action, prof/long rest): challenge a creature within 30ft — it has disadvantage on attacks against others until the start of your next turn. Rampart (reaction, 1/short rest): reduce damage you take by your proficiency bonus until the start of your next turn.", abilityChoice: ["str","con"], grantsResources: {"Provoke":{"flat":0,"profFactor":1},"Rampart":1} },
+  { id: "ff-heart-vanguard", source: "FFXIV", name: "Heart of the Vanguard", description: "Prerequisite: Role of the Vanguard. Increase STR or CON by 1 (max 20). Interject (reaction): when a creature casts a spell within 5ft, make a weapon attack; on a hit it makes a concentration save (DC 8 + STR/DEX mod + prof) or the spell fails. Reprisal (bonus action, prof/long rest): emit a 10ft aura reducing enemy damage by your proficiency bonus until the end of your next turn.", abilityChoice: ["str","con"], prerequisites: {"feats":["ff-role-vanguard"]}, grantsResources: {"Interject":{"flat":0,"profFactor":1},"Reprisal":{"flat":0,"profFactor":1}} },
+  { id: "ff-role-soothesayer", source: "FFXIV", name: "Role of the Soothesayer", description: "You take on the healing role. Increase INT, WIS, or CHA by 1 (max 20). Cleric Stance (prof/long rest): convert a healing spell into radiant damage (+spellcasting modifier). Surecast (reaction, 1/long rest): when hit by an attack, pass on concentration checks and forced-movement saves until the start of your next turn.", abilityChoice: ["int","wis","cha"], grantsResources: {"Cleric Stance":{"flat":0,"profFactor":1},"Surecast":1} },
+  { id: "ff-heart-soothesayer", source: "FFXIV", name: "Heart of the Soothesayer", description: "Prerequisite: Role of the Soothesayer. Increase INT, WIS, or CHA by 1 (max 20). Rescue (action, 1/long rest): teleport a willing creature within 60ft to within 5ft of you. Swiftcast (1/long rest): cast an action-cast spell as a bonus action.", abilityChoice: ["int","wis","cha"], prerequisites: {"feats":["ff-role-soothesayer"]}, grantsResources: {"Rescue":1,"Swiftcast":1} },
+  { id: "ff-role-destroyer", source: "FFXIV", name: "Role of the Destroyer", description: "You take on the melee DPS role. Increase STR or DEX by 1 (max 20). Arm's Length (reaction, prof/long rest): when targeted by a melee attack, impose disadvantage and prevent opportunity attacks against you until the end of your next turn. Recuperate (bonus action, 1/long rest): recover 2d4 + your character level hit points.", abilityChoice: ["str","dex"], grantsResources: {"Arm's Length":{"flat":0,"profFactor":1},"Recuperate":1} },
+  { id: "ff-heart-destroyer", source: "FFXIV", name: "Heart of the Destroyer", description: "Prerequisite: Role of the Destroyer. Increase STR or DEX by 1 (max 20). Feint (prof/long rest): on a melee hit, the target makes a CON save (DC 8 + prof + STR/DEX mod) or its damage is reduced by your proficiency bonus and it has disadvantage on attacks until the start of your next turn. True North (bonus action, 1/long rest): make all melee attack rolls with advantage until the start of your next turn.", abilityChoice: ["str","dex"], prerequisites: {"feats":["ff-role-destroyer"]}, grantsResources: {"Feint":{"flat":0,"profFactor":1},"True North":1} },
+  { id: "ff-role-magus", source: "FFXIV", name: "Role of the Magus", description: "You take on the caster DPS role. Increase INT, WIS, or CHA by 1 (max 20). Swiftcast (1/long rest): cast an action-cast spell as a bonus action. Lucid Dreaming (1/long rest): when you cast a spell, double your proficiency bonus to that spell’s attack roll or save DC until the start of your next turn.", abilityChoice: ["int","wis","cha"], grantsResources: {"Swiftcast":1,"Lucid Dreaming":1} },
+  { id: "ff-heart-magus", source: "FFXIV", name: "Heart of the Magus", description: "Prerequisite: Role of the Magus. Increase INT, WIS, or CHA by 1 (max 20). Addle (bonus action, prof/long rest): a creature within 30ft makes a WIS save (DC 8 + prof + spellcasting modifier) or its damage is reduced by your proficiency bonus and it has disadvantage on saves against your spells until the start of your next turn.", abilityChoice: ["int","wis","cha"], prerequisites: {"feats":["ff-role-magus"]}, grantsResources: {"Addle":{"flat":0,"profFactor":1}} },
+  { id: "ff-role-sniper", source: "FFXIV", name: "Role of the Sniper", description: "You take on the ranged DPS role. Increase DEX by 1 (max 20). Arm's Length (reaction, prof/long rest): when targeted by a melee attack, impose disadvantage and prevent opportunity attacks against you until the end of your next turn. Peloton (bonus action, prof/long rest): you and allies within 30ft gain +10ft base movement until the start of your next turn.", abilityChoice: ["dex"], grantsResources: {"Arm's Length":{"flat":0,"profFactor":1},"Peloton":{"flat":0,"profFactor":1}} },
+  { id: "ff-heart-sniper", source: "FFXIV", name: "Heart of the Sniper", description: "Prerequisite: Role of the Sniper. Increase DEX by 1 (max 20). Blunt Shot (reaction, prof/long rest): when a creature within 30ft begins casting, make a ranged attack; on a hit it makes a concentration save (DC 8 + DEX mod + prof) or the spell fails. Maiming Shot (prof/long rest): on a ranged hit, the target makes a CON save (DC 8 + prof + DEX mod) or its speed drops to 0 until the start of your next turn.", abilityChoice: ["dex"], prerequisites: {"feats":["ff-role-sniper"]}, grantsResources: {"Blunt Shot":{"flat":0,"profFactor":1},"Maiming Shot":{"flat":0,"profFactor":1}} },
 ]
 
 export let FEAT_BY_ID = Object.fromEntries(FEATS.map(f => [f.id, f])) as Record<string, FeatDef>
