@@ -6,7 +6,7 @@ release/
 tsconfig.*.tsbuildinfo
 characters/
 .xlsx
-
+*.pdf
 # Dev-only asset previews/scratch (regenerate montages with the scripts' --montage flag)
 .montage/
 .render/
